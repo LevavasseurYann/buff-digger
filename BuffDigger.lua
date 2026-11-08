@@ -6,7 +6,7 @@
 local ADDON_NAME, ns = ...
 local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-local BUFFS, rankAt = ns.BUFFS, ns.rankAt
+local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
 
 local function say(...) print("|cff66ccff[Buff Digger]|r", ...) end
 ns.say = say
@@ -28,6 +28,7 @@ ns.DEFAULTS = {
   useSay = false,    -- ask in /say instead of a whisper
   frenchMessages = false, -- messages to other players in French (English otherwise)
   debug = false,     -- print bet verdicts in chat
+  delay = 120,       -- seconds before asking the same player again (#6)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -197,20 +198,63 @@ end
 
 -- ---------------------------------------------------------------- asking
 
--- Anti-nagging: never ask the same player twice within DELAY seconds.
-local DELAY = 120
-local asked = {} -- name -> time of last request
+-- Anti-nagging: never ask the same player twice within BuffDiggerDB.delay seconds. Kept in the
+-- saved variables (real clock), so a /reload does not reset it (#6).
+function ns.askedAgo(name)
+  local at = BuffDiggerDB.asked[name]
+  local ago = at and (time() - at)
+  if ago and ago < BuffDiggerDB.delay then return ago end
+end
 
-function ns.request(unit)
+-- What kind of request is asking `name` for `key`, when the player chose the buff themselves?
+-- Same rules as ns.bestBuff: "upgrade" only when my rank is known and theirs is higher.
+local function kindFor(name, key, level)
+  local have = mine[key]
+  if have then
+    return (have.rank and rankAt(BUFFS[key], level) > have.rank) and "upgrade" or "new"
+  end
+  for k, h in pairs(mine) do
+    if h.giver == name and BUFFS[k].class == "PALADIN" and BUFFS[key].class == "PALADIN" and k ~= key then
+      return "replace"
+    end
+  end
+  return "new"
+end
+
+-- Buffs this player can probably give, my priorities first, then the rest (#4's menu).
+function ns.offers(class, level)
+  local _, myClass = UnitClass("player")
+  local prefs = ns.prefsFor(myClass)
+  local list = {}
+  for key, buff in pairs(BUFFS) do
+    if buff.class == class and rankAt(buff, level) > 0 then list[#list + 1] = key end
+  end
+  table.sort(list, function(a, b)
+    local ia, ib = prefIndex(prefs, a), prefIndex(prefs, b)
+    if ia ~= ib then return ia < ib end
+    return a < b
+  end)
+  return list
+end
+
+function ns.haveBuff(key) return mine[key] ~= nil end
+
+-- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4).
+function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
-  if not unit or not truthy(UnitExists(unit)) then say("No player targeted.") return end
+  if not unit or not truthy(UnitExists(unit)) then say(L["No player targeted."]) return end
   local name, class, level, realm = ns.identity(unit)
   if not name then return end
-  local key, kind = ns.bestBuff(name, class, level)
-  if not key then say(name .. " has nothing better for you right now.") return end
-  local since = asked[name] and (time() - asked[name])
-  if since and since < DELAY then
-    say("Already asked " .. name .. " " .. since .. " s ago, give them a moment.")
+  local key, kind
+  if chosenKey then
+    key, kind = chosenKey, kindFor(name, chosenKey, level)
+  else
+    key, kind = ns.bestBuff(name, class, level)
+  end
+  if not key then say(L["%s has nothing better for you right now."]:format(name)) return end
+  local ago = ns.askedAgo(name)
+  if ago then
+    say(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
   local text = ns.message(kind, key, BuffDiggerDB.frenchMessages)
@@ -222,7 +266,7 @@ function ns.request(unit)
     local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
     send(text, "WHISPER", nil, target)
   end
-  asked[name] = time()
+  BuffDiggerDB.asked[name] = time()
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -236,7 +280,7 @@ function ns.askBest()
   local bestUnit, bestScore
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
-    local recent = name and asked[name] and (time() - asked[name] < DELAY)
+    local recent = name and ns.askedAgo(name)
     if name and not recent then
       local key, kind = ns.bestBuff(name, class, level)
       if key then
@@ -245,7 +289,7 @@ function ns.askBest()
       end
     end
   end
-  if bestUnit then ns.request(bestUnit) else say("Nobody around can give you anything better right now.") end
+  if bestUnit then ns.request(bestUnit) else say(L["Nobody around can give you anything better right now."]) end
 end
 
 -- ---------------------------------------------------------------- nearby players
@@ -279,9 +323,11 @@ local function iconFor(unit)
       button:SetSize(18, 18)
       button.icon = button:CreateTexture(nil, "OVERLAY")
       button.icon:SetAllPoints()
-      button:SetScript("OnClick", function(self)
+      button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+      button:SetScript("OnClick", function(self, mouse)
         record("click", true)
-        ns.request(self.unit)
+        if mouse == "RightButton" and ns.openMenu then ns.openMenu(self, self.unit)
+        else ns.request(self.unit) end
       end)
     end)
     if not ok then record("plate", false, tostring(err)) return end
@@ -320,12 +366,23 @@ local function updateIcon(unit)
   button:Show()
 end
 
--- Recompute everything visible: icons and the nearby window.
-function ns.refreshAll()
+-- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change
+-- many times a second: calls within REFRESH_DELAY are merged into one recompute (#7).
+local REFRESH_DELAY = 0.25
+local refreshPending = false
+
+local function refreshNow()
+  refreshPending = false
   if InCombatLockdown() then return end
   hideIcons(nil)
   for _, unit in ipairs(ns.nearbyUnits()) do updateIcon(unit) end
   if ns.refreshWindow then ns.refreshWindow() end
+end
+
+function ns.refreshAll()
+  if refreshPending then return end
+  refreshPending = true
+  C_Timer.After(REFRESH_DELAY, refreshNow)
 end
 
 -- ---------------------------------------------------------------- tooltip
@@ -346,11 +403,11 @@ local function hookTooltip()
     if not key then return end
     local buff = BUFFS[key]
     local rank = rankAt(buff, level)
-    local line = "Can probably give you: " .. C_Spell.GetSpellName(buff.id)
-      .. " (rank " .. rank .. ", +" .. buff.values[rank] .. " " .. buff.stat .. ")"
-    if kind == "replace" then line = line .. " — replaces their blessing"
-    elseif kind == "upgrade" then line = line .. " — higher rank than yours"
-    elseif top then line = line .. " — your top pick" end
+    local line = L["Can probably give you: %s (rank %d, +%s %s)"]:format(
+      C_Spell.GetSpellName(buff.id), rank, buff.values[rank], L[buff.stat])
+    if kind == "replace" then line = line .. L[" — replaces their blessing"]
+    elseif kind == "upgrade" then line = line .. L[" — higher rank than yours"]
+    elseif top then line = line .. L[" — your top pick"] end
     tooltip:AddLine(line, 0.4, 0.8, 1, true)
     record("tooltip", true)
   end)
@@ -389,7 +446,7 @@ function COMMANDS.log()
     for class, level in pairs(e.classes) do who[#who + 1] = class .. " lvl " .. level end
     print(("  %d %s ← %s"):format(id, e.name, table.concat(who, ", ")))
   end
-  if empty then say("No buff received from another player yet.") end
+  if empty then say(L["No buff received from another player yet."]) end
 end
 
 function COMMANDS.ask() ns.request("target") end -- for a macro: /bd ask (current target)
@@ -397,10 +454,10 @@ COMMANDS.best = function() ns.askBest() end     -- for a macro: /bd best (no aim
 
 -- Key Bindings menu (Bindings.xml).
 BINDING_HEADER_BUFFDIGGER = "Buff Digger"
-BINDING_NAME_BUFFDIGGER_BEST = "Ask the best buff around me"
-BINDING_NAME_BUFFDIGGER_TARGET = "Ask my target for a buff"
-BINDING_NAME_BUFFDIGGER_NEARBY = "Show / hide the Nearby window"
-BINDING_NAME_BUFFDIGGER_GIVE = "Show / hide the Give buffs window"
+BINDING_NAME_BUFFDIGGER_BEST = L["Ask the best buff around me"]
+BINDING_NAME_BUFFDIGGER_TARGET = L["Ask my target for a buff"]
+BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Nearby window"]
+BINDING_NAME_BUFFDIGGER_GIVE = L["Show / hide the Give buffs window"]
 BuffDigger = { askBest = ns.askBest, request = ns.request, toggleWindow = function() COMMANDS.nearby() end,
   toggleGive = function() COMMANDS.give() end }
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
@@ -438,6 +495,11 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
     end
     BuffDiggerDB.buffs = BuffDiggerDB.buffs or {}
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
+    BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
+    BuffDiggerDB.asked = BuffDiggerDB.asked or {}
+    for name, at in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour
+      if time() - at > 3600 then BuffDiggerDB.asked[name] = nil end
+    end
     hookTooltip()
     if ns.buildUI then ns.buildUI() end
   elseif event == "PLAYER_ENTERING_WORLD" then

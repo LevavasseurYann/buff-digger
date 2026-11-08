@@ -1,20 +1,50 @@
--- Buff Digger: minimap button, settings window, and two list windows.
+-- Buff Digger: minimap button, settings window, two list windows, and the "pick a buff" menu.
 -- Minimap button: left click = settings, right click = Nearby, Shift+right click = Give buffs,
 -- drag = move around the minimap.
---   * Nearby (idea 4): who around can give me what; one click asks — easier than chasing the
---     nameplate of a player who keeps running.
+--   * Nearby (idea 4): who around can give me what; click asks, right click picks the buff (#4).
 --   * Give buffs (idea 5, buffer classes): who around lacks a buff I can cast, chosen from THEIR
 --     class preferences; one click casts it on them (secure button, out of combat only).
 -- Both hide in combat and come back after it.
 
 local _, ns = ...
-local BUFFS, rankAt = ns.BUFFS, ns.rankAt
+local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
 local MAX_ROWS = 10
 local ROW_HEIGHT = 20
+local DELAYS = { 60, 120, 300, 600 } -- choices for the anti-nagging delay (#6)
 
 local function classColored(text, class)
   local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
   return color and ("|c" .. color.colorStr .. text .. "|r") or text
+end
+
+local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFFS[key].en end
+
+-- ---------------------------------------------------------------- pick-a-buff menu (#4)
+
+-- Right click on an icon or a Nearby line: every buff that player can probably give,
+-- my priorities first. Choosing one asks for it, whatever the automatic choice would be.
+function ns.openMenu(owner, unit)
+  if InCombatLockdown() or not unit then return end
+  if not (MenuUtil and MenuUtil.CreateContextMenu) then ns.say(L["The game's menu is not available."]) return end
+  local name, class, level = ns.identity(unit)
+  if not name then return end
+  local offers = ns.offers(class, level)
+  if #offers == 0 then ns.say(L["%s has nothing better for you right now."]:format(name)) return end
+  MenuUtil.CreateContextMenu(owner, function(_, root)
+    root:CreateTitle(L["Ask %s for:"]:format(name))
+    for _, key in ipairs(offers) do
+      local label = ("|T%s:0|t %s r%d%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
+        rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
+      root:CreateButton(label, function()
+        -- In a city, the nameplate token may now belong to someone else: check it is still them.
+        if not ns.truthy(UnitExists(unit)) or UnitName(unit) ~= name then
+          ns.say(L["%s is no longer around."]:format(name))
+          return
+        end
+        ns.request(unit, key)
+      end)
+    end
+  end)
 end
 
 -- ---------------------------------------------------------------- settings window
@@ -30,16 +60,135 @@ local SETTINGS = {
   { key = "debug",   label = "Debug messages in chat" },
 }
 
-local settings
+local settings, prefRows, refreshPrefs
+
+-- My class's priority list, copied from the defaults the first time it is edited (#5).
+local function myPrefs(create)
+  local _, myClass = UnitClass("player")
+  if create and not BuffDiggerDB.prefs[myClass] then
+    BuffDiggerDB.prefs[myClass] = { unpack(ns.PREFERENCES[myClass] or {}) }
+  end
+  return ns.prefsFor(myClass)
+end
+
+local function indexOf(list, value)
+  for i, v in ipairs(list) do if v == value then return i end end
+end
+
+-- Ticked buffs in priority order, then the unticked ones.
+local function prefOrder()
+  local order, prefs = {}, myPrefs(false)
+  for _, key in ipairs(prefs) do order[#order + 1] = key end
+  local rest = {}
+  for key in pairs(BUFFS) do if not indexOf(prefs, key) then rest[#rest + 1] = key end end
+  table.sort(rest)
+  for _, key in ipairs(rest) do order[#order + 1] = key end
+  return order
+end
+
+local function changed()
+  refreshPrefs()
+  ns.refreshAll()
+end
+
+local function arrow(parent, texture, onClick)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(20, 20)
+  b:SetNormalTexture(texture .. "-Up")
+  b:SetPushedTexture(texture .. "-Down")
+  b:SetDisabledTexture(texture .. "-Disabled")
+  b:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
+local function buildPrefs(x)
+  local _, myClass = UnitClass("player")
+  local header = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  header:SetPoint("TOPLEFT", x, -32)
+  header:SetText(L["My buff priorities (%s)"]:format(LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[myClass] or myClass))
+  local help = settings:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  help:SetPoint("TOPLEFT", x, -50)
+  help:SetText(L["Tick what you want, best first. Unticked = never asked."])
+
+  prefRows = {}
+  local count = 0
+  for _ in pairs(BUFFS) do count = count + 1 end
+  for i = 1, count do
+    local row = CreateFrame("Frame", nil, settings)
+    row:SetSize(290, 24)
+    row:SetPoint("TOPLEFT", x - 4, -66 - (i - 1) * 24)
+    row.box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    row.box:SetSize(24, 24)
+    row.box:SetPoint("LEFT")
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(16, 16)
+    row.icon:SetPoint("LEFT", row.box, "RIGHT", 2, 0)
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.down = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function()
+      local prefs = myPrefs(true)
+      local at = indexOf(prefs, row.key)
+      prefs[at], prefs[at + 1] = prefs[at + 1], prefs[at]
+      changed()
+    end)
+    row.down:SetPoint("RIGHT")
+    row.up = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp", function()
+      local prefs = myPrefs(true)
+      local at = indexOf(prefs, row.key)
+      prefs[at], prefs[at - 1] = prefs[at - 1], prefs[at]
+      changed()
+    end)
+    row.up:SetPoint("RIGHT", row.down, "LEFT", -2, 0)
+    row.box:SetScript("OnClick", function(self)
+      local prefs = myPrefs(true)
+      local at = indexOf(prefs, row.key)
+      if self:GetChecked() and not at then tinsert(prefs, row.key)
+      elseif not self:GetChecked() and at then tremove(prefs, at) end
+      changed()
+    end)
+    prefRows[i] = row
+  end
+
+  local reset = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  reset:SetSize(110, 22)
+  reset:SetPoint("TOPLEFT", x, -66 - count * 24 - 6)
+  reset:SetText(L["Reset"])
+  reset:SetScript("OnClick", function()
+    BuffDiggerDB.prefs[myClass] = nil
+    changed()
+  end)
+end
+
+refreshPrefs = function()
+  if not prefRows then return end
+  local prefs = myPrefs(false)
+  for i, key in ipairs(prefOrder()) do
+    local row, at = prefRows[i], indexOf(prefs, key)
+    row.key = key
+    row.box:SetChecked(at ~= nil)
+    row.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id))
+    row.icon:SetDesaturated(at == nil)
+    row.text:SetText((at and (at .. ". ") or "") .. spellName(key))
+    row.up:SetEnabled(at ~= nil and at > 1)
+    row.down:SetEnabled(at ~= nil and at < #prefs)
+  end
+end
+
+local function delayLabel()
+  return L["Wait before asking the same player again: %s"]:format(L["%d min"]:format(BuffDiggerDB.delay / 60))
+end
+
 local function buildSettings()
   settings = CreateFrame("Frame", "BuffDiggerSettings", UIParent, "BasicFrameTemplateWithInset")
-  settings:SetSize(340, 70 + #SETTINGS * 26 + 56)
+  settings:SetSize(660, 420)
   settings:SetPoint("CENTER")
   settings:SetMovable(true)
   settings:EnableMouse(true)
   settings:RegisterForDrag("LeftButton")
   settings:SetScript("OnDragStart", settings.StartMoving)
   settings:SetScript("OnDragStop", settings.StopMovingOrSizing)
+  settings:SetScript("OnShow", function() refreshPrefs() end)
   settings:Hide()
   tinsert(UISpecialFrames, "BuffDiggerSettings") -- Escape closes it
 
@@ -52,7 +201,7 @@ local function buildSettings()
     box:SetPoint("TOPLEFT", 14, -30 - (i - 1) * 26)
     local text = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     text:SetPoint("LEFT", box, "RIGHT", 2, 0)
-    text:SetText(s.label)
+    text:SetText(L[s.label])
     box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[s.key]) end)
     box:SetScript("OnClick", function(self)
       BuffDiggerDB[s.key] = self:GetChecked() and true or false
@@ -61,14 +210,30 @@ local function buildSettings()
     end)
   end
 
+  -- Anti-nagging delay: each click moves to the next choice (#6).
+  local delay = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  delay:SetSize(300, 22)
+  delay:SetPoint("TOPLEFT", 18, -30 - #SETTINGS * 26 - 6)
+  delay:SetScript("OnShow", function(self) self:SetText(delayLabel()) end)
+  delay:SetScript("OnClick", function(self)
+    local i = indexOf(DELAYS, BuffDiggerDB.delay) or 1
+    BuffDiggerDB.delay = DELAYS[i % #DELAYS + 1]
+    self:SetText(delayLabel())
+  end)
+
+  buildPrefs(350)
+
   local hint = settings:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   hint:SetPoint("BOTTOMLEFT", 16, 14)
   hint:SetPoint("BOTTOMRIGHT", -16, 14)
   hint:SetJustifyH("LEFT")
-  hint:SetText("Shift/Ctrl-click an icon or a Nearby line: /say instead of whisper (or the reverse).\n"
-    .. "Minimap: right click = Nearby, Shift+right click = Give buffs.\n"
-    .. "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.\n"
-    .. "Macros: /bd best, /bd ask (target). Friendly nameplates must be on.")
+  hint:SetText(table.concat({
+    L["Right-click an icon or a Nearby line: pick the buff yourself."],
+    L["Shift/Ctrl-click: /say instead of whisper (or the reverse)."],
+    L["Minimap: right click = Nearby, Shift+right click = Give buffs."],
+    L["Key Bindings > AddOns > Buff Digger: one key asks the best buff around you."],
+    L["Friendly nameplates must be on."],
+  }, "\n"))
 end
 
 function ns.toggleSettings()
@@ -135,7 +300,6 @@ local function makeWindow(globalName, title, setting, secure, point)
   w:SetScript("OnDragStart", w.StartMoving)
   w:SetScript("OnDragStop", w.StopMovingOrSizing)
   w:Hide()
-  w.setting = setting
   -- The window's own close button turns the setting off too.
   w.CloseButton:HookScript("OnClick", function() BuffDiggerDB[setting] = false end)
 
@@ -164,7 +328,10 @@ local function makeWindow(globalName, title, setting, secure, point)
       row:RegisterForClicks("AnyUp", "AnyDown")
       row:SetAttribute("type", "spell")
     else
-      row:SetScript("OnClick", function(self) ns.request(self.unit) end)
+      row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+      row:SetScript("OnClick", function(self, mouse)
+        if mouse == "RightButton" then ns.openMenu(self, self.unit) else ns.request(self.unit) end
+      end)
     end
     row:Hide()
     w.rows[i] = row
@@ -205,12 +372,12 @@ local function nearbyEntries()
       local key, kind = ns.bestBuff(name, class, level)
       if key then
         local buff = BUFFS[key]
-        local extra = kind == "replace" and " (swap)" or kind == "upgrade" and " (higher rank)" or ""
+        local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"] or ""
         entries[#entries + 1] = {
           unit = unit,
           icon = C_Spell.GetSpellTexture(buff.id),
           text = ("%s %d — %s r%d%s"):format(classColored(name, class), level,
-            C_Spell.GetSpellName(buff.id), rankAt(buff, level), extra),
+            spellName(key), rankAt(buff, level), extra),
         }
       end
     end
@@ -252,7 +419,8 @@ local function myCastableBuffs()
   return list
 end
 
--- Which of my buffs should this player get? Their class preferences decide.
+-- Which of my buffs should this player get? THEIR class's default preferences decide (not my
+-- own edited list: that one says what I want, not what a warrior wants).
 -- A paladin keeps one blessing per target: if mine is already on them, offer nothing.
 local function buffToGive(unit, theirClass, myBuffs)
   local _, myClass = UnitClass("player")
@@ -262,7 +430,7 @@ local function buffToGive(unit, theirClass, myBuffs)
       if fromMe then return end
     end
   end
-  for _, key in ipairs(ns.prefsFor(theirClass)) do
+  for _, key in ipairs(ns.PREFERENCES[theirClass] or {}) do
     for _, mineKey in ipairs(myBuffs) do
       if key == mineKey then
         local has = unitHas(unit, BUFFS[key])
@@ -296,14 +464,14 @@ end
 function ns.refreshWindow()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
   if nearby and nearby:IsShown() then
-    fill(nearby, nearbyEntries(), "Nobody around can buff you better right now.\n(Friendly nameplates on?)")
+    fill(nearby, nearbyEntries(), L["Nobody around can buff you better right now.\n(Friendly nameplates on?)"])
   end
   if give and give:IsShown() then
     local myBuffs = myCastableBuffs()
     if #myBuffs == 0 then
-      fill(give, {}, "You know no buff to give (paladin, priest, mage or druid).")
+      fill(give, {}, L["You know no buff to give (paladin, priest, mage or druid)."])
     else
-      fill(give, giveEntries(myBuffs), "Everyone around has your buffs.\n(Friendly nameplates on?)")
+      fill(give, giveEntries(myBuffs), L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
     end
   end
 end
@@ -340,7 +508,7 @@ end
 function ns.buildUI()
   buildSettings()
   buildMinimapButton()
-  nearby = makeWindow("BuffDiggerNearby", "Buff Digger — Nearby", "nearby", false, { "LEFT", 40, 60 })
-  give = makeWindow("BuffDiggerGive", "Buff Digger — Give buffs", "give", true, { "LEFT", 40, -140 })
+  nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Nearby"], "nearby", false, { "LEFT", 40, 60 })
+  give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 })
   ns.applyWindows()
 end

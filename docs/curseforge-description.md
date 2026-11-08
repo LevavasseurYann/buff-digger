@@ -1,91 +1,68 @@
-# Buff Digger
+## Buff Digger
 
-**Stop guessing who can buff you. Buff Digger shows it, and asks for you, politely.**
+**Never run around begging for Fort again. Well... you still beg, but now you do it with style.**
 
-You're running through Stormwind and a paladin jogs past. Can they give you Blessing of Might? Do you already have a better one? Did you ask that same paladin two minutes ago? Buff Digger answers all of that at a glance, then sends a friendly request in one click or one key press.
+You know the drill. You zone into Stormwind, three paladins and a priest run past, and you're spamming "BoM pls" in /say hoping somebody notices. Buff Digger puts a little icon next to every friendly player who can actually give you something you're missing. Click it and a polite whisper goes out, with the spell linked. That's it.
 
-> ⚠️ **Alpha.** Built for World of Warcraft: Forever (1.60.1). Some features still need testing in game (see *Known limitations*). Feedback in the comments is very welcome!
-
----
-
-## ✨ Features
-
-### 🔍 See who can buff you
-- **An icon next to friendly players' health bars** shows the best buff that player can *probably* give you.
-  - Full brightness: the buff you want most right now.
-  - Dimmed: still useful, just not your top pick.
-  - No icon: they have nothing better for you.
-- **One line in the player's tooltip** spells it out: *"Can probably give you: Blessing of Might (rank 3, +55 attack power) — your top pick"*.
-
-### 🧠 A smart choice, not just a list
-For every player around you, Buff Digger works out what you should ask for:
-1. **A buff you're missing**, following your class's priorities (Might before Wisdom for a warrior, Wisdom and Intellect first for a mage, no Might for a hunter's bow…).
-2. **A better blessing.** A paladin only keeps one blessing on you, so Buff Digger asks them to *swap* only if the new one is worth more to you.
-3. **A higher rank.** A level 40 priest's Fortitude beats the one a level 15 priest gave you.
-
-Ranks and training levels follow WoW Forever's trainers. Kings is a trainer spell at level 20, and Salvation and Light are gone.
-
-### 💬 Ask in one click, or one key
-- **Click the icon**, or a line in the *Nearby* window, to send a whisper.
-- **Shift or Ctrl + click** sends it in **/say** instead. The setting swaps which one is the default.
-- **One key binding, no aiming:** *Ask the best buff around me* picks the best player nearby for you. Great when everyone is running around.
-- Requests include a **clickable spell link**, so the other player sees the spell in their own language.
-- **Lots of different phrasings**, picked at random, so you never sound like a bot.
-- **Messages in English or French**, whatever your client language.
-- **No nagging:** Buff Digger won't ask the same player again for 2 minutes.
-
-### 🙏 Say thanks
-- An **automatic /thank** goes to whoever buffs you. You can turn it off.
-
-### 📋 Two handy windows
-- **Nearby: who can buff me.** Every friendly player around you who can give you something, with the buff and its rank. One click asks.
-- **Give buffs: who needs MY buffs.** For paladins, priests, mages and druids: players around you who are missing one of your buffs, chosen by *their* class (Might for the warrior, Wisdom for the mage). **One click casts it on them.**
-
-### 🤫 Quiet and out of your way
-- **Out of combat only.** Icons and windows hide when combat starts and come back afterwards.
-- **Your chat stays clean.** Diagnostics only show when you ask for them.
-- **A minimap button:**
-  - left click opens the settings;
-  - right click opens *Nearby*;
-  - Shift + right click opens *Give buffs*;
-  - drag it to move it.
+*Alpha for WoW Forever. It works, but expect rough edges. Feedback very welcome.*
 
 ---
 
-## 🚀 Getting started
+### What it does
 
-1. **Turn on friendly nameplates**: Options › Nameplates. Buff Digger finds the players around you through their nameplates.
-2. Walk around a city or a busy zone, and icons appear next to players who can help.
-3. *Optional:* set a key in **Key Bindings › AddOns › Buff Digger › Ask the best buff around me**.
+**Shows who can buff you**
+- An icon next to friendly nameplates: the best buff that player can give *you*, based on your class.
+- Full bright = the one you want most. Dimmed = still useful. No icon = they've got nothing for you.
+- Their tooltip spells it out: *Can probably give you: Blessing of Might (rank 3, +55 attack power)*.
 
-### Commands
-| Command | What it does |
-|---|---|
-| `/bd best` | Ask the best buff around you (handy in a macro) |
-| `/bd ask` | Ask your current target |
-| `/bd nearby` | Show / hide the Nearby window |
-| `/bd give` | Show / hide the Give buffs window |
-| `/bd config` | Open the settings |
-| `/bd` | Diagnostic report (useful when reporting a bug) |
+**Knows what you actually want**
+- Warriors and rogues want Might before Wisdom. Casters want Wisdom and Arcane Intellect so they drink less. Hunters skip Might (melee AP only), and locks want Fort first for Life Tap.
+- Don't agree? Reorder your class's list in the settings, or untick buffs you never want.
+- A pally only keeps **one** blessing on you. Buff Digger won't ask them to swap Kings for Wisdom if you'd rather keep Kings.
+- That level 15 priest's Fort is weak. Buff Digger will spot the level 45 priest running by.
 
----
+**Asks for you, nicely**
+- **Click** the icon to whisper. **Shift/Ctrl-click** to ask in /say instead.
+- **Right-click** to pick the buff yourself. Collect every blessing if you want.
+- **One key, no aiming:** bind *Ask the best buff around me* and it finds the right player for you. Handy when everyone's running around the bank.
+- Spell links in every request, a bunch of different phrasings so you don't sound like a bot, English or French.
+- Won't nag. Same player, same buff? It waits (1 to 10 min, your call).
+- Auto **/thank** whoever buffs you. Manners matter.
 
-## ⚠️ Known limitations
+**Two small windows**
+- **Nearby**: everyone around who can buff you, and with what. One click asks.
+- **Give buffs**: for pallies, priests, mages and druids. Who around is missing *your* buff, picked for *their* class (Might for the warrior, Wisdom for the mage). One click casts it. Be the hero of Ironforge.
 
-- **"Probably", never "for sure."** In Forever, spells are bought from the trainer and the game doesn't tell other players which ones you know. Buff Digger guesses from class and level only.
-- **Open world and cities only.** Inside dungeons and raids, Blizzard locks friendly nameplates and addon communication.
-- **Friendly nameplates must be on**, or Buff Digger can't see anyone.
-- **The Give buffs window** depends on the game letting addons read other players' buffs. If it doesn't, the window stays empty instead of guessing.
-
----
-
-## 🗺️ Planned
-- Pick the buff yourself instead of letting Buff Digger choose.
-- Change your class's buff priorities in the settings.
-- Interface in French and English.
-- Silent requests between two Buff Digger users, with a "Cast" button on the buffer's side.
+**Stays out of your way**
+- Out of combat only: everything hides when the pull starts.
+- Quiet chat, a minimap button, interface in English or French.
 
 ---
 
-## 💡 Feedback
-Found a bug, or a buff priority you disagree with? Leave a comment, and include the output of `/bd` if something looks off. Buff Digger is in its early days: every report helps!
+### Getting started
+
+1. Turn on **friendly nameplates** (Options > Nameplates). That's how Buff Digger sees who's around.
+2. Go somewhere busy. Icons show up next to people who can help.
+3. Optional: **Key Bindings > AddOns > Buff Digger** and bind *Ask the best buff around me*.
+
+Minimap button: left click = settings, right click = Nearby, Shift + right click = Give buffs.
+
+**Commands:** `/bd best` (good for macros), `/bd ask` (your target), `/bd nearby`, `/bd give`, `/bd config`, `/bd` (diagnostic report, paste it with bug reports).
+
+---
+
+### Good to know
+
+- It says **"probably"** for a reason. In Forever, spells are bought at the trainer, and no addon can see another player's spellbook. Buff Digger goes by class and level.
+- **Open world and cities only.** In dungeons and raids, Blizzard locks friendly nameplates and addon chat.
+- **Give buffs** depends on the game letting addons read other players' buffs. If it can't, the window stays empty rather than guess.
+- Getting Lua errors? Type `/console scriptErrors 1` once so you can see them, and post them in the comments.
+
+---
+
+### Coming next
+
+- Silent requests between two Buff Digger users, with a "Cast" button for the buffer.
+- Whatever you ask for in the comments.
+
+Happy digging!
