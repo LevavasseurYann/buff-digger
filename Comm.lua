@@ -106,9 +106,10 @@ local function buildWindow()
     row:HookScript("PostClick", function(self, _, down)
       if down then return end -- registered for down and up: act once
       ns.flushThanks()
+      if self:GetAttribute("type") then ns.castClicked() end
       -- A normal request clears itself once the player has the buff (a failed cast — range,
-      -- line of sight — leaves it there to retry). A higher-rank request can't be checked that
-      -- way (they already have a rank), so the click closes it.
+      -- line of sight — leaves it there to retry). A higher-rank or refresh request can't be
+      -- checked that way (they already have the buff), so the click closes it.
       local req = self.request
       if req and req.kind ~= "new" and self:GetAttribute("type") then
         for i2, r in ipairs(incoming) do
@@ -222,7 +223,8 @@ frame:SetScript("OnEvent", function(_, event, prefix, message, _, sender)
     if sender == fullName(myName, realm) and message == "ACK" then return end -- my own self-test answer
     -- Only well-formed messages count; anything else is ignored (and never stored).
     local key, kind = message:match("^REQ:(%a+):(%a+)$")
-    if key and (kind == "new" or kind == "replace" or kind == "upgrade") then onRequest(sender, key, kind)
+    if key and (kind == "new" or kind == "refresh" or kind == "replace" or kind == "upgrade") then
+      onRequest(sender, key, kind)
     elseif message == "ACK" then onAck(sender) end
   end
 end)

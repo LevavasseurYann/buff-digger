@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0-alpha
+
+- **Ask again before it runs out.** A buff with less than 5 minutes left counts as missing: the icon comes back and the request says yours is about to wear off. Pick 2, 5 or 10 minutes, or never, in the settings. Whoever refreshes it gets thanked.
+- **Ranks you already have are known.** Buff Digger reads what each buff actually gives you (+55 attack power...), so buffs you had before a /reload or from someone out of sight still get a higher-rank offer.
+- **`/bd log` checks the numbers.** Each buff you receive is logged with what it really gives; a value Buff Digger doesn't know shows in red. Paste those lines in the comments: Forever may have changed a few.
+- **Give my buff to the next player around:** a new key binding for pallies, priests, mages and druids. Each press casts your buff on the next player who lacks it. Someone you just buffed is skipped for 10 seconds, so a failed cast moves on.
+- `/bd` remembers, with a date, every game feature it has seen working: paste it with bug reports.
+
 ## 0.3.0-alpha
 
 - **Buff Digger talks to Buff Digger.** When the player you ask also has the addon, the request arrives silently: a small **Requests** window pops up on their side ("Yann wants Blessing of Might") and one click casts it. No whisper spam.

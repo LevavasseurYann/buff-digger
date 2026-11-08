@@ -30,6 +30,7 @@ ns.DEFAULTS = {
   frenchMessages = false, -- messages to other players in French (English otherwise)
   debug = false,     -- print bet verdicts in chat
   delay = 120,       -- seconds before asking the same player again (#6)
+  refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
   acceptRequests = true, -- show silent requests from other Buff Digger users (#10)
 }
 
@@ -43,12 +44,20 @@ local BETS = {
   { key = "source",   label = "Know who put a buff on me" },
   { key = "thank",    label = "Automatic /thank" },
   { key = "others",   label = "Read another player's buffs (buffer mode)" },
-  { key = "whisper",  label = "Send a whisper" },
+  { key = "whisper",  label = "Send a whisper (with a spell link)" },
   { key = "say",      label = "Talk in /say" },
+  { key = "key",      label = "Ask with a key binding" },
+  { key = "cast",     label = "Cast a buff from a Buff Digger click or key" },
+  { key = "points",   label = "Read the value of my buffs (their rank)" },
+  { key = "expires",  label = "Read the time left on my buffs" },
 }
 local verdicts = {}
 
 local function record(key, ok, detail)
+  -- First YES ever, dated and kept across sessions: /bd then doubles as the in-game test checklist (#1).
+  if ok and BuffDiggerDB and BuffDiggerDB.confirmed and not BuffDiggerDB.confirmed[key] then
+    BuffDiggerDB.confirmed[key] = date("%Y-%m-%d")
+  end
   local before = verdicts[key]
   if before and before.ok == ok then return end
   verdicts[key] = { ok = ok, detail = detail }
@@ -81,12 +90,46 @@ local function buffKeyOf(spellName)
 end
 ns.buffKeyOf = buffKeyOf
 
--- What I currently have: key -> { rank = estimated rank or nil if unknown, giver = name or nil }.
--- The rank is estimated from the giver's level when the buff lands; a buff already there at login,
--- or from a giver without a unit token, has an unknown rank and is never "upgraded".
+-- What I currently have: key -> { rank = rank or nil if unknown, giver = name or nil, expires = GetTime()
+-- at which it wears off, or nil }.
+-- The rank comes from the value the buff gives (aura.points, #8), else from the giver's level when it
+-- lands. Neither known (value hidden or not in Data.lua, giver unknown): unknown rank, never "upgraded".
 local mine = {}
-local byInstance = {} -- auraInstanceID -> { key, rank, giver }
+local byInstance = {} -- auraInstanceID -> { key, rank, giver, expires }
 local ready = false
+
+-- What the buff gives (+55 attack power -> 55), or nil when the game hides it.
+local function auraValue(aura)
+  local p = aura.points
+  if not (readable(p) and type(p) == "table") then return end
+  local v = p[1]
+  if readable(v) and type(v) == "number" then return v end
+end
+
+-- GetTime() at which the buff wears off and its full duration, or nil (hidden, or no duration).
+local function auraExpires(aura)
+  local t, d = aura.expirationTime, aura.duration
+  if readable(t) and readable(d) and type(t) == "number" and type(d) == "number" and t > 0 and d > 0 then
+    return t, d
+  end
+end
+
+-- Running out: less than BuffDiggerDB.refreshBefore seconds left, and never more than the last
+-- quarter of the buff (Forever's buffs last an hour; a 10-minute Thorns must not look "running
+-- out" half its life). Such a buff is asked for again.
+local function expiring(have)
+  local before = BuffDiggerDB and BuffDiggerDB.refreshBefore or 0
+  return have.expires ~= nil and before > 0
+    and have.expires - GetTime() < math.min(before, have.duration / 4)
+end
+
+-- Raw log, to check Data.lua against reality (#2): spell ID -> name, value given, giver classes.
+local function logEntry(aura)
+  if not readable(aura.spellId) then return end
+  local entry = BuffDiggerDB.buffs[aura.spellId] or { name = aura.name, classes = {} }
+  BuffDiggerDB.buffs[aura.spellId] = entry
+  return entry
+end
 
 -- ---------------------------------------------------------------- thanks
 
@@ -165,7 +208,7 @@ local function thank(name, request)
   end
 end
 
-local function onBuffLanded(aura, info)
+local function onBuffLanded(aura, info, renewed)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name
@@ -177,13 +220,12 @@ local function onBuffLanded(aura, info)
     if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
     record("source", true, name .. " → " .. show(aura.name))
     info.giver = name
-    if info.key then info.rank = rankAt(BUFFS[info.key], level) end
+    -- The value read on the buff wins; the giver's level is only a guess at what they bought.
+    if info.key and not info.rank then info.rank = rankAt(BUFFS[info.key], level) end
 
-    -- Raw log for checking the data table against reality.
-    local entry = BuffDiggerDB.buffs[aura.spellId] or { name = aura.name, classes = {} }
+    local entry = logEntry(aura)
     local seen = entry.classes[class]
     entry.classes[class] = seen and math.min(seen, level) or level
-    BuffDiggerDB.buffs[aura.spellId] = entry
   else
     -- A stranger outside the group does not always have a unit token: count those cases.
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
@@ -192,7 +234,8 @@ local function onBuffLanded(aura, info)
   -- Giver unknown: if I just asked someone for this very buff, it was most likely them.
   local asked, request = findRequest(name, info.key)
   if not name and asked then name = asked; info.giver = asked end
-  if name then thank(name, request) end
+  -- A renewal nobody asked for (a raid buffer keeping buffs up) is not thanked again and again.
+  if name and (request or not renewed) then thank(name, request) end
 end
 
 local function readMyBuffs()
@@ -203,17 +246,34 @@ local function readMyBuffs()
     local id = aura.auraInstanceID
     if readable(id) and readable(aura.name) then
       local info = byInstance[id]
-      if not info then
-        info = { key = buffKeyOf(aura.name) }
-        if ready then onBuffLanded(aura, info) end
+      local expires, duration = auraExpires(aura)
+      -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks).
+      local renewed = info and info.expires and expires and expires > info.expires + 60
+      if not info or renewed then
+        local oldRank = info and info.rank
+        info = info or { key = buffKeyOf(aura.name) }
+        if info.key then
+          local value = auraValue(aura)
+          record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
+          if expires then record("expires", true) else record("expires", false, "time left hidden") end
+          info.rank = value and ns.rankOfValue(BUFFS[info.key], value)
+          local entry = value and logEntry(aura)
+          if entry then entry.value = value end
+        end
+        info.giver = nil
+        if ready then onBuffLanded(aura, info, renewed) end
+        info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
+      info.expires, info.duration = expires, duration
       seen[id] = info
     end
   end
   byInstance, ready = seen, true -- the first pass thanks nobody
   mine = {}
   for _, info in pairs(byInstance) do
-    if info.key then mine[info.key] = { rank = info.rank, giver = info.giver } end
+    if info.key then
+      mine[info.key] = { rank = info.rank, giver = info.giver, expires = info.expires, duration = info.duration }
+    end
   end
 end
 
@@ -229,10 +289,11 @@ local function prefIndex(prefs, key)
 end
 
 -- What should I ask this player for? Returns buff key, kind, isTopPick — or nil.
--- kind: "new" (I lack it), "replace" (this paladin swaps his blessing for one I value more),
---       "upgrade" (same buff, higher rank than mine).
--- 1. Buffs I lack, in my preference order. A paladin who already blessed me only counts if the
---    new blessing ranks higher than his current one (his old one disappears).
+-- kind: "new" (I lack it), "refresh" (mine is running out), "replace" (this paladin swaps his
+--       blessing for one I value more), "upgrade" (same buff, higher rank than mine).
+-- 1. Buffs I lack or that are running out, in my preference order (a refresh never lowers the rank).
+--    A paladin who already blessed me only counts if the new blessing ranks higher than his current
+--    one (his old one disappears); his blessing that is running out no longer holds him back.
 -- 2. Otherwise, a higher rank of a buff I already have — never from a paladin who already
 --    blessed me (it would replace his other blessing), never when my rank is unknown.
 function ns.bestBuff(name, class, level)
@@ -240,16 +301,19 @@ function ns.bestBuff(name, class, level)
   local prefs = ns.prefsFor(myClass)
   local hisBlessing
   for key, have in pairs(mine) do
-    if have.giver == name and BUFFS[key].class == "PALADIN" then hisBlessing = key end
+    if have.giver == name and BUFFS[key].class == "PALADIN" and not expiring(have) then hisBlessing = key end
   end
 
   local missingSeen = 0
   for i, key in ipairs(prefs) do
-    local buff = BUFFS[key]
-    if not mine[key] then
+    local buff, have = BUFFS[key], mine[key]
+    if not have or expiring(have) then
       missingSeen = missingSeen + 1
-      if buff.class == class and rankAt(buff, level) > 0 then
-        if not hisBlessing then return key, "new", missingSeen == 1 end
+      -- A refresh must be at least the rank I have; rank unknown: no refresh (it could lower it).
+      -- A new buff: any rank.
+      local need = have and (have.rank or math.huge) or 1
+      if buff.class == class and rankAt(buff, level) >= need then
+        if not hisBlessing then return key, have and "refresh" or "new", missingSeen == 1 end
         if i < prefIndex(prefs, hisBlessing) then return key, "replace", missingSeen == 1 end
       end
     end
@@ -289,6 +353,7 @@ end
 local function kindFor(name, key, level)
   local have = mine[key]
   if have then
+    if expiring(have) then return "refresh" end
     return (have.rank and rankAt(BUFFS[key], level) > have.rank) and "upgrade" or "new"
   end
   for k, h in pairs(mine) do
@@ -353,7 +418,7 @@ function ns.askBest()
   ns.flushThanks()
   local _, myClass = UnitClass("player")
   local prefs = ns.prefsFor(myClass)
-  local KIND_ORDER = { new = 0, replace = 1, upgrade = 2 }
+  local KIND_ORDER = { new = 0, refresh = 1, replace = 2, upgrade = 3 }
   local bestUnit, bestScore
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
@@ -505,6 +570,7 @@ local function hookTooltip()
     local line = L["Can probably give you: %s (rank %d, +%s %s)"]:format(
       C_Spell.GetSpellName(buff.id), rank, buff.values[rank], L[buff.stat])
     if kind == "replace" then line = line .. L[" — replaces their blessing"]
+    elseif kind == "refresh" then line = line .. L[" — yours is running out"]
     elseif kind == "upgrade" then line = line .. L[" — higher rank than yours"]
     elseif top then line = line .. L[" — your top pick"] end
     tooltip:AddLine(line, 0.4, 0.8, 1, true)
@@ -519,9 +585,10 @@ local COMMANDS = {}
 function COMMANDS.report()
   say("Report — interface " .. select(4, GetBuildInfo()) .. ", project " .. tostring(WOW_PROJECT_ID))
   for _, b in ipairs(BETS) do
-    local v = verdicts[b.key]
+    local v, since = verdicts[b.key], BuffDiggerDB.confirmed[b.key]
     local state = v == nil and "|cffaaaaaa not seen yet|r" or (v.ok and "|cff55ff55YES|r" or "|cffff5555NO|r")
-    print("  " .. state .. "  " .. b.label .. ((v and v.detail) and (" — " .. v.detail) or ""))
+    print("  " .. state .. "  " .. b.label .. ((v and v.detail) and (" — " .. v.detail) or "")
+      .. (since and (" |cff888888(confirmed " .. since .. ")|r") or ""))
   end
   print("  Buffs received with no identifiable giver: " .. BuffDiggerDB.noSource)
   if not ns.friendlyPlatesOn() then
@@ -543,7 +610,14 @@ function COMMANDS.log()
     empty = false
     local who = {}
     for class, level in pairs(e.classes) do who[#who + 1] = class .. " lvl " .. level end
-    print(("  %d %s ← %s"):format(id, e.name, table.concat(who, ", ")))
+    -- #2: is the value this spell really gives one of Data.lua's values for that buff?
+    local key, check = buffKeyOf(e.name), ""
+    if key and e.value then
+      local rank = ns.rankOfValue(BUFFS[key], e.value)
+      check = rank and ("  +" .. e.value .. " = rank " .. rank)
+        or ("  |cffff5555+" .. e.value .. " not in Data.lua|r")
+    end
+    print(("  %d %s%s ← %s"):format(id, e.name, check, #who > 0 and table.concat(who, ", ") or "?"))
   end
   if empty then say(L["No buff received from another player yet."]) end
 end
@@ -557,8 +631,13 @@ BINDING_NAME_BUFFDIGGER_BEST = L["Ask the best buff around me"]
 BINDING_NAME_BUFFDIGGER_TARGET = L["Ask my target for a buff"]
 BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Nearby window"]
 BINDING_NAME_BUFFDIGGER_GIVE = L["Show / hide the Give buffs window"]
-BuffDigger = { askBest = ns.askBest, request = ns.request, toggleWindow = function() COMMANDS.nearby() end,
-  toggleGive = function() COMMANDS.give() end }
+BuffDigger = {
+  askBest = function() record("key", true) ns.askBest() end,
+  request = function(unit) record("key", true) ns.request(unit) end,
+  toggleWindow = function() COMMANDS.nearby() end,
+  toggleGive = function() COMMANDS.give() end,
+}
+_G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
 function COMMANDS.nearby() if ns.toggleWindow then ns.toggleWindow() end end
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
@@ -587,8 +666,13 @@ frame:RegisterEvent("CHAT_MSG_SAY")
 frame:RegisterEvent("ADDON_ACTION_BLOCKED")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 
-frame:SetScript("OnEvent", function(_, event, a1, a2)
+-- A Give buffs / Requests / next-player click just went out: the cast that follows proves it works.
+local castClickedAt
+function ns.castClicked() castClickedAt = GetTime() end
+
+frame:SetScript("OnEvent", function(_, event, a1, a2, a3)
   if event == "ADDON_LOADED" and a1 == ADDON_NAME then
     BuffDiggerDB = BuffDiggerDB or {}
     for k, v in pairs(ns.DEFAULTS) do
@@ -599,11 +683,14 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
+    BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
     for name, e in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour (or old format)
       if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerDB.asked[name] = nil end
     end
     hookTooltip()
     if ns.buildUI then ns.buildUI() end
+    -- Buffs run out without any event: look again every 30 s (refreshAll is cheap and batched).
+    C_Timer.NewTicker(30, ns.refreshAll)
   elseif event == "PLAYER_ENTERING_WORLD" then
     ready = false
     readMyBuffs()
@@ -627,6 +714,14 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "UNIT_AURA" then
     readMyBuffs() -- buffs received in combat are still recorded and thanked
     ns.refreshAll()
+  elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+    -- a3 = spell ID: only one of our buffs proves the click worked (not a Frostbolt right after).
+    local spell = readable(a3) and a3 and C_Spell.GetSpellName(a3)
+    if castClickedAt and GetTime() - castClickedAt < 3 and spell and buffKeyOf(spell) then
+      record("cast", true, spell)
+      castClickedAt = nil
+    end
+    ns.refreshAll() -- the player I just buffed leaves Give buffs
   elseif event == "CHAT_MSG_WHISPER_INFORM" then
     record("whisper", true, "message sent to " .. show(a2))
   elseif event == "CHAT_MSG_SAY" then

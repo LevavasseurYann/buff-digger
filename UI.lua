@@ -11,6 +11,8 @@ local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
 local MAX_ROWS = 10
 local ROW_HEIGHT = 20
 local DELAYS = { 60, 120, 300, 600 } -- choices for the anti-nagging delay (#6)
+local REFRESH_CHOICES = { 0, 120, 300, 600 } -- ask again when less than this is left (0 = never)
+local SKIP_AFTER_CAST = 10 -- seconds a player I just clicked stays out of Give buffs (cast failed: next one)
 
 local function classColored(text, class)
   local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -143,18 +145,21 @@ local function checkbox(x, y, option)
   end)
 end
 
--- Anti-nagging delay: a label and a small button; each click moves to the next choice (#6).
-local function delayRow(x, y)
-  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 80, L["Wait before asking again"])
+-- A label and a small button; each click moves to the next choice (in seconds, shown in minutes).
+local function cycleRow(x, y, caption, key, choices)
+  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 80, L[caption])
   local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
   button:SetSize(64, 22)
   button:SetPoint("TOPLEFT", x + COL_W - 64, y)
-  local function label() return L["%d min"]:format(BuffDiggerDB.delay / 60) end
+  local function label()
+    return BuffDiggerDB[key] == 0 and L["Never"] or L["%d min"]:format(BuffDiggerDB[key] / 60)
+  end
   button:SetScript("OnShow", function(self) self:SetText(label()) end)
   button:SetScript("OnClick", function(self)
-    local i = indexOf(DELAYS, BuffDiggerDB.delay) or 1
-    BuffDiggerDB.delay = DELAYS[i % #DELAYS + 1]
+    local i = indexOf(choices, BuffDiggerDB[key]) or 1
+    BuffDiggerDB[key] = choices[i % #choices + 1]
     self:SetText(label())
+    ns.refreshAll()
   end)
 end
 
@@ -192,7 +197,9 @@ local function buildOptions()
       y = y - 28
     end
     if section.delay then
-      delayRow(LEFT_X, y - 4)
+      cycleRow(LEFT_X, y - 4, "Wait before asking again", "delay", DELAYS) -- #6
+      y = y - 28
+      cycleRow(LEFT_X, y - 4, "Ask again when a buff has less left than", "refreshBefore", REFRESH_CHOICES)
       y = y - 28
     end
     y = y - GAP
@@ -282,7 +289,7 @@ local HOW_TO = {
   "Click an icon or a Nearby line to ask. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
   "Right-click it to pick the buff yourself.",
   "Minimap button: right click = Nearby, Shift + right click = Give buffs.",
-  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
+  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you, another gives yours to the next player.",
   "Icons and windows find players through friendly nameplates: keep them on.",
 }
 
@@ -419,7 +426,10 @@ local function makeWindow(globalName, title, setting, secure, point)
     if secure then
       row:RegisterForClicks("AnyUp", "AnyDown")
       row:SetAttribute("type", "spell")
-      row:HookScript("PostClick", function() ns.flushThanks() end)
+      row:HookScript("PostClick", function(self, _, down)
+        if down then return end -- registered for down and up: act once
+        ns.castOn(self.unit)
+      end)
     else
       row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
       row:SetScript("OnClick", function(self, mouse)
@@ -453,7 +463,7 @@ local function fill(w, entries, emptyMessage)
   w:SetHeight(40 + math.max(count, 1) * ROW_HEIGHT)
 end
 
-local nearby, give
+local nearby, give, giveNext
 
 -- ---------------------------------------------------------------- Nearby (idea 4)
 
@@ -465,7 +475,8 @@ local function nearbyEntries()
       local key, kind = ns.bestBuff(name, class, level)
       if key then
         local buff = BUFFS[key]
-        local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"] or ""
+        local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
+          or kind == "refresh" and L[" (running out)"] or ""
         entries[#entries + 1] = {
           unit = unit,
           icon = C_Spell.GetSpellTexture(buff.id),
@@ -536,10 +547,24 @@ local function buffToGive(unit, theirClass, myBuffs)
   end
 end
 
+-- Players I just clicked in Give buffs or with the next-player key: name -> GetTime().
+-- They stay out of the list a few seconds, so pressing the key again moves on to someone else,
+-- even when the game can't show me their new buff yet or the cast failed (out of range).
+local justCast = {}
+
+function ns.castOn(unit)
+  ns.flushThanks()
+  ns.castClicked()
+  local name = unit and UnitName(unit)
+  if ns.readable(name) and name then justCast[name] = GetTime() end
+  C_Timer.After(1, ns.refreshAll)
+end
+
 local function giveEntries(myBuffs)
   local entries = {}
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
+    if name and justCast[name] and GetTime() - justCast[name] < SKIP_AFTER_CAST then name = nil end
     local key = name and buffToGive(unit, class, myBuffs)
     if key then
       local spell = C_Spell.GetSpellName(BUFFS[key].id)
@@ -561,14 +586,23 @@ function ns.refreshWindow()
   if nearby and nearby:IsShown() then
     fill(nearby, nearbyEntries(), L["Nobody around can buff you better right now.\n(Friendly nameplates on?)"])
   end
+  -- The next-player key works without the window, once it is bound.
+  local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")
+  if not ((give and give:IsShown()) or nextBound) then return end
+  local myBuffs = myCastableBuffs()
+  local entries = #myBuffs > 0 and giveEntries(myBuffs) or {}
   if give and give:IsShown() then
-    local myBuffs = myCastableBuffs()
     if #myBuffs == 0 then
       fill(give, {}, L["You know no buff to give (paladin, priest, mage or druid)."])
     else
-      fill(give, giveEntries(myBuffs), L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
+      fill(give, entries, L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
     end
   end
+  local first = entries[1]
+  giveNext.unit = first and first.unit
+  giveNext:SetAttribute("type", first and "spell" or nil)
+  giveNext:SetAttribute("unit", first and first.unit)
+  giveNext:SetAttribute("spell", first and first.spell)
 end
 
 -- Show each window according to its setting (out of combat only).
@@ -595,6 +629,9 @@ function ns.onCombat(inCombat)
   if inCombat then
     nearby:Hide()
     give:Hide()
+    -- Still allowed during PLAYER_REGEN_DISABLED: in combat the key can't be re-aimed (nameplate
+    -- tokens move to other players), so it does nothing until combat ends.
+    giveNext:SetAttribute("type", nil)
   else
     ns.applyWindows()
   end
@@ -605,5 +642,15 @@ function ns.buildUI()
   buildMinimapButton()
   nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Nearby"], "nearby", false, { "LEFT", 40, 60 })
   give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 })
+  -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
+  -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
+  giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")
+  giveNext:RegisterForClicks("AnyUp", "AnyDown")
+  giveNext:Hide()
+  giveNext:HookScript("PostClick", function(self, _, down)
+    if down then return end
+    if self:GetAttribute("type") then ns.castOn(self.unit)
+    else ns.say(L["Nobody around lacks your buffs right now."]) end
+  end)
   ns.applyWindows()
 end

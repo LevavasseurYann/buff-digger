@@ -115,6 +115,12 @@ ns.MESSAGES = {
       "Coucou ! Un buff de ton rang, ce serait le luxe : %s :) Merci !",
       "Salut, le mien est de rang bas : tu pourrais me remettre %s ? Merci d'avance !",
     },
+    refresh = {
+      "Salut ! Mon buff s'arrête bientôt, tu pourrais me le remettre ? (%s) Merci :)",
+      "Hello ! %s va tomber sur moi, un petit rebuff stp ? Merci !",
+      "Coucou, possible de me rafraîchir %s avant qu'il expire ? Merci d'avance !",
+      "Salut ! Plus que quelques minutes de %s, tu me le remets stp ? Merci :)",
+    },
   },
   en = {
     new = {
@@ -137,6 +143,12 @@ ns.MESSAGES = {
       "Hey! Your %s is stronger than mine, would you mind refreshing it? Thanks!",
       "Hello! Your rank of %s would be a real treat :) Thank you!",
       "Hi! Mine's a low rank, could I get your %s? Thanks in advance!",
+    },
+    refresh = {
+      "Hi! My %s is about to wear off, could you refresh it? Thanks :)",
+      "Hey! Mind topping up my %s before it drops? Much appreciated!",
+      "Hello! Only a few minutes left on my %s, could I get a fresh one? Thank you!",
+      "Hi! Could you refresh my %s please? It's running out. Thanks!",
     },
   },
 }
@@ -197,4 +209,12 @@ function ns.rankAt(buff, level)
     if level >= needed then rank = r end
   end
   return rank
+end
+
+-- Rank of a buff from the value it actually gives (aura.points), or nil when the value is not in
+-- `values` (unknown rank, or Forever changed the numbers: /bd log shows the real ones, #2).
+function ns.rankOfValue(buff, value)
+  for r, v in ipairs(buff.values) do
+    if v == value then return r end
+  end
 end

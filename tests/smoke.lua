@@ -15,10 +15,10 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="CreateFontString" or k=="CreateTexture" then return function() return obj() end end
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
   return function() end end}) end
-CreateFrame=function() return obj() end
+CreateFrame=function(_,name) local o=obj(); if name then _G[name]=o end; return o end
 UIParent, Minimap, UISpecialFrames = obj(), obj(), {}
 SlashCmdList={}; TIMERS={}; C_Timer={After=function(_,f) TIMERS[#TIMERS+1]=f end, NewTicker=function() end}; function runTimers() local t=TIMERS; TIMERS={}; for _,f in ipairs(t) do f() end end; IsInInstance=function() return false end; PlaySound=function() end; SOUNDKIT={TELL_MESSAGE=1}; wipe=function(t) for k in pairs(t) do t[k]=nil end end; tremove=table.remove; unpack=unpack; tinsert=table.insert; strtrim=function(s) return (s:gsub("^%s+",""):gsub("%s+$","")) end
-time=os.time; print=print; GetLocale=function() return "frFR" end
+time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
 issecure=function() return false end; InCombatLockdown=function() return false end
 GetBuildInfo=function() return "1.60.1",1,"",16001 end; CVARS={nameplateShowFriends="0"}; GetCVar=function(k) return CVARS[k] end; SetCVar=function(k,v) CVARS[k]=v end
 GetCursorPosition=function() return 0,0 end; IsPlayerSpell=function() return false end
@@ -115,3 +115,68 @@ b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Bob-R
 b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","garbage","WHISPER","Eve-Realm"); print("garbage -> peer?", ns.isPeer("Eve"), "sends:", #sent-b)
 ns.selfTest(); print("SELF", sent[#sent])
 print("plates before:", ns.friendlyPlatesOn()); SlashCmdList.BUFFDIGGER("nameplates"); print("plates after:", ns.friendlyPlatesOn())
+
+print("=== #8 rank from the value on the buff (aura.points)")
+units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end; BuffDiggerDB.asked={}
+myAuras={}; fire("UNIT_AURA","player")
+-- Login: Might +35 (rank 2) already there, giver unknown.
+ns.__relog=nil
+myAuras={{auraInstanceID=50,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={35},expirationTime=NOW+3000,duration=3600}}
+fire("PLAYER_ENTERING_WORLD", false)
+units.nameplate7={"Bolvar","PALADIN",40}
+BuffDiggerDB.prefs.WARRIOR={"might"} -- only Might matters here: a missing buff would come first
+local k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("rank known at login -> paladin 40 offers:", k, kind)
+assert(k=="might" and kind=="upgrade", "rank 2 from points should allow an upgrade")
+-- Value not in Data.lua: rank unknown, no upgrade offered (old behaviour), and /bd log flags it.
+myAuras={{auraInstanceID=51,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={36},expirationTime=NOW+3000,duration=3600}}
+fire("PLAYER_ENTERING_WORLD", false)
+k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("unknown value ->", k, kind)
+assert(not (k=="might" and kind=="upgrade"))
+SlashCmdList.BUFFDIGGER("log")
+BuffDiggerDB.prefs.WARRIOR=nil
+
+print("=== refresh before it runs out")
+BuffDiggerDB.refreshBefore=300
+myAuras={{auraInstanceID=60,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,points={8},expirationTime=NOW+1000,duration=3600}}
+fire("PLAYER_ENTERING_WORLD", false)
+units.player={"Yann","WARLOCK",30}  -- Fortitude is a warlock's top pick
+k, kind = ns.bestBuff("Anduin","PRIEST",40); print("16 min left ->", k, kind); assert(k~="fortitude" or kind~="refresh")
+NOW=NOW+800  -- 3 min 20 left
+k, kind = ns.bestBuff("Anduin","PRIEST",40); print("3 min left ->", k, kind); assert(k=="fortitude" and kind=="refresh")
+k = ns.bestBuff("Lowbie","PRIEST",5); print("lower-rank priest won't refresh ->", k); assert(k~="fortitude")
+BuffDiggerDB.refreshBefore=0
+k, kind = ns.bestBuff("Anduin","PRIEST",40); print("setting off ->", k, kind); assert(kind~="refresh")
+BuffDiggerDB.refreshBefore=300
+local b=#sent; ns.request("nameplate5"); print("REFRESH REQ", sent[#sent]); assert(#sent>b)
+-- Anduin refreshes it: same aura, later end -> thanked.
+b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
+for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
+-- A peer sees a refresh request (kind accepted).
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
+b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); print("refresh REQ -> ACK:", sent[#sent]); assert(sent[#sent]:find("ACK"))
+
+-- Unknown rank (value hidden): no refresh asked, it could lower the rank.
+myAuras={{auraInstanceID=61,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,expirationTime=NOW+100,duration=3600}}
+units.player={"Yann","WARLOCK",30}; IsPlayerSpell=function() return false end; fire("PLAYER_ENTERING_WORLD", false)
+k, kind = ns.bestBuff("Anduin","PRIEST",40); print("unknown rank, 100 s left ->", k, kind); assert(kind~="refresh")
+-- Short buff: a 10 min buff with 5 min left is NOT running out (last quarter only).
+myAuras={{auraInstanceID=62,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,points={32},expirationTime=NOW+290,duration=600}}
+fire("PLAYER_ENTERING_WORLD", false)
+k, kind = ns.bestBuff("Anduin","PRIEST",40); print("10 min buff, 290 s left ->", k, kind); assert(kind~="refresh")
+-- Unsolicited renewal: nobody asked -> no thanks.
+BuffDiggerDB.asked={}; local b2=#sent; myAuras[1].expirationTime=NOW+600; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
+print("unsolicited renewal sends:", #sent-b2); assert(#sent==b2)
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
+
+print("=== next-player key")
+BOUND="F5"; C_UnitAuras.GetAuraDataBySpellName=function() return false end -- nobody has my Fortitude
+ns.refreshWindow()
+local nb=_G.BuffDiggerGiveNext
+print("aimed at:", nb and nb.unit); assert(nb.unit, "the key should aim at someone lacking Fortitude")
+ns.castOn(nb.unit); ns.refreshWindow(); local second=nb.unit; print("after a press, aimed at:", second); assert(second ~= "nameplate1")
+
+print("=== checklist")
+SlashCmdList.BUFFDIGGER("")
+for key, d in pairs(BuffDiggerDB.confirmed) do print("confirmed", key, d) end
+assert(BuffDiggerDB.confirmed.points and BuffDiggerDB.confirmed.expires)
+print("SMOKE OK")
