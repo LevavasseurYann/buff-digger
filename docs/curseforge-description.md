@@ -1,5 +1,3 @@
-## Buff Digger
-
 **Never run around begging for Fort again. Well... you still beg, but now you do it with style.**
 
 You know the drill. You zone into Stormwind, three paladins and a priest run past, and you're spamming "BoM pls" in /say hoping somebody notices. Buff Digger puts a little icon next to every friendly player who can actually give you something you're missing. Click it and a polite whisper goes out, with the spell linked. When the buff lands, it says thanks for you.
@@ -8,13 +6,13 @@ You know the drill. You zone into Stormwind, three paladins and a priest run pas
 
 ---
 
-### How it works
+## How it works
 
 Buff Digger looks at the friendly players around you, their class and their level, and works out the best buff each one can **probably** give you, given what you already have. One click asks for it. Nothing is ever cast or sent without your click or key press.
 
 ---
 
-### What it does
+## What it does
 
 **Shows who can buff you**
 
@@ -41,12 +39,12 @@ Buff Digger looks at the friendly players around you, their class and their leve
 
 **Two small windows**
 
-- **Nearby**: everyone around who can buff you, and with what. One click asks.
+- **Get buffs**: everyone around who can buff you, and with what. One click asks.
 - **Give buffs**: for pallies, priests, mages and druids. Who around is missing *your* buff, picked for *their* class (Might for the warrior, Wisdom for the mage). One click casts it. Or bind *Give my buff to the next player around* and keep tapping the key. Be the hero of Ironforge.
 
 **Buff Digger talks to Buff Digger**
 
-- Asking someone who also runs Buff Digger? No whisper at all: a little **Requests** window pops up on their screen, *"Yann wants Blessing of Might"*, and one click casts it.
+- Asking someone who also runs Buff Digger? No whisper at all: a little **Requests** window pops up on their screen, *"Brakka wants Blessing of Might"*, and one click casts it.
 - No answer within a second and a half? A normal whisper goes out instead.
 - A small star marks fellow Buff Digger users.
 
@@ -57,19 +55,19 @@ Buff Digger looks at the friendly players around you, their class and their leve
 
 ---
 
-### Getting started
+## Getting started
 
 1. Turn on **friendly nameplates**: one click in the Buff Digger settings, or `/bd nameplates`. That's how Buff Digger sees who's around (WoW gives addons no other list of nearby players). Your target and mouseover tooltip work without them.
 2. Go somewhere busy. Icons show up next to people who can help.
 3. Optional: **Key Bindings > AddOns > Buff Digger** and bind *Ask the best buff around me* (and, if you buff others, *Give my buff to the next player around*).
 
-Minimap button: left click = settings, right click = Nearby, Shift + right click = Give buffs.
+Minimap button: left click = settings, right click = Get buffs, Shift + right click = Give buffs.
 
-**Commands:** `/bd best` (good for macros), `/bd ask` (your target), `/bd nearby`, `/bd give`, `/bd config`, `/bd log` (buffs you received and what they really gave), `/bd` (diagnostic report, paste it with bug reports).
+**Commands:** `/bd best` (good for macros), `/bd ask` (your target), `/bd get`, `/bd give`, `/bd config`, `/bd log` (buffs you received and what they really gave), `/bd` (diagnostic report, paste it with bug reports).
 
 ---
 
-### Good to know
+## Good to know
 
 - It says **"probably"** for a reason. In Forever, spells are bought at the trainer, and no addon can see another player's spellbook. Buff Digger goes by class and level.
 - **Open world and cities only.** In dungeons and raids, Blizzard locks friendly nameplates and addon chat.
@@ -79,7 +77,7 @@ Minimap button: left click = settings, right click = Nearby, Shift + right click
 
 ---
 
-### Coming next
+## Coming next
 
 - Whatever you ask for in the comments.
 

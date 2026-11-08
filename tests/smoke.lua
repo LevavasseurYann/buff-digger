@@ -85,7 +85,8 @@ units.nameplate4={"Uther","PALADIN",30}
 myAuras={}; fire("UNIT_AURA","player")
 ns.request("nameplate4"); print("REQ", sent[#sent])
 myAuras[1]={auraInstanceID=20,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate4"}
-fire("UNIT_AURA","player"); print("T1", sent[#sent-1]); print("T2", sent[#sent])
+fire("UNIT_AURA","player"); print("T0 emote first:", sent[#sent]); assert(sent[#sent]:find("EMOTE"))
+runTimers(); print("T1 thank-you after the delay:", sent[#sent]); assert(sent[#sent]:find("WHISPER Uther"))
 -- unknown giver, asked in /say: thanks wait for next click
 SHIFT=true; units.nameplate5={"Anduin","PRIEST",40}; ns.request("nameplate5"); SHIFT=false
 myAuras[2]={auraInstanceID=21,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil}
@@ -149,7 +150,7 @@ k, kind = ns.bestBuff("Anduin","PRIEST",40); print("setting off ->", k, kind); a
 BuffDiggerDB.refreshBefore=300
 local b=#sent; ns.request("nameplate5"); print("REFRESH REQ", sent[#sent]); assert(#sent>b)
 -- Anduin refreshes it: same aura, later end -> thanked.
-b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
+b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player"); runTimers()
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
 -- A peer sees a refresh request (kind accepted).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end

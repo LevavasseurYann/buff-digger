@@ -1,7 +1,7 @@
 -- Buff Digger: minimap button, settings window, two list windows, and the "pick a buff" menu.
--- Minimap button: left click = settings, right click = Nearby, Shift+right click = Give buffs,
+-- Minimap button: left click = settings, right click = Get buffs, Shift+right click = Give buffs,
 -- drag = move around the minimap.
---   * Nearby (idea 4): who around can give me what; click asks, right click picks the buff (#4).
+--   * Get buffs (idea 4, "Nearby" before 0.4.0): who around can give me what; click asks, right click picks the buff (#4).
 --   * Give buffs (idea 5, buffer classes): who around lacks a buff I can cast, chosen from THEIR
 --     class preferences; one click casts it on them (secure button, out of combat only).
 -- Both hide in combat and come back after it.
@@ -23,7 +23,7 @@ local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFF
 
 -- ---------------------------------------------------------------- pick-a-buff menu (#4)
 
--- Right click on an icon or a Nearby line: every buff that player can probably give,
+-- Right click on an icon or a Get buffs line: every buff that player can probably give,
 -- my priorities first. Choosing one asks for it, whatever the automatic choice would be.
 function ns.openMenu(owner, unit)
   if InCombatLockdown() or not unit then return end
@@ -60,7 +60,7 @@ local SECTIONS = {
   { title = "Display", options = {
     { key = "icons",   label = "Icon next to players' health bar" },
     { key = "tooltip", label = "Line in players' tooltip" },
-    { key = "nearby",  label = "Nearby window: who can buff me" },
+    { key = "nearby",  label = "Get buffs window: who can buff me" },
     { key = "give",    label = "Give buffs window: who lacks my buffs" },
   }, nameplates = true },
   { title = "Requests", options = {
@@ -286,9 +286,9 @@ refreshPrefs = function()
 end
 
 local HOW_TO = {
-  "Click an icon or a Nearby line to ask. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
+  "Click an icon or a Get buffs line to ask. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
   "Right-click it to pick the buff yourself.",
-  "Minimap button: right click = Nearby, Shift + right click = Give buffs.",
+  "Minimap button: right click = Get buffs, Shift + right click = Give buffs.",
   "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you, another gives yours to the next player.",
   "Icons and windows find players through friendly nameplates: keep them on.",
 }
@@ -364,7 +364,7 @@ local function buildMinimapButton()
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("Buff Digger")
     GameTooltip:AddDoubleLine(L["Left click"], L["Settings"], 1, 1, 1, 1, 1, 1)
-    GameTooltip:AddDoubleLine(L["Right click"], L["Nearby: who can buff me"], 1, 1, 1, 1, 1, 1)
+    GameTooltip:AddDoubleLine(L["Right click"], L["Get buffs: who can buff me"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(L["Drag"], L["Move this button"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddLine(" ")
@@ -465,7 +465,7 @@ end
 
 local nearby, give, giveNext
 
--- ---------------------------------------------------------------- Nearby (idea 4)
+-- ---------------------------------------------------------------- Get buffs (idea 4)
 
 local function nearbyEntries()
   local entries = {}
@@ -640,7 +640,7 @@ end
 function ns.buildUI()
   buildSettings()
   buildMinimapButton()
-  nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Nearby"], "nearby", false, { "LEFT", 40, 60 })
+  nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Get buffs"], "nearby", false, { "LEFT", 40, 60 })
   give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 })
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).

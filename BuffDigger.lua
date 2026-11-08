@@ -206,7 +206,10 @@ local function thank(name, request)
     if request.channel == "SAY" then
       sendLater(name, function() send(name .. " : " .. text, "SAY") end)
     else
-      send(text, "WHISPER", nil, request.target or name)
+      -- A few seconds, like someone typing: an instant thank-you reads like a bot.
+      -- (The /thank emote stays immediate: that's the reflex.)
+      local target = request.target or name
+      C_Timer.After(2 + math.random() * 3, function() send(text, "WHISPER", nil, target) end)
     end
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
@@ -445,7 +448,7 @@ end
 
 -- ---------------------------------------------------------------- friendly nameplates
 
--- Icons, Nearby, Give buffs and Requests all find players through friendly nameplates: WoW gives
+-- Icons, Get buffs, Give buffs and Requests all find players through friendly nameplates: WoW gives
 -- addons no other list of the players around you. One click (or /bd nameplates) turns them on.
 local getCVar = (C_CVar and C_CVar.GetCVar) or GetCVar
 local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
@@ -638,17 +641,18 @@ COMMANDS.best = function() ns.askBest() end     -- for a macro: /bd best (no aim
 BINDING_HEADER_BUFFDIGGER = "Buff Digger"
 BINDING_NAME_BUFFDIGGER_BEST = L["Ask the best buff around me"]
 BINDING_NAME_BUFFDIGGER_TARGET = L["Ask my target for a buff"]
-BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Nearby window"]
+BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Get buffs window"]
 BINDING_NAME_BUFFDIGGER_GIVE = L["Show / hide the Give buffs window"]
 BuffDigger = {
   askBest = function() record("key", true) ns.askBest() end,
   request = function(unit) record("key", true) ns.request(unit) end,
-  toggleWindow = function() COMMANDS.nearby() end,
+  toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
 }
 _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
-function COMMANDS.nearby() if ns.toggleWindow then ns.toggleWindow() end end
+function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
+COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
