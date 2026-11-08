@@ -1,0 +1,7 @@
+# BigWigsMods/packager: what goes into the zip players download.
+package-as: BuffDigger
+
+ignore:
+  - docs
+  - dist
+  - README.md

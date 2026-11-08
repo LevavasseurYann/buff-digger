@@ -2,7 +2,7 @@
 ## Title: Buff Digger
 ## Notes: Shows which nearby players can probably buff you, and asks them in one click or one key.
 ## Author: Yann
-## Version: 0.1.0
+## Version: @project-version@
 ## SavedVariables: BuffDiggerDB
 ## IconTexture: Interface\AddOns\BuffDigger\Media\icon
 

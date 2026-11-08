@@ -40,3 +40,15 @@ Addon **World of Warcraft: Forever** : voir quels joueurs croisés peuvent proba
 - [Warcraft Wiki — BigWigs Packager + GitHub Actions](https://warcraft.wiki.gg/wiki/Using_the_BigWigs_Packager_with_GitHub_Actions) · [docs.wago.io](https://docs.wago.io/)
 - [Blizzard — Carve a New Path with WoW: Forever](https://news.blizzard.com/en-us/article/24302093/) · [Warcraft Tavern — Overview](https://www.warcrafttavern.com/forever/guides/overview/)
 - [wowforeverguides — dev guide](https://wowforeverguides.com/addons/developers) · [wowforevertierlist — restrictions](https://wowforevertierlist.com/addons/restrictions)
+
+## Développer
+
+L'addon est à la racine du dépôt (format attendu par le packager). Pour l'essayer en jeu :
+
+```sh
+A="/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/BuffDigger"
+mkdir -p "$A/Media" && cp *.lua *.toc Bindings.xml "$A/" && cp Media/* "$A/Media/"
+```
+
+Publier : pousser un tag `vX.Y.Z` (`-alpha` / `-beta` pour ces types) ; `.github/workflows/release.yml`
+envoie le zip sur CurseForge et dans les GitHub Releases.
