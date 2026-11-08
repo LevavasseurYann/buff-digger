@@ -276,8 +276,10 @@ local function readMyBuffs()
           local entry = value and logEntry(aura)
           if entry then entry.value = value end
         end
+        local oldGiver = info.giver
         info.giver = nil
         if ready then onBuffLanded(aura, info, renewed) end
+        info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
         info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
       info.expires, info.duration = expires, duration

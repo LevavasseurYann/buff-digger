@@ -1,6 +1,6 @@
 # A tag vX.Y.Z builds the zip and publishes it to CurseForge and to GitHub Releases.
 # Release type comes from the tag: "-alpha" -> Alpha, "-beta" -> Beta, otherwise Release.
-# Requires the CF_API_KEY secret and "## X-Curse-Project-ID" in BuffDigger.toc.
+# Requires the CURSEFORGE secret (a CurseForge API token) and "## X-Curse-Project-ID" in BuffDigger.toc.
 name: Release
 
 on:
@@ -15,7 +15,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      CF_API_KEY: ${{ secrets.CURSEFORGE }} # the repo secret is named CURSEFORGE
       GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4

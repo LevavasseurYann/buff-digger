@@ -54,7 +54,8 @@ function ns.deliver(name, target, key, text, useSay, kind)
   local function visible()
     if useSay then sendChat(name .. " : " .. text, "SAY") else sendChat(text, "WHISPER", nil, target) end
   end
-  if not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
+  -- Casting off (ns.CASTING): a peer can't cast from a pop-up, so ask out loud, at once, as chosen.
+  if not ns.CASTING or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
 
   sendAddon(PREFIX, "REQ:" .. key .. ":" .. (kind or "new"), "WHISPER", target)
   if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
