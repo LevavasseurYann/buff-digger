@@ -369,6 +369,21 @@ function ns.askBest()
   if bestUnit then ns.request(bestUnit) else say(L["Nobody around can give you anything better right now."]) end
 end
 
+-- ---------------------------------------------------------------- friendly nameplates
+
+-- Icons, Nearby, Give buffs and Requests all find players through friendly nameplates: WoW gives
+-- addons no other list of the players around you. One click (or /bd nameplates) turns them on.
+local getCVar = (C_CVar and C_CVar.GetCVar) or GetCVar
+local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
+
+function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" end
+
+function ns.turnOnFriendlyPlates()
+  if InCombatLockdown() then say(L["Can't change that in combat."]) return end
+  setCVar("nameplateShowFriends", "1")
+  say(L["Friendly nameplates are on."])
+end
+
 -- ---------------------------------------------------------------- nearby players
 
 -- Nameplate units currently shown, kept from NAME_PLATE_UNIT_ADDED / REMOVED: in Forever,
@@ -509,8 +524,8 @@ function COMMANDS.report()
     print("  " .. state .. "  " .. b.label .. ((v and v.detail) and (" — " .. v.detail) or ""))
   end
   print("  Buffs received with no identifiable giver: " .. BuffDiggerDB.noSource)
-  if GetCVar("nameplateShowFriends") ~= "1" then
-    print("  Friendly nameplates are hidden: turn them on (Options > Nameplates) to see the icons.")
+  if not ns.friendlyPlatesOn() then
+    print("  Friendly nameplates are off: /bd nameplates turns them on.")
   end
 end
 
@@ -550,6 +565,7 @@ function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
 function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
+function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
 
 SLASH_BUFFDIGGER1 = "/bd"
 SlashCmdList.BUFFDIGGER = function(text)
@@ -591,6 +607,10 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
   elseif event == "PLAYER_ENTERING_WORLD" then
     ready = false
     readMyBuffs()
+    -- One line at login, only while they're off: without them most of the addon sees nobody.
+    if a1 and not ns.friendlyPlatesOn() then
+      say(L["Friendly nameplates are off, so icons and windows can't see anyone. Type /bd nameplates to turn them on."])
+    end
   elseif event == "PLAYER_REGEN_DISABLED" then
     -- Hiding frames that hold protected buttons is still allowed during this very event.
     hideIcons(nil)

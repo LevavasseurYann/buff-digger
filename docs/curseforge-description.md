@@ -46,7 +46,7 @@ You know the drill. You zone into Stormwind, three paladins and a priest run pas
 
 ### Getting started
 
-1. Turn on **friendly nameplates** (Options > Nameplates). That's how Buff Digger sees who's around.
+1. Turn on **friendly nameplates**: one click in the Buff Digger settings, or `/bd nameplates`. That's how Buff Digger sees who's around (WoW gives addons no other list of nearby players). Your target and mouseover tooltip work without them.
 2. Go somewhere busy. Icons show up next to people who can help.
 3. Optional: **Key Bindings > AddOns > Buff Digger** and bind *Ask the best buff around me*.
 

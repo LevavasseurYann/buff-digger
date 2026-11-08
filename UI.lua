@@ -60,7 +60,7 @@ local SECTIONS = {
     { key = "tooltip", label = "Line in players' tooltip" },
     { key = "nearby",  label = "Nearby window: who can buff me" },
     { key = "give",    label = "Give buffs window: who lacks my buffs" },
-  } },
+  }, nameplates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "frenchMessages", label = "Write to players in French" },
@@ -158,6 +158,25 @@ local function delayRow(x, y)
   end)
 end
 
+-- Friendly nameplates: their state, and a button to turn them on.
+local function nameplateRow(x, y)
+  local label = text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 96, "")
+  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  button:SetSize(80, 22)
+  button:SetPoint("TOPLEFT", x + COL_W - 80, y)
+  button:SetText(L["Turn on"])
+  local function update()
+    local on = ns.friendlyPlatesOn()
+    label:SetText(on and L["Friendly nameplates: on"] or L["|cffff5555Friendly nameplates: off|r (needed)"])
+    button:SetEnabled(not on)
+  end
+  button:SetScript("OnShow", update)
+  button:SetScript("OnClick", function()
+    ns.turnOnFriendlyPlates()
+    update()
+  end)
+end
+
 -- Left column; returns how far down it went.
 local function buildOptions()
   local y = -32
@@ -167,6 +186,10 @@ local function buildOptions()
     for _, option in ipairs(section.options) do
       checkbox(LEFT_X, y, option)
       y = y - ROW_H
+    end
+    if section.nameplates then
+      nameplateRow(LEFT_X, y - 4)
+      y = y - 28
     end
     if section.delay then
       delayRow(LEFT_X, y - 4)
@@ -260,7 +283,7 @@ local HOW_TO = {
   "Right-click it to pick the buff yourself.",
   "Minimap button: right click = Nearby, Shift + right click = Give buffs.",
   "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
-  "Friendly nameplates must be turned on.",
+  "Icons and windows find players through friendly nameplates: keep them on.",
 }
 
 local function buildSettings()

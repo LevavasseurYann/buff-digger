@@ -9,6 +9,7 @@
 - `/bd selftest` sends yourself a request, to see the Requests window without a friend.
 - Open world only: Blizzard blocks addon messages inside dungeons and raids.
 - Minimap button tooltip lists what each click does.
+- **Friendly nameplates in one click:** a button in the settings (and `/bd nameplates`). If they're off, Buff Digger says so once at login.
 
 ## 0.2.0-alpha
 
