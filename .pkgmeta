@@ -5,6 +5,8 @@ ignore:
   - docs
   - dist
   - README.md
+  - tests
+  - CLAUDE.md
 
 manual-changelog:
   filename: CHANGELOG.md
