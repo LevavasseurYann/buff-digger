@@ -96,6 +96,7 @@ local function buildWindow()
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row:RegisterForClicks("AnyUp", "AnyDown")
+    ns.watchClick(row)
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(16, 16)
     row.icon:SetPoint("LEFT", 2, 0)
@@ -106,7 +107,6 @@ local function buildWindow()
     row:HookScript("PostClick", function(self, _, down)
       if down then return end -- registered for down and up: act once
       ns.flushThanks()
-      if self:GetAttribute("type") then ns.castClicked() end
       -- A normal request clears itself once the player has the buff (a failed cast — range,
       -- line of sight — leaves it there to retry). A higher-rank or refresh request can't be
       -- checked that way (they already have the buff), so the click closes it.

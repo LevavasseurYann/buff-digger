@@ -680,12 +680,30 @@ frame:RegisterEvent("ADDON_ACTION_BLOCKED")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
+frame:RegisterEvent("UI_ERROR_MESSAGE")
 
--- A Give buffs / Requests / next-player click just went out: the cast that follows proves it works.
-local castClickedAt
-function ns.castClicked() castClickedAt = GetTime() end
+-- Secure cast buttons (Give buffs, next-player key, Requests): did a click really send a spell?
+-- Only a cast sent DURING the click counts (between PreClick and PostClick), so a spell cast by
+-- hand right after a failed click is never taken for a success. With "Debug messages", every
+-- click prints what the button held and what came of it.
+local clicking, sentDuringClick = false, nil
+function ns.watchClick(button)
+  button:HookScript("PreClick", function() clicking = true end)
+  button:HookScript("PostClick", function(self, mouse, down)
+    clicking = false
+    if down then return end -- registered for down and up: report once, on release
+    local unit = self:GetAttribute("unit")
+    local who = unit and UnitName(unit)
+    debug(("Click %s: type=%s unit=%s (%s) spell=%s keydown=%s -> %s"):format(tostring(mouse),
+      tostring(self:GetAttribute("type")), tostring(unit), show(who), tostring(self:GetAttribute("spell")),
+      tostring(getCVar("ActionButtonUseKeyDown")), sentDuringClick or "|cffff5555nothing sent|r"))
+    if sentDuringClick then record("cast", true, sentDuringClick) end
+    sentDuringClick = nil
+  end)
+end
 
-frame:SetScript("OnEvent", function(_, event, a1, a2, a3)
+frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if event == "ADDON_LOADED" and a1 == ADDON_NAME then
     BuffDiggerDB = BuffDiggerDB or {}
     for k, v in pairs(ns.DEFAULTS) do
@@ -727,13 +745,14 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3)
   elseif event == "UNIT_AURA" then
     readMyBuffs() -- buffs received in combat are still recorded and thanked
     ns.refreshAll()
+  elseif event == "UNIT_SPELLCAST_SENT" then
+    -- a2 = target name, a4 = spell ID
+    local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)
+    if clicking and spell then sentDuringClick = spell .. " -> " .. show(a2) end
+    debug("Spell sent: " .. show(spell) .. " on " .. show(a2) .. (clicking and " (during a click)" or ""))
+  elseif event == "UI_ERROR_MESSAGE" then
+    debug("Game error: " .. show(a2))
   elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-    -- a3 = spell ID: only one of our buffs proves the click worked (not a Frostbolt right after).
-    local spell = readable(a3) and a3 and C_Spell.GetSpellName(a3)
-    if castClickedAt and GetTime() - castClickedAt < 3 and spell and buffKeyOf(spell) then
-      record("cast", true, spell)
-      castClickedAt = nil
-    end
     ns.refreshAll() -- the player I just buffed leaves Give buffs
   elseif event == "CHAT_MSG_WHISPER_INFORM" then
     record("whisper", true, "message sent to " .. show(a2))

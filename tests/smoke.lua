@@ -11,6 +11,9 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetWidth" then return function() return 140 end end
   if k=="GetCenter" then return function() return 0,0 end end
   if k=="SetScript" then return function(s,e,f) s["_"..e]=f end end
+  if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
+  if k=="GetAttribute" then return function(s,a) return rawget(s,"_a_"..a) end end
+  if k=="SetAttribute" then return function(s,a,v) rawset(s,"_a_"..a,v) end end
   if k=="RegisterEvent" or k=="RegisterUnitEvent" then return function(s) if not rawget(s,"_reg") then rawset(s,"_reg",true); events[#events+1]=s end end end
   if k=="CreateFontString" or k=="CreateTexture" then return function() return obj() end end
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
@@ -175,6 +178,40 @@ ns.refreshWindow()
 local nb=_G.BuffDiggerGiveNext
 print("aimed at:", nb and nb.unit); assert(nb.unit, "the key should aim at someone lacking Fortitude")
 ns.castOn(nb.unit); ns.refreshWindow(); local second=nb.unit; print("after a press, aimed at:", second); assert(second ~= "nameplate1")
+
+-- Out of range: listed greyed, never aimed at; the key goes to someone in range.
+C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate1" end
+NOW=NOW+60; ns.refreshWindow(); print("nameplate1 too far -> key aims at:", nb.unit); assert(nb.unit and nb.unit ~= "nameplate1")
+C_Spell.IsSpellInRange=function() return false end
+ns.refreshWindow(); print("everyone too far -> key aims at:", rawget(nb,"unit")); assert(rawget(nb,"unit") == nil)
+C_Spell.IsSpellInRange=nil
+
+-- The cast check: a spell sent by hand after a click is not a success; one sent during the click is.
+local function click(b, sendSpell)
+  for _,f in ipairs(b._hooks.PreClick) do f(b,"LeftButton",true) end
+  if sendSpell then fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243) end
+  for _,f in ipairs(b._hooks.PostClick) do f(b,"LeftButton",true) end
+  for _,f in ipairs(b._hooks.PreClick) do f(b,"LeftButton",false) end
+  for _,f in ipairs(b._hooks.PostClick) do f(b,"LeftButton",false) end
+end
+BuffDiggerDB.confirmed.cast=nil; BuffDiggerDB.debug=true
+click(nb, false); fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243)
+print("manual cast after a dead click -> cast confirmed?", BuffDiggerDB.confirmed.cast); assert(not BuffDiggerDB.confirmed.cast)
+click(nb, true); print("cast during the click -> confirmed:", BuffDiggerDB.confirmed.cast); assert(BuffDiggerDB.confirmed.cast)
+BuffDiggerDB.debug=false
+
+-- In the window: a far player is listed last, greyed, and his row casts nothing.
+local gw=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
+C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate1" end
+ns.refreshWindow()
+local last; for _,r in ipairs(gw.rows) do if r._shown then last=r end end
+print("last row:", last.unit, last:GetAttribute("type")); assert(last.unit=="nameplate1" and last:GetAttribute("type")==nil)
+assert(gw.rows[1]:GetAttribute("type")=="spell" and gw.rows[1].unit~="nameplate1")
+-- A click in the window does not hide that player (the list used to empty this way).
+local clicked=gw.rows[1].unit; click(gw.rows[1], false); ns.refreshWindow()
+local still=false; for _,r in ipairs(gw.rows) do if r._shown and r.unit==clicked then still=true end end
+print("clicked player still listed:", still); assert(still)
+C_Spell.IsSpellInRange=nil
 
 print("=== checklist")
 SlashCmdList.BUFFDIGGER("")

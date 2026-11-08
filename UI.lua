@@ -12,7 +12,7 @@ local MAX_ROWS = 10
 local ROW_HEIGHT = 20
 local DELAYS = { 60, 120, 300, 600 } -- choices for the anti-nagging delay (#6)
 local REFRESH_CHOICES = { 0, 120, 300, 600 } -- ask again when less than this is left (0 = never)
-local SKIP_AFTER_CAST = 10 -- seconds a player I just clicked stays out of Give buffs (cast failed: next one)
+local SKIP_AFTER_CAST = 10 -- seconds a player I just buffed with the next-player key stays out of its aim
 
 local function classColored(text, class)
   local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -423,12 +423,14 @@ local function makeWindow(globalName, title, setting, secure, point)
     row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
     row.text:SetPoint("RIGHT", -2, 0)
     row.text:SetJustifyH("LEFT")
+    row.secure = secure
     if secure then
       row:RegisterForClicks("AnyUp", "AnyDown")
-      row:SetAttribute("type", "spell")
+      ns.watchClick(row)
       row:HookScript("PostClick", function(self, _, down)
         if down then return end -- registered for down and up: act once
-        ns.castOn(self.unit)
+        if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
+        ns.castOn() -- a click here never hides the player: if the cast failed, retry
       end)
     else
       row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -442,7 +444,7 @@ local function makeWindow(globalName, title, setting, secure, point)
   return w
 end
 
--- entries: { { unit, icon, text, spell (secure windows only) }, ... }
+-- entries: { { unit, icon, text, spell (secure windows; nil = shown greyed, not castable) }, ... }
 local function fill(w, entries, emptyMessage)
   for i, row in ipairs(w.rows) do
     local e = entries[i]
@@ -450,9 +452,14 @@ local function fill(w, entries, emptyMessage)
       row.unit = e.unit
       row.icon:SetTexture(e.icon)
       row.text:SetText(e.text)
-      if e.spell then
+      if row.secure then
+        -- Every attribute is set each time: a row reused for another player never keeps the old target.
+        row:SetAttribute("type", e.spell and "spell" or nil)
         row:SetAttribute("unit", e.unit)
         row:SetAttribute("spell", e.spell)
+        row.icon:SetDesaturated(e.spell == nil)
+        local c = e.spell and 1 or 0.5
+        row.text:SetTextColor(c, c, c)
       end
     end
     row:SetShown(e ~= nil)
@@ -547,14 +554,13 @@ local function buffToGive(unit, theirClass, myBuffs)
   end
 end
 
--- Players I just clicked in Give buffs or with the next-player key: name -> GetTime().
--- They stay out of the list a few seconds, so pressing the key again moves on to someone else,
--- even when the game can't show me their new buff yet or the cast failed (out of range).
+-- Players I just buffed with the next-player key: name -> GetTime(). They stay out of the list a
+-- few seconds, so pressing the key again moves on to someone else, even when the game can't show me
+-- their new buff yet or the cast failed (line of sight). A click in the window passes no unit.
 local justCast = {}
 
 function ns.castOn(unit)
   ns.flushThanks()
-  ns.castClicked()
   local name = unit and UnitName(unit)
   if ns.readable(name) and name then justCast[name] = GetTime() end
   C_Timer.After(1, ns.refreshAll)
@@ -568,15 +574,23 @@ local function giveEntries(myBuffs)
     local key = name and buffToGive(unit, class, myBuffs)
     if key then
       local spell = C_Spell.GetSpellName(BUFFS[key].id)
+      -- Nameplates show players far beyond a buff's 30 yards: those are listed greyed, not
+      -- clickable, after the ones in range. nil (the game can't tell) counts as in range.
+      local r = C_Spell.IsSpellInRange and C_Spell.IsSpellInRange(BUFFS[key].id, unit)
+      local far = ns.readable(r) and r == false
       entries[#entries + 1] = {
         unit = unit,
+        far = far,
         icon = C_Spell.GetSpellTexture(BUFFS[key].id),
-        text = ("%s %d — %s"):format(classColored(name, class), level, spell),
-        spell = spell,
+        text = ("%s %d — %s%s"):format(classColored(name, class), level, spell, far and L[" (too far)"] or ""),
+        spell = not far and spell or nil,
       }
     end
   end
-  return entries
+  local sorted = {}
+  for _, e in ipairs(entries) do if not e.far then sorted[#sorted + 1] = e end end
+  for _, e in ipairs(entries) do if e.far then sorted[#sorted + 1] = e end end
+  return sorted
 end
 
 -- ---------------------------------------------------------------- refresh and visibility
@@ -591,14 +605,16 @@ function ns.refreshWindow()
   if not ((give and give:IsShown()) or nextBound) then return end
   local myBuffs = myCastableBuffs()
   local entries = #myBuffs > 0 and giveEntries(myBuffs) or {}
-  if give and give:IsShown() then
+  -- Never re-fill under the cursor: rows would shift while the player aims (and with
+  -- ActionButtonUseKeyDown off, the cast fires on release, on whatever the row then holds).
+  if give and give:IsShown() and not (give:IsMouseOver() and #myBuffs > 0) then
     if #myBuffs == 0 then
       fill(give, {}, L["You know no buff to give (paladin, priest, mage or druid)."])
     else
       fill(give, entries, L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
     end
   end
-  local first = entries[1]
+  local first = entries[1] and entries[1].spell and entries[1] -- in range, or nobody
   giveNext.unit = first and first.unit
   giveNext:SetAttribute("type", first and "spell" or nil)
   giveNext:SetAttribute("unit", first and first.unit)
@@ -647,10 +663,14 @@ function ns.buildUI()
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")
   giveNext:RegisterForClicks("AnyUp", "AnyDown")
   giveNext:Hide()
+  ns.watchClick(giveNext)
   giveNext:HookScript("PostClick", function(self, _, down)
     if down then return end
     if self:GetAttribute("type") then ns.castOn(self.unit)
     else ns.notice(L["Nobody around lacks your buffs right now."]) end
   end)
+  -- Players walk in and out of range without any event: look again every second (the windows,
+  -- and the next-player key's aim when it is bound).
+  C_Timer.NewTicker(1, ns.refreshWindow)
   ns.applyWindows()
 end

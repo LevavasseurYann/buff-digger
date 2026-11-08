@@ -9,6 +9,7 @@
 - **Quieter chat.** Answers to your clicks ("already asked", "nothing better"...) show as the yellow text mid-screen and fade away. Background notes (thanks waiting, Blizzard blocks, fellow Buff Digger found) only show with *Debug messages* on. The chat keeps your `/bd` commands.
 - **Get buffs / Give buffs:** the *Nearby* window is now called *Get buffs*, to pair with *Give buffs* (`/bd get`; `/bd nearby` still works).
 - The thank-you whisper goes out a second or two after the buff lands, like someone typing. The /thank emote stays instant.
+- **Give buffs:** players out of range are listed greyed at the bottom instead of failing silently, a click no longer hides the player, and the list stops reshuffling under your cursor.
 - `/bd` remembers, with a date, every game feature it has seen working: paste it with bug reports.
 
 ## 0.3.0-alpha
