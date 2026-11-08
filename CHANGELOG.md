@@ -8,7 +8,7 @@
 - **Give my buff to the next player around:** a new key binding for pallies, priests, mages and druids. Each press casts your buff on the next player who lacks it. Someone you just buffed is skipped for 10 seconds, so a failed cast moves on.
 - **Quieter chat.** Answers to your clicks ("already asked", "nothing better"...) show as the yellow text mid-screen and fade away. Background notes (thanks waiting, Blizzard blocks, fellow Buff Digger found) only show with *Debug messages* on. The chat keeps your `/bd` commands.
 - **Get buffs / Give buffs:** the *Nearby* window is now called *Get buffs*, to pair with *Give buffs* (`/bd get`; `/bd nearby` still works).
-- The thank-you whisper goes out a couple of seconds after the buff lands, like someone typing. The /thank emote stays instant.
+- The thank-you whisper goes out a second or two after the buff lands, like someone typing. The /thank emote stays instant.
 - `/bd` remembers, with a date, every game feature it has seen working: paste it with bug reports.
 
 ## 0.3.0-alpha
