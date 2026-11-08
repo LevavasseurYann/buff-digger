@@ -209,7 +209,7 @@ local function thank(name, request)
       -- A second or two, like someone typing: an instant thank-you reads like a bot.
       -- (The /thank emote stays immediate: that's the reflex.)
       local target = request.target or name
-      C_Timer.After(1 + math.random(), function() -- 1 to 2 s send(text, "WHISPER", nil, target) end)
+      C_Timer.After(1 + math.random(), function() send(text, "WHISPER", nil, target) end) -- 1 to 2 s
     end
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
