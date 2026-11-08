@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Buff Digger
+## Notes: Shows which nearby players can probably buff you, and asks them in one click or one key.
+## Author: Yann
+## Version: 0.1.0
+## SavedVariables: BuffDiggerDB
+
+Data.lua
+BuffDigger.lua
+UI.lua
