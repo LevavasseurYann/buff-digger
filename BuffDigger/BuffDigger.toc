@@ -4,6 +4,7 @@
 ## Author: Yann
 ## Version: 0.1.0
 ## SavedVariables: BuffDiggerDB
+## IconTexture: Interface\AddOns\BuffDigger\Media\icon
 
 Data.lua
 BuffDigger.lua

@@ -95,9 +95,9 @@ local function buildMinimapButton()
   button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
   local icon = button:CreateTexture(nil, "BACKGROUND")
-  icon:SetSize(20, 20)
+  icon:SetSize(21, 21)
   icon:SetPoint("CENTER")
-  icon:SetTexture(C_Spell.GetSpellTexture(BUFFS.kings.id) or 134400)
+  icon:SetTexture("Interface\\AddOns\\BuffDigger\\Media\\icon") -- round 64x64 TGA, from docs/logo.png
   local border = button:CreateTexture(nil, "OVERLAY")
   border:SetSize(53, 53)
   border:SetPoint("TOPLEFT")
