@@ -8,8 +8,17 @@ local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
 
+-- Chat stays for what the player typed (/bd ...) and for debug. Everything else is discreet:
+-- the answer to a click goes to the yellow text mid-screen (like "Out of range"), which fades;
+-- what happens on its own (thanks waiting, Blizzard blocks...) only shows with "Debug messages".
 local function say(...) print("|cff66ccff[Buff Digger]|r", ...) end
 ns.say = say
+local function notice(text)
+  if UIErrorsFrame then UIErrorsFrame:AddMessage(text, 1, 0.82, 0) else say(text) end
+end
+ns.notice = notice
+local function debug(...) if BuffDiggerDB and BuffDiggerDB.debug then say(...) end end
+ns.debug = debug
 local function readable(v) return not isSecret(v) end
 -- A "secret" boolean breaks an `if`: only test what is readable.
 local function truthy(v) return readable(v) and v and true or false end
@@ -145,7 +154,7 @@ local function sendLater(name, fn)
   if not p then
     p = { at = time(), fns = {} }
     pendingThanks[name] = p
-    say(L["Thanks to %s will go out with your next Buff Digger click or key."]:format(name))
+    debug(L["Thanks to %s will go out with your next Buff Digger click or key."]:format(name))
   end
   p.fns[#p.fns + 1] = fn
 end
@@ -386,7 +395,7 @@ function ns.haveBuff(key) return mine[key] ~= nil end
 function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
   ns.flushThanks()
-  if not unit or not truthy(UnitExists(unit)) then say(L["No player targeted."]) return end
+  if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
   local name, class, level, realm = ns.identity(unit)
   if not name then return end
   local key, kind
@@ -395,10 +404,10 @@ function ns.request(unit, chosenKey)
   else
     key, kind = ns.bestBuff(name, class, level)
   end
-  if not key then say(L["%s has nothing better for you right now."]:format(name)) return end
+  if not key then notice(L["%s has nothing better for you right now."]:format(name)) return end
   local ago = ns.askedAgo(name)
   if ago then
-    say(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
+    notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
   local text = ns.message(kind, key, BuffDiggerDB.frenchMessages)
@@ -431,7 +440,7 @@ function ns.askBest()
       end
     end
   end
-  if bestUnit then ns.request(bestUnit) else say(L["Nobody around can give you anything better right now."]) end
+  if bestUnit then ns.request(bestUnit) else notice(L["Nobody around can give you anything better right now."]) end
 end
 
 -- ---------------------------------------------------------------- friendly nameplates
@@ -444,9 +453,9 @@ local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
 function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" end
 
 function ns.turnOnFriendlyPlates()
-  if InCombatLockdown() then say(L["Can't change that in combat."]) return end
+  if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
   setCVar("nameplateShowFriends", "1")
-  say(L["Friendly nameplates are on."])
+  notice(L["Friendly nameplates are on."])
 end
 
 -- ---------------------------------------------------------------- nearby players
@@ -728,7 +737,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3)
     if readable(a1) and readable(a2) and a2 == UnitName("player") then record("say", true) end
   elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
     if a1 == ADDON_NAME then
-      say("|cffff5555Blizzard blocked|r " .. tostring(a2))
+      debug("|cffff5555Blizzard blocked|r " .. tostring(a2)) -- also in the /bd report
       if tostring(a2):find("SendChatMessage") then record("say", false, "blocked: " .. tostring(a2)) end
       -- The emote needs a real click here: from now on, /thank waits for the next Buff Digger action.
       if tostring(a2):find("DoEmote") then BuffDiggerDB.emoteNeedsClick = true end

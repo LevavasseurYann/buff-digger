@@ -6,6 +6,7 @@
 - **Ranks you already have are known.** Buff Digger reads what each buff actually gives you (+55 attack power...), so buffs you had before a /reload or from someone out of sight still get a higher-rank offer.
 - **`/bd log` checks the numbers.** Each buff you receive is logged with what it really gives; a value Buff Digger doesn't know shows in red. Paste those lines in the comments: Forever may have changed a few.
 - **Give my buff to the next player around:** a new key binding for pallies, priests, mages and druids. Each press casts your buff on the next player who lacks it. Someone you just buffed is skipped for 10 seconds, so a failed cast moves on.
+- **Quieter chat.** Answers to your clicks ("already asked", "nothing better"...) show as the yellow text mid-screen and fade away. Background notes (thanks waiting, Blizzard blocks, fellow Buff Digger found) only show with *Debug messages* on. The chat keeps your `/bd` commands.
 - `/bd` remembers, with a date, every game feature it has seen working: paste it with bug reports.
 
 ## 0.3.0-alpha

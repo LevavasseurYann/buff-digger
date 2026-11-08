@@ -196,7 +196,7 @@ local function onAck(full)
   BuffDiggerDB.peers[name] = time()
   if waiting[name] then
     waiting[name] = nil
-    ns.say(L["%s has Buff Digger: request sent without a whisper."]:format(name))
+    ns.debug(L["%s has Buff Digger: request sent without a whisper."]:format(name)) -- the star says it
   end
 end
 
@@ -238,5 +238,5 @@ function ns.selfTest()
       return
     end
   end
-  ns.say(L["You know no buff to give (paladin, priest, mage or druid)."])
+  ns.notice(L["You know no buff to give (paladin, priest, mage or druid)."])
 end

@@ -27,11 +27,11 @@ local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFF
 -- my priorities first. Choosing one asks for it, whatever the automatic choice would be.
 function ns.openMenu(owner, unit)
   if InCombatLockdown() or not unit then return end
-  if not (MenuUtil and MenuUtil.CreateContextMenu) then ns.say(L["The game's menu is not available."]) return end
+  if not (MenuUtil and MenuUtil.CreateContextMenu) then ns.notice(L["The game's menu is not available."]) return end
   local name, class, level = ns.identity(unit)
   if not name then return end
   local offers = ns.offers(class, level)
-  if #offers == 0 then ns.say(L["%s has nothing better for you right now."]:format(name)) return end
+  if #offers == 0 then ns.notice(L["%s has nothing better for you right now."]:format(name)) return end
   MenuUtil.CreateContextMenu(owner, function(_, root)
     root:CreateTitle(L["Ask %s for:"]:format(name))
     for _, key in ipairs(offers) do
@@ -40,7 +40,7 @@ function ns.openMenu(owner, unit)
       root:CreateButton(label, function()
         -- In a city, the nameplate token may now belong to someone else: check it is still them.
         if not ns.truthy(UnitExists(unit)) or UnitName(unit) ~= name then
-          ns.say(L["%s is no longer around."]:format(name))
+          ns.notice(L["%s is no longer around."]:format(name))
           return
         end
         ns.request(unit, key)
@@ -650,7 +650,7 @@ function ns.buildUI()
   giveNext:HookScript("PostClick", function(self, _, down)
     if down then return end
     if self:GetAttribute("type") then ns.castOn(self.unit)
-    else ns.say(L["Nobody around lacks your buffs right now."]) end
+    else ns.notice(L["Nobody around lacks your buffs right now."]) end
   end)
   ns.applyWindows()
 end
