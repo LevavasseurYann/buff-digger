@@ -4,6 +4,10 @@
 -- "Debug messages" is ticked in the settings; /bd always prints the full report.
 
 local ADDON_NAME, ns = ...
+-- Casting a buff from Buff Digger (Give buffs, its next-player key, the Requests pop-up) does nothing
+-- in Forever: no addon button sends a spell, nor a macro the addon rewrites (seen 2026-11-08, every
+-- click setting and ActionButtonUseKeyDown 0/1 tried). Off and greyed "coming soon" until it works.
+ns.CASTING = false
 local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
@@ -36,7 +40,7 @@ ns.DEFAULTS = {
   thank = true,      -- automatic /thank emote
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
   useSay = false,    -- ask in /say instead of a whisper
-  frenchMessages = false, -- messages to other players in French (English otherwise)
+  language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
   delay = 120,       -- seconds before asking the same player again (#6)
   refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
@@ -202,7 +206,7 @@ local function thank(name, request)
   -- A thank-you in the same channel as the request, if there was one.
   if request and BuffDiggerDB.thankMessage then
     request.thanked = true
-    local text = ns.thanks(BuffDiggerDB.frenchMessages)
+    local text = ns.thanks(BuffDiggerDB.language)
     if request.channel == "SAY" then
       sendLater(name, function() send(name .. " : " .. text, "SAY") end)
     else
@@ -413,7 +417,7 @@ function ns.request(unit, chosenKey)
     notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
-  local text = ns.message(kind, key, BuffDiggerDB.frenchMessages)
+  local text = ns.message(kind, key, BuffDiggerDB.language)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
@@ -649,14 +653,17 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
 }
-_G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
+if ns.CASTING then _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"] end
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
 function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
 COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
-function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
+function COMMANDS.selftest()
+  if not ns.CASTING then notice(L["Give buffs: coming soon."]) return end
+  if ns.selfTest then ns.selfTest() end
+end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
 
 SLASH_BUFFDIGGER1 = "/bd"
@@ -688,15 +695,45 @@ frame:RegisterEvent("UI_ERROR_MESSAGE")
 -- hand right after a failed click is never taken for a success. With "Debug messages", every
 -- click prints what the button held and what came of it.
 local clicking, sentDuringClick = false, nil
+
+-- Aim a secure button at a player: a click casts `spell` on them. Seen in game (2026-11-08): with
+-- type=spell and unit=nameplateN the click sends nothing, no error. So it goes through a macro, the
+-- classic buff-addon way: target them by exact name, cast, give the previous target back.
+-- [help,nodead]: if they left and the targeting failed, never buff whoever is targeted instead.
+-- ponytail: with no target before, the buffed player stays targeted (/targetlasttarget has nothing).
+function ns.castMacro(unit, spell)
+  local macro
+  if unit == "player" and spell then
+    macro = "/cast [@player] " .. spell -- /bd selftest
+  elseif unit and spell then
+    local name, realm = UnitName(unit)
+    if readable(name) and readable(realm) and name then
+      local who = (realm and realm ~= "") and (name .. "-" .. realm) or name
+      macro = ("/targetexact %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell)
+    end
+  end
+  return macro
+end
+
+function ns.aimCast(button, unit, spell)
+  local macro = ns.castMacro(unit, spell)
+  button:SetAttribute("type", macro and "macro" or nil)
+  button:SetAttribute("macrotext", macro)
+end
+
+-- Clicks a secure button listens to: exactly what Blizzard's own action buttons register in the
+-- 1.60.1 client. With "AnyUp", "AnyDown" and cast-on-key-down on (ActionButtonUseKeyDown=1), a
+-- mouse click ran no action at all, no error (seen in game 2026-11-08; same report on Firekeeper).
+function ns.secureClicks(button) button:RegisterForClicks("AnyUp", "LeftButtonDown", "RightButtonDown") end
+
 function ns.watchClick(button)
   button:HookScript("PreClick", function() clicking = true end)
   button:HookScript("PostClick", function(self, mouse, down)
     clicking = false
     if down then return end -- registered for down and up: report once, on release
-    local unit = self:GetAttribute("unit")
-    local who = unit and UnitName(unit)
-    debug(("Click %s: type=%s unit=%s (%s) spell=%s keydown=%s -> %s"):format(tostring(mouse),
-      tostring(self:GetAttribute("type")), tostring(unit), show(who), tostring(self:GetAttribute("spell")),
+    local macro = self:GetAttribute("macrotext")
+    debug(("Click %s: type=%s macro=%s keydown=%s -> %s"):format(tostring(mouse),
+      tostring(self:GetAttribute("type")), macro and macro:gsub("\n", " | ") or "nil",
       tostring(getCVar("ActionButtonUseKeyDown")), sentDuringClick or "|cffff5555nothing sent|r"))
     if sentDuringClick then record("cast", true, sentDuringClick) end
     sentDuringClick = nil
@@ -706,6 +743,9 @@ end
 frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if event == "ADDON_LOADED" and a1 == ADDON_NAME then
     BuffDiggerDB = BuffDiggerDB or {}
+    -- Older versions only had a "write in French" checkbox: keep that choice.
+    if BuffDiggerDB.frenchMessages and BuffDiggerDB.language == nil then BuffDiggerDB.language = "fr" end
+    BuffDiggerDB.frenchMessages = nil
     for k, v in pairs(ns.DEFAULTS) do
       if BuffDiggerDB[k] == nil then BuffDiggerDB[k] = v end
     end
@@ -749,6 +789,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- a2 = target name, a4 = spell ID
     local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)
     if clicking and spell then sentDuringClick = spell .. " -> " .. show(a2) end
+    if spell and readable(a2) and ns.CASTING then ns.onSpellSent(a2) end
     debug("Spell sent: " .. show(spell) .. " on " .. show(a2) .. (clicking and " (during a click)" or ""))
   elseif event == "UI_ERROR_MESSAGE" then
     debug("Game error: " .. show(a2))

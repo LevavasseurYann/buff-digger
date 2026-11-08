@@ -5,11 +5,10 @@
 - **Ask again before it runs out.** A buff with less than 5 minutes left counts as missing: the icon comes back and the request says yours is about to wear off. Pick 2, 5 or 10 minutes, or never, in the settings. Whoever refreshes it gets thanked.
 - **Ranks you already have are known.** Buff Digger reads what each buff actually gives you (+55 attack power...), so buffs you had before a /reload or from someone out of sight still get a higher-rank offer.
 - **`/bd log` checks the numbers.** Each buff you receive is logged with what it really gives; a value Buff Digger doesn't know shows in red. Paste those lines in the comments: Forever may have changed a few.
-- **Give my buff to the next player around:** a new key binding for pallies, priests, mages and druids. Each press casts your buff on the next player who lacks it. Someone you just buffed is skipped for 10 seconds, so a failed cast moves on.
 - **Quieter chat.** Answers to your clicks ("already asked", "nothing better"...) show as the yellow text mid-screen and fade away. Background notes (thanks waiting, Blizzard blocks, fellow Buff Digger found) only show with *Debug messages* on. The chat keeps your `/bd` commands.
-- **Get buffs / Give buffs:** the *Nearby* window is now called *Get buffs*, to pair with *Give buffs* (`/bd get`; `/bd nearby` still works).
+- The *Nearby* window is now called *Get buffs* (`/bd get`; `/bd nearby` still works).
 - The thank-you whisper goes out a second or two after the buff lands, like someone typing. The /thank emote stays instant.
-- **Give buffs:** players out of range are listed greyed at the bottom instead of failing silently, a click no longer hides the player, and the list stops reshuffling under your cursor.
+- **Give buffs and the Requests pop-up are switched off** (greyed "coming soon" in the settings): Forever doesn't let an addon cast a spell, whatever the click. A Buff Digger user you ask gets a normal whisper.
 - `/bd` remembers, with a date, every game feature it has seen working: paste it with bug reports.
 
 ## 0.3.0-alpha

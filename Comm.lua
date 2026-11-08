@@ -95,7 +95,7 @@ local function buildWindow()
     row:SetSize(262, ROW_HEIGHT)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-    row:RegisterForClicks("AnyUp", "AnyDown")
+    ns.secureClicks(row)
     ns.watchClick(row)
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(16, 16)
@@ -158,9 +158,7 @@ function ns.refreshIncoming()
       row.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[req.key].id))
       row.icon:SetDesaturated(unit == nil)
       if unit then
-        row:SetAttribute("type", "spell")
-        row:SetAttribute("spell", spell)
-        row:SetAttribute("unit", unit)
+        ns.aimCast(row, unit, spell)
         row.text:SetText(L["%s wants %s"]:format(req.name, spell))
       else
         row:SetAttribute("type", nil) -- can't target someone out of sight
@@ -177,7 +175,7 @@ end
 local function onRequest(full, key, kind)
   local name = shortName(full)
   local buff = BUFFS[key]
-  if not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
+  if not ns.CASTING or not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
   if lastFrom[full] and time() - lastFrom[full] < SENDER_GAP then return end
   lastFrom[full] = time()
   BuffDiggerDB.peers[name] = time()

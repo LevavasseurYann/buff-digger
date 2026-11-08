@@ -35,7 +35,7 @@ function ns.openMenu(owner, unit)
   MenuUtil.CreateContextMenu(owner, function(_, root)
     root:CreateTitle(L["Ask %s for:"]:format(name))
     for _, key in ipairs(offers) do
-      local label = ("|T%s:0|t %s r%d%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
+      local label = ("|T%s:0|t %s |cff9d9d9d" .. L["Rank %d"] .. "|r%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
         rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
       root:CreateButton(label, function()
         -- In a city, the nameplate token may now belong to someone else: check it is still them.
@@ -61,13 +61,12 @@ local SECTIONS = {
     { key = "icons",   label = "Icon next to players' health bar" },
     { key = "tooltip", label = "Line in players' tooltip" },
     { key = "nearby",  label = "Get buffs window: who can buff me" },
-    { key = "give",    label = "Give buffs window: who lacks my buffs" },
+    { key = "give",    label = "Give buffs window: who lacks my buffs", soon = true },
   }, nameplates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
-    { key = "frenchMessages", label = "Write to players in French" },
-    { key = "acceptRequests", label = "Pop up requests from Buff Digger users" },
-  }, delay = true },
+    { key = "acceptRequests", label = "Pop up requests from Buff Digger users", soon = true },
+  }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
@@ -137,7 +136,13 @@ local function checkbox(x, y, option)
   label:SetWidth(COL_W - ROW_H - 8)
   label:SetJustifyH("LEFT")
   label:SetText(L[option.label])
-  box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[option.key]) end)
+  local soon = option.soon and not ns.CASTING
+  if soon then -- a feature that casts: greyed until it works in Forever
+    box:Disable()
+    label:SetText(L[option.label] .. L[" (coming soon)"])
+    label:SetTextColor(0.5, 0.5, 0.5)
+  end
+  box:SetScript("OnShow", function(self) self:SetChecked(not soon and BuffDiggerDB[option.key]) end)
   box:SetScript("OnClick", function(self)
     BuffDiggerDB[option.key] = self:GetChecked() and true or false
     ns.applyWindows()
@@ -160,6 +165,37 @@ local function cycleRow(x, y, caption, key, choices)
     BuffDiggerDB[key] = choices[i % #choices + 1]
     self:SetText(label())
     ns.refreshAll()
+  end)
+end
+
+-- Language of my messages: a button showing the current one, opening the list of ns.LANGUAGES.
+local function languageRow(x, y)
+  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, L["Write to players in"])
+  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  button:SetSize(104, 22)
+  button:SetPoint("TOPLEFT", x + COL_W - 104, y)
+  local function current()
+    for i, lang in ipairs(ns.LANGUAGES) do
+      if lang[1] == BuffDiggerDB.language then return i, lang[2] end
+    end
+    return 1, ns.LANGUAGES[1][2]
+  end
+  local function choose(code)
+    BuffDiggerDB.language = code
+    button:SetText(select(2, current()))
+  end
+  button:SetScript("OnShow", function(self) self:SetText(select(2, current())) end)
+  button:SetScript("OnClick", function(self)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then -- no menu: each click moves to the next one
+      choose(ns.LANGUAGES[current() % #ns.LANGUAGES + 1][1])
+      return
+    end
+    MenuUtil.CreateContextMenu(self, function(_, root)
+      for _, lang in ipairs(ns.LANGUAGES) do
+        root:CreateRadio(lang[2], function() return BuffDiggerDB.language == lang[1] end,
+          function() choose(lang[1]) end)
+      end
+    end)
   end)
 end
 
@@ -196,6 +232,10 @@ local function buildOptions()
       nameplateRow(LEFT_X, y - 4)
       y = y - 28
     end
+    if section.language then
+      languageRow(LEFT_X, y - 4)
+      y = y - 28
+    end
     if section.delay then
       cycleRow(LEFT_X, y - 4, "Wait before asking again", "delay", DELAYS) -- #6
       y = y - 28
@@ -226,7 +266,7 @@ local function buildPrefs()
     row.box:SetSize(ROW_H, ROW_H)
     row.box:SetPoint("LEFT")
     row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(16, 16)
+    row.icon:SetSize(18, 18) -- room for the rank number in its corner
     row.icon:SetPoint("LEFT", row.box, "RIGHT", 4, 0)
     row.down = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function()
       local prefs = myPrefs(true)
@@ -288,8 +328,8 @@ end
 local HOW_TO = {
   "Click an icon or a Get buffs line to ask. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
   "Right-click it to pick the buff yourself.",
-  "Minimap button: right click = Get buffs, Shift + right click = Give buffs.",
-  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you, another gives yours to the next player.",
+  "Minimap button: right click = Get buffs.",
+  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
   "Icons and windows find players through friendly nameplates: keep them on.",
 }
 
@@ -365,7 +405,11 @@ local function buildMinimapButton()
     GameTooltip:AddLine("Buff Digger")
     GameTooltip:AddDoubleLine(L["Left click"], L["Settings"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(L["Right click"], L["Get buffs: who can buff me"], 1, 1, 1, 1, 1, 1)
-    GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
+    if ns.CASTING then
+      GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
+    else
+      GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs (coming soon)"], 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+    end
     GameTooltip:AddDoubleLine(L["Drag"], L["Move this button"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Key Bindings > AddOns > Buff Digger: one key asks the best buff around you."], 0.6, 0.6, 0.6, true)
@@ -417,20 +461,22 @@ local function makeWindow(globalName, title, setting, secure, point)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(16, 16)
+    row.icon:SetSize(18, 18) -- room for the rank number in its corner
     row.icon:SetPoint("LEFT", 2, 0)
+    row.rank = row:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    row.rank:SetPoint("BOTTOMRIGHT", row.icon, 3, -2)
     row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
     row.text:SetPoint("RIGHT", -2, 0)
     row.text:SetJustifyH("LEFT")
     row.secure = secure
     if secure then
-      row:RegisterForClicks("AnyUp", "AnyDown")
+      ns.secureClicks(row)
       ns.watchClick(row)
       row:HookScript("PostClick", function(self, _, down)
         if down then return end -- registered for down and up: act once
         if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
-        ns.castOn() -- a click here never hides the player: if the cast failed, retry
+        ns.castOn()
       end)
     else
       row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -444,7 +490,7 @@ local function makeWindow(globalName, title, setting, secure, point)
   return w
 end
 
--- entries: { { unit, icon, text, spell (secure windows; nil = shown greyed, not castable) }, ... }
+-- entries: { { unit, icon, text, rank, upgrade, spell (secure windows; nil = shown greyed, not castable) }, ... }
 local function fill(w, entries, emptyMessage)
   for i, row in ipairs(w.rows) do
     local e = entries[i]
@@ -452,11 +498,12 @@ local function fill(w, entries, emptyMessage)
       row.unit = e.unit
       row.icon:SetTexture(e.icon)
       row.text:SetText(e.text)
+      row.rank:SetText(e.rank or "")
+      -- Green: higher than the one I have, like an upgrade in a loot tooltip.
+      if e.upgrade then row.rank:SetTextColor(0.1, 1, 0.1) else row.rank:SetTextColor(1, 1, 1) end
       if row.secure then
         -- Every attribute is set each time: a row reused for another player never keeps the old target.
-        row:SetAttribute("type", e.spell and "spell" or nil)
-        row:SetAttribute("unit", e.unit)
-        row:SetAttribute("spell", e.spell)
+        ns.aimCast(row, e.unit, e.spell)
         row.icon:SetDesaturated(e.spell == nil)
         local c = e.spell and 1 or 0.5
         row.text:SetTextColor(c, c, c)
@@ -487,9 +534,11 @@ local function nearbyEntries()
         entries[#entries + 1] = {
           unit = unit,
           icon = C_Spell.GetSpellTexture(buff.id),
-          text = ("%s%s %d — %s r%d%s"):format(classColored(name, class),
+          rank = rankAt(buff, level),
+          upgrade = kind == "upgrade",
+          text = ("%s%s %d — %s%s"):format(classColored(name, class),
             ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level,
-            spellName(key), rankAt(buff, level), extra),
+            spellName(key), extra),
         }
       end
     end
@@ -580,6 +629,7 @@ local function giveEntries(myBuffs)
       local far = ns.readable(r) and r == false
       entries[#entries + 1] = {
         unit = unit,
+        name = name,
         far = far,
         icon = C_Spell.GetSpellTexture(BUFFS[key].id),
         text = ("%s %d — %s%s"):format(classColored(name, class), level, spell, far and L[" (too far)"] or ""),
@@ -593,6 +643,14 @@ local function giveEntries(myBuffs)
   return sorted
 end
 
+-- I cast at someone (macro or by hand): skip them for a few seconds, the macro moves to the next one.
+function ns.onSpellSent(target)
+  local name = target:match("^[^-]+") -- "Name-Realm" -> "Name", as in justCast
+  if not name then return end -- no target (a buff on myself)
+  justCast[name] = GetTime()
+  C_Timer.After(1, ns.refreshAll)
+end
+
 -- ---------------------------------------------------------------- refresh and visibility
 
 function ns.refreshWindow()
@@ -602,7 +660,7 @@ function ns.refreshWindow()
   end
   -- The next-player key works without the window, once it is bound.
   local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")
-  if not ((give and give:IsShown()) or nextBound) then return end
+  if not ns.CASTING or not ((give and give:IsShown()) or nextBound) then return end
   local myBuffs = myCastableBuffs()
   local entries = #myBuffs > 0 and giveEntries(myBuffs) or {}
   -- Never re-fill under the cursor: rows would shift while the player aims (and with
@@ -616,16 +674,14 @@ function ns.refreshWindow()
   end
   local first = entries[1] and entries[1].spell and entries[1] -- in range, or nobody
   giveNext.unit = first and first.unit
-  giveNext:SetAttribute("type", first and "spell" or nil)
-  giveNext:SetAttribute("unit", first and first.unit)
-  giveNext:SetAttribute("spell", first and first.spell)
+  ns.aimCast(giveNext, first and first.unit, first and first.spell)
 end
 
 -- Show each window according to its setting (out of combat only).
 function ns.applyWindows()
   if InCombatLockdown() or not nearby then return end
   nearby:SetShown(BuffDiggerDB.nearby)
-  give:SetShown(BuffDiggerDB.give)
+  give:SetShown(ns.CASTING and BuffDiggerDB.give)
   ns.refreshWindow()
 end
 
@@ -635,6 +691,7 @@ function ns.toggleWindow()
 end
 
 function ns.toggleGive()
+  if not ns.CASTING then ns.notice(L["Give buffs: coming soon."]) return end
   BuffDiggerDB.give = not BuffDiggerDB.give
   ns.applyWindows()
 end
@@ -661,7 +718,7 @@ function ns.buildUI()
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")
-  giveNext:RegisterForClicks("AnyUp", "AnyDown")
+  ns.secureClicks(giveNext)
   giveNext:Hide()
   ns.watchClick(giveNext)
   giveNext:HookScript("PostClick", function(self, _, down)

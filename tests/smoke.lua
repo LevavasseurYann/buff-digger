@@ -59,13 +59,21 @@ ns.request("nameplate1")
 SlashCmdList.BUFFDIGGER("spells"); SlashCmdList.BUFFDIGGER("")
 ns.toggleWindow(); ns.refreshWindow()
 for _,s in ipairs(sent) do print("SENT", s) end
-BuffDiggerDB.frenchMessages = true
-print("FR:", ns.message("new", "fortitude", true))
-print("EN:", ns.message("upgrade", "fortitude", false))
+BuffDiggerDB.language = "fr"
+print("FR:", ns.message("new", "fortitude", "fr"))
+print("EN:", ns.message("upgrade", "fortitude", "en"))
+-- Every language has every kind and thanks; an unknown setting falls back to English.
+for _, lang in ipairs(ns.LANGUAGES) do
+  for _, kind in ipairs({ "new", "replace", "upgrade", "refresh" }) do
+    for _, m in ipairs(ns.MESSAGES[lang[1]][kind]) do assert(select(2, m:gsub("%%s", "")) == 1, m) end
+  end
+  print(lang[1], (ns.message("new", "might", lang[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1]))
+end
+assert(ns.message("new", "might", "xx") and ns.thanks(nil))
 
 SHIFT=true; ns.request("nameplate2"); units.nameplate3={"Anduin","PRIEST",40}; ns.request("nameplate3"); print("LAST", sent[#sent])
-local prev; for i=1,6 do local m=ns.message("new","might",false); assert(m~=prev,"same twice"); prev=m; print("EN"..i, (m:gsub("|c%x+|H.-|h","")):gsub("|h|r","")) end
-print("FR", (ns.message("upgrade","kings",true):gsub("|c%x+|H.-|h",""):gsub("|h|r","")))
+local prev; for i=1,6 do local m=ns.message("new","might","en"); assert(m~=prev,"same twice"); prev=m; print("EN"..i, (m:gsub("|c%x+|H.-|h","")):gsub("|h|r","")) end
+print("FR", (ns.message("upgrade","kings","fr"):gsub("|c%x+|H.-|h",""):gsub("|h|r","")))
 -- Priest who knows Fortitude: the Give window lists the paladin (Fortitude is in PALADIN prefs).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 local seen={}
@@ -83,7 +91,7 @@ BuffDiggerDB.prefs.WARRIOR = {"kings","might"}
 print("custom prefs best:", ns.bestBuff("Zed","PALADIN",25))
 
 -- Thanks flow
-SHIFT=false; BuffDiggerDB.frenchMessages=false; BuffDiggerDB.asked={}; BuffDiggerDB.prefs.WARRIOR=nil
+SHIFT=false; BuffDiggerDB.language="en"; BuffDiggerDB.asked={}; BuffDiggerDB.prefs.WARRIOR=nil
 units.nameplate4={"Uther","PALADIN",30}
 myAuras={}; fire("UNIT_AURA","player")
 ns.request("nameplate4"); print("REQ", sent[#sent])
@@ -132,7 +140,7 @@ BuffDiggerDB.prefs.WARRIOR={"might"} -- only Might matters here: a missing buff 
 local k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("rank known at login -> paladin 40 offers:", k, kind)
 assert(k=="might" and kind=="upgrade", "rank 2 from points should allow an upgrade")
 -- Value not in Data.lua: rank unknown, no upgrade offered (old behaviour), and /bd log flags it.
-myAuras={{auraInstanceID=51,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={36},expirationTime=NOW+3000,duration=3600}}
+myAuras={{auraInstanceID=51,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={30},expirationTime=NOW+3000,duration=3600}}
 fire("PLAYER_ENTERING_WORLD", false)
 k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("unknown value ->", k, kind)
 assert(not (k=="might" and kind=="upgrade"))
@@ -157,7 +165,10 @@ b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5";
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
 -- A peer sees a refresh request (kind accepted).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
-b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); print("refresh REQ -> ACK:", sent[#sent]); assert(sent[#sent]:find("ACK"))
+-- Off in the game (ns.CASTING: nothing casts from an addon in Forever): no ACK, so the asker whispers.
+b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); assert(#sent==b, "casting off: no ACK")
+ns.CASTING=true -- on for the rest, to keep that code tested
+b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zia-Realm"); print("refresh REQ -> ACK:", sent[#sent]); assert(sent[#sent]:find("ACK"))
 
 -- Unknown rank (value hidden): no refresh asked, it could lower the rank.
 myAuras={{auraInstanceID=61,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,expirationTime=NOW+100,duration=3600}}
@@ -203,10 +214,14 @@ BuffDiggerDB.debug=false
 -- In the window: a far player is listed last, greyed, and his row casts nothing.
 local gw=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
 C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate1" end
+NOW=NOW+60 -- the casts on Arthas above skip him for 10 s
 ns.refreshWindow()
 local last; for _,r in ipairs(gw.rows) do if r._shown then last=r end end
 print("last row:", last.unit, last:GetAttribute("type")); assert(last.unit=="nameplate1" and last:GetAttribute("type")==nil)
-assert(gw.rows[1]:GetAttribute("type")=="spell" and gw.rows[1].unit~="nameplate1")
+assert(gw.rows[1]:GetAttribute("type")=="macro" and gw.rows[1].unit~="nameplate1")
+print("row 1 macro:", gw.rows[1]:GetAttribute("macrotext"))
+-- Aimed by exact name (and realm), cast only on a friendly living target, previous target back.
+assert(gw.rows[1]:GetAttribute("macrotext"):find("^/targetexact [%a%-]+\n/cast %[help,nodead%] Mot de pouvoir : Robustesse\n/targetlasttarget$"))
 -- A click in the window does not hide that player (the list used to empty this way).
 local clicked=gw.rows[1].unit; click(gw.rows[1], false); ns.refreshWindow()
 local still=false; for _,r in ipairs(gw.rows) do if r._shown and r.unit==clicked then still=true end end
@@ -218,3 +233,10 @@ SlashCmdList.BUFFDIGGER("")
 for key, d in pairs(BuffDiggerDB.confirmed) do print("confirmed", key, d) end
 assert(BuffDiggerDB.confirmed.points and BuffDiggerDB.confirmed.expires)
 print("SMOKE OK")
+
+-- Talented givers seen in Forever (2026-11-08): values above the base rank still give that rank.
+local B = ns.BUFFS
+assert(ns.rankOfValue(B.fortitude, 8) == 2 and ns.rankOfValue(B.fortitude, 10) == 2)
+assert(ns.rankOfValue(B.fortitude, 26) == 3 and ns.rankOfValue(B.thorns, 7) == 2)
+assert(ns.rankOfValue(B.intellect, 8) == nil and ns.rankOfValue(B.fortitude, 99) == nil)
+print("rankOfValue talents OK")
