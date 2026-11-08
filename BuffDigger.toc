@@ -5,6 +5,7 @@
 ## Version: @project-version@
 ## SavedVariables: BuffDiggerDB
 ## IconTexture: Interface\AddOns\BuffDigger\Media\icon
+## X-Curse-Project-ID: 1792062
 
 Data.lua
 BuffDigger.lua
