@@ -48,16 +48,30 @@ function ns.openMenu(owner, unit)
 end
 
 -- ---------------------------------------------------------------- settings window
+-- Layout follows Blizzard's own option panels: gold section titles, white option labels, small
+-- grey help. Spacing on a 4/8 px grid; every text has a fixed width and wraps instead of overflowing.
 
-local SETTINGS = {
-  { key = "icons",   label = "Icon next to players' health bar" },
-  { key = "tooltip", label = "Line in players' tooltip" },
-  { key = "nearby",  label = "Nearby window (who can buff me)" },
-  { key = "give",    label = "Give buffs window (who lacks my buffs)" },
-  { key = "thank",   label = "Automatic /thank when someone buffs me" },
-  { key = "useSay",  label = "Ask in /say by default (not whisper)" },
-  { key = "frenchMessages", label = "Messages to players in French" },
-  { key = "debug",   label = "Debug messages in chat" },
+local PAD, COL_W, ROW_H, GAP = 16, 296, 24, 8
+local LEFT_X, RIGHT_X = PAD, PAD + COL_W + 24
+
+local SECTIONS = {
+  { title = "Display", options = {
+    { key = "icons",   label = "Icon next to players' health bar" },
+    { key = "tooltip", label = "Line in players' tooltip" },
+    { key = "nearby",  label = "Nearby window: who can buff me" },
+    { key = "give",    label = "Give buffs window: who lacks my buffs" },
+  } },
+  { title = "Requests", options = {
+    { key = "useSay",  label = "Ask in /say by default (not whisper)" },
+    { key = "frenchMessages", label = "Write to players in French" },
+  }, delay = true },
+  { title = "Thanks", options = {
+    { key = "thank",   label = "/thank emote when someone buffs me" },
+    { key = "thankMessage", label = "Thank-you in my request's channel" },
+  } },
+  { title = "Advanced", options = {
+    { key = "debug",   label = "Debug messages in chat" },
+  } },
 }
 
 local settings, prefRows, refreshPrefs
@@ -91,6 +105,15 @@ local function changed()
   ns.refreshAll()
 end
 
+local function text(parent, font, x, y, width, value)
+  local fs = parent:CreateFontString(nil, "OVERLAY", font)
+  fs:SetPoint("TOPLEFT", x, y)
+  fs:SetWidth(width)
+  fs:SetJustifyH("LEFT")
+  fs:SetText(value)
+  return fs
+end
+
 local function arrow(parent, texture, onClick)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(20, 20)
@@ -102,30 +125,78 @@ local function arrow(parent, texture, onClick)
   return b
 end
 
-local function buildPrefs(x)
+local function checkbox(x, y, option)
+  local box = CreateFrame("CheckButton", nil, settings, "UICheckButtonTemplate")
+  box:SetSize(ROW_H, ROW_H)
+  box:SetPoint("TOPLEFT", x, y)
+  local label = box:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  label:SetPoint("LEFT", box, "RIGHT", 4, 0)
+  label:SetWidth(COL_W - ROW_H - 8)
+  label:SetJustifyH("LEFT")
+  label:SetText(L[option.label])
+  box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[option.key]) end)
+  box:SetScript("OnClick", function(self)
+    BuffDiggerDB[option.key] = self:GetChecked() and true or false
+    ns.applyWindows()
+    ns.refreshAll()
+  end)
+end
+
+-- Anti-nagging delay: a label and a small button; each click moves to the next choice (#6).
+local function delayRow(x, y)
+  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 80, L["Wait before asking again"])
+  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  button:SetSize(64, 22)
+  button:SetPoint("TOPLEFT", x + COL_W - 64, y)
+  local function label() return L["%d min"]:format(BuffDiggerDB.delay / 60) end
+  button:SetScript("OnShow", function(self) self:SetText(label()) end)
+  button:SetScript("OnClick", function(self)
+    local i = indexOf(DELAYS, BuffDiggerDB.delay) or 1
+    BuffDiggerDB.delay = DELAYS[i % #DELAYS + 1]
+    self:SetText(label())
+  end)
+end
+
+-- Left column; returns how far down it went.
+local function buildOptions()
+  local y = -32
+  for _, section in ipairs(SECTIONS) do
+    text(settings, "GameFontNormal", LEFT_X, y, COL_W, L[section.title])
+    y = y - 20
+    for _, option in ipairs(section.options) do
+      checkbox(LEFT_X, y, option)
+      y = y - ROW_H
+    end
+    if section.delay then
+      delayRow(LEFT_X, y - 4)
+      y = y - 28
+    end
+    y = y - GAP
+  end
+  return y
+end
+
+-- Right column: my class's priorities (#5); returns how far down it went.
+local function buildPrefs()
   local _, myClass = UnitClass("player")
-  local header = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  header:SetPoint("TOPLEFT", x, -32)
-  header:SetText(L["My buff priorities (%s)"]:format(LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[myClass] or myClass))
-  local help = settings:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  help:SetPoint("TOPLEFT", x, -50)
-  help:SetText(L["Tick what you want, best first. Unticked = never asked."])
+  local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[myClass] or myClass
+  text(settings, "GameFontNormal", RIGHT_X, -32, COL_W, L["My buff priorities (%s)"]:format(className))
+  text(settings, "GameFontDisableSmall", RIGHT_X, -52, COL_W,
+    L["Ticked buffs get asked for, top first. Unticked: never asked."])
 
   prefRows = {}
-  local count = 0
+  local count, y = 0, -72
   for _ in pairs(BUFFS) do count = count + 1 end
   for i = 1, count do
     local row = CreateFrame("Frame", nil, settings)
-    row:SetSize(290, 24)
-    row:SetPoint("TOPLEFT", x - 4, -66 - (i - 1) * 24)
+    row:SetSize(COL_W, ROW_H)
+    row:SetPoint("TOPLEFT", RIGHT_X, y)
     row.box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.box:SetSize(24, 24)
+    row.box:SetSize(ROW_H, ROW_H)
     row.box:SetPoint("LEFT")
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(16, 16)
-    row.icon:SetPoint("LEFT", row.box, "RIGHT", 2, 0)
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.icon:SetPoint("LEFT", row.box, "RIGHT", 4, 0)
     row.down = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function()
       local prefs = myPrefs(true)
       local at = indexOf(prefs, row.key)
@@ -139,7 +210,12 @@ local function buildPrefs(x)
       prefs[at], prefs[at - 1] = prefs[at - 1], prefs[at]
       changed()
     end)
-    row.up:SetPoint("RIGHT", row.down, "LEFT", -2, 0)
+    row.up:SetPoint("RIGHT", row.down, "LEFT", -4, 0)
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
+    row.text:SetPoint("RIGHT", row.up, "LEFT", -8, 0)
+    row.text:SetJustifyH("LEFT")
+    row.text:SetWordWrap(false)
     row.box:SetScript("OnClick", function(self)
       local prefs = myPrefs(true)
       local at = indexOf(prefs, row.key)
@@ -148,16 +224,18 @@ local function buildPrefs(x)
       changed()
     end)
     prefRows[i] = row
+    y = y - ROW_H
   end
 
   local reset = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  reset:SetSize(110, 22)
-  reset:SetPoint("TOPLEFT", x, -66 - count * 24 - 6)
-  reset:SetText(L["Reset"])
+  reset:SetSize(120, 22)
+  reset:SetPoint("TOPLEFT", RIGHT_X, y - GAP)
+  reset:SetText(L["Reset to default"])
   reset:SetScript("OnClick", function()
     BuffDiggerDB.prefs[myClass] = nil
     changed()
   end)
+  return y - GAP - 22
 end
 
 refreshPrefs = function()
@@ -170,18 +248,22 @@ refreshPrefs = function()
     row.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id))
     row.icon:SetDesaturated(at == nil)
     row.text:SetText((at and (at .. ". ") or "") .. spellName(key))
+    row.text:SetTextColor(at and 1 or 0.5, at and 1 or 0.5, at and 1 or 0.5)
     row.up:SetEnabled(at ~= nil and at > 1)
     row.down:SetEnabled(at ~= nil and at < #prefs)
   end
 end
 
-local function delayLabel()
-  return L["Wait before asking the same player again: %s"]:format(L["%d min"]:format(BuffDiggerDB.delay / 60))
-end
+local HOW_TO = {
+  "Click an icon or a Nearby line to ask. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
+  "Right-click it to pick the buff yourself.",
+  "Minimap button: right click = Nearby, Shift + right click = Give buffs.",
+  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
+  "Friendly nameplates must be turned on.",
+}
 
 local function buildSettings()
   settings = CreateFrame("Frame", "BuffDiggerSettings", UIParent, "BasicFrameTemplateWithInset")
-  settings:SetSize(660, 420)
   settings:SetPoint("CENTER")
   settings:SetMovable(true)
   settings:EnableMouse(true)
@@ -196,44 +278,16 @@ local function buildSettings()
   title:SetPoint("TOP", 0, -5)
   title:SetText("Buff Digger")
 
-  for i, s in ipairs(SETTINGS) do
-    local box = CreateFrame("CheckButton", nil, settings, "UICheckButtonTemplate")
-    box:SetPoint("TOPLEFT", 14, -30 - (i - 1) * 26)
-    local text = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("LEFT", box, "RIGHT", 2, 0)
-    text:SetText(L[s.label])
-    box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[s.key]) end)
-    box:SetScript("OnClick", function(self)
-      BuffDiggerDB[s.key] = self:GetChecked() and true or false
-      ns.applyWindows()
-      ns.refreshAll()
-    end)
-  end
-
-  -- Anti-nagging delay: each click moves to the next choice (#6).
-  local delay = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  delay:SetSize(300, 22)
-  delay:SetPoint("TOPLEFT", 18, -30 - #SETTINGS * 26 - 6)
-  delay:SetScript("OnShow", function(self) self:SetText(delayLabel()) end)
-  delay:SetScript("OnClick", function(self)
-    local i = indexOf(DELAYS, BuffDiggerDB.delay) or 1
-    BuffDiggerDB.delay = DELAYS[i % #DELAYS + 1]
-    self:SetText(delayLabel())
-  end)
-
-  buildPrefs(350)
-
-  local hint = settings:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  hint:SetPoint("BOTTOMLEFT", 16, 14)
-  hint:SetPoint("BOTTOMRIGHT", -16, 14)
-  hint:SetJustifyH("LEFT")
-  hint:SetText(table.concat({
-    L["Right-click an icon or a Nearby line: pick the buff yourself."],
-    L["Shift/Ctrl-click: /say instead of whisper (or the reverse)."],
-    L["Minimap: right click = Nearby, Shift+right click = Give buffs."],
-    L["Key Bindings > AddOns > Buff Digger: one key asks the best buff around you."],
-    L["Friendly nameplates must be on."],
-  }, "\n"))
+  local bottom = math.min(buildOptions(), buildPrefs()) - GAP
+  local width = RIGHT_X + COL_W + PAD
+  text(settings, "GameFontNormal", LEFT_X, bottom, width - 2 * PAD, L["How to use"])
+  local lines = {}
+  for i, line in ipairs(HOW_TO) do lines[i] = L[line] end
+  local help = text(settings, "GameFontDisableSmall", LEFT_X, bottom - 20, width - 2 * PAD, table.concat(lines, "\n"))
+  help:SetSpacing(2)
+  -- GetStringHeight can be 0 on a hidden frame: never less than one line per tip.
+  local helpHeight = math.max(help:GetStringHeight() or 0, #HOW_TO * 14)
+  settings:SetSize(width, -bottom + 20 + helpHeight + PAD + 4)
 end
 
 function ns.toggleSettings()
@@ -269,6 +323,7 @@ local function buildMinimapButton()
   border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 
   button:SetScript("OnClick", function(_, mouse)
+    ns.flushThanks() -- a real click: waiting thanks can go out
     if mouse ~= "RightButton" then ns.toggleSettings()
     elseif IsShiftKeyDown() then ns.toggleGive()
     else ns.toggleWindow() end
@@ -327,6 +382,7 @@ local function makeWindow(globalName, title, setting, secure, point)
     if secure then
       row:RegisterForClicks("AnyUp", "AnyDown")
       row:SetAttribute("type", "spell")
+      row:HookScript("PostClick", function() ns.flushThanks() end)
     else
       row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
       row:SetScript("OnClick", function(self, mouse)

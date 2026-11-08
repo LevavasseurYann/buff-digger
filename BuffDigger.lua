@@ -24,7 +24,8 @@ ns.DEFAULTS = {
   tooltip = true,    -- "Can probably give you..." line
   nearby = false,    -- "Nearby" window
   give = false,      -- "Give buffs" window (buffer classes)
-  thank = true,      -- automatic /thank
+  thank = true,      -- automatic /thank emote
+  thankMessage = true, -- thank-you message in the request's channel once the buff lands
   useSay = false,    -- ask in /say instead of a whisper
   frenchMessages = false, -- messages to other players in French (English otherwise)
   debug = false,     -- print bet verdicts in chat
@@ -86,35 +87,111 @@ local mine = {}
 local byInstance = {} -- auraInstanceID -> { key, rank, giver }
 local ready = false
 
+-- ---------------------------------------------------------------- thanks
+
+-- Blizzard only lets an addon talk in /say (outside instances) during a real click or key press,
+-- and maybe emotes too. Such thanks wait here and go out with the next Buff Digger click or key
+-- (ns.flushThanks, called by every action). Whispers never need to wait.
+-- At most one waiting thank-you per player; after PENDING_MAX seconds it is dropped (they left).
+local PENDING_MAX = 120
+local pendingThanks = {} -- name -> { at, fns }
+
+local function sendLater(name, fn)
+  local p = pendingThanks[name]
+  if not p then
+    p = { at = time(), fns = {} }
+    pendingThanks[name] = p
+    say(L["Thanks to %s will go out with your next Buff Digger click or key."]:format(name))
+  end
+  p.fns[#p.fns + 1] = fn
+end
+
+function ns.flushThanks()
+  local todo = pendingThanks
+  pendingThanks = {}
+  for _, p in pairs(todo) do
+    if time() - p.at <= PENDING_MAX then
+      for _, fn in ipairs(p.fns) do fn() end
+    end
+  end
+end
+
+-- Did I ask this player for a buff in the last 10 minutes? Giver unknown: only when exactly ONE
+-- open request is for this very buff — with two candidates, guessing could thank the wrong one.
+-- Once the buff has landed, every other open request for it is closed: nobody else gets thanked.
+local function findRequest(name, key)
+  local function fresh(e) return type(e) == "table" and not e.thanked and time() - e.at < 600 end
+  local result, resultEntry, matches = name, nil, 0
+  if name and fresh(BuffDiggerDB.asked[name]) then resultEntry = BuffDiggerDB.asked[name] end
+  for n, e in pairs(BuffDiggerDB.asked) do
+    if fresh(e) and key and e.key == key and e ~= resultEntry then
+      matches = matches + 1
+      if not name then result, resultEntry = n, e end
+      if name then e.thanked = true end -- someone else gave it: close their request
+    end
+  end
+  if not name and matches ~= 1 then
+    -- Ambiguous: close them all, thank nobody.
+    for _, e in pairs(BuffDiggerDB.asked) do
+      if fresh(e) and key and e.key == key then e.thanked = true end
+    end
+    return nil
+  end
+  return result, resultEntry
+end
+
+-- One /thank per player per THANK_GAP seconds: a druid casting Mark then Thorns, or a paladin
+-- swapping blessings, must not make me /thank them again and again.
+local THANK_GAP = 60
+local lastThank = {}
+
+local function thank(name, request)
+  -- A thank-you in the same channel as the request, if there was one.
+  if request and BuffDiggerDB.thankMessage then
+    request.thanked = true
+    local text = ns.thanks(BuffDiggerDB.frenchMessages)
+    if request.channel == "SAY" then
+      sendLater(name, function() send(name .. " : " .. text, "SAY") end)
+    else
+      send(text, "WHISPER", nil, request.target or name)
+    end
+  end
+  if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
+    lastThank[name] = time()
+    local emote = function() DoEmote("THANK", name) end
+    if BuffDiggerDB.emoteNeedsClick then sendLater(name, emote) else emote() end
+    record("thank", true, "/thank to " .. name)
+  end
+end
+
 local function onBuffLanded(aura, info)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
-  if not source then
+  local name
+  if source then
+    if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
+    name = UnitName(source)
+    local _, class = UnitClass(source)
+    local level = UnitLevel(source)
+    if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
+    record("source", true, name .. " → " .. show(aura.name))
+    info.giver = name
+    if info.key then info.rank = rankAt(BUFFS[info.key], level) end
+
+    -- Raw log for checking the data table against reality.
+    local entry = BuffDiggerDB.buffs[aura.spellId] or { name = aura.name, classes = {} }
+    local seen = entry.classes[class]
+    entry.classes[class] = seen and math.min(seen, level) or level
+    BuffDiggerDB.buffs[aura.spellId] = entry
+  else
     -- A stranger outside the group does not always have a unit token: count those cases.
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
-    return
   end
-  if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
 
-  local name = UnitName(source)
-  local _, class = UnitClass(source)
-  local level = UnitLevel(source)
-  if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
-  record("source", true, name .. " → " .. show(aura.name))
-
-  info.giver = name
-  if info.key then info.rank = rankAt(BUFFS[info.key], level) end
-
-  -- Raw log for checking the data table against reality.
-  local entry = BuffDiggerDB.buffs[aura.spellId] or { name = aura.name, classes = {} }
-  local seen = entry.classes[class]
-  entry.classes[class] = seen and math.min(seen, level) or level
-  BuffDiggerDB.buffs[aura.spellId] = entry
-
-  if BuffDiggerDB.thank then
-    local ok, err = pcall(DoEmote, "THANK", name)
-    record("thank", ok, ok and ("/thank to " .. name) or tostring(err))
-  end
+  -- Giver unknown: if I just asked someone for this very buff, it was most likely them.
+  local asked, request = findRequest(name, info.key)
+  if not name and asked then name = asked; info.giver = asked end
+  if name then thank(name, request) end
 end
 
 local function readMyBuffs()
@@ -201,8 +278,8 @@ end
 -- Anti-nagging: never ask the same player twice within BuffDiggerDB.delay seconds. Kept in the
 -- saved variables (real clock), so a /reload does not reset it (#6).
 function ns.askedAgo(name)
-  local at = BuffDiggerDB.asked[name]
-  local ago = at and (time() - at)
+  local e = BuffDiggerDB.asked[name]
+  local ago = type(e) == "table" and (time() - e.at)
   if ago and ago < BuffDiggerDB.delay then return ago end
 end
 
@@ -242,6 +319,7 @@ function ns.haveBuff(key) return mine[key] ~= nil end
 -- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4).
 function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
+  ns.flushThanks()
   if not unit or not truthy(UnitExists(unit)) then say(L["No player targeted."]) return end
   local name, class, level, realm = ns.identity(unit)
   if not name then return end
@@ -260,13 +338,13 @@ function ns.request(unit, chosenKey)
   local text = ns.message(kind, key, BuffDiggerDB.frenchMessages)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
+  local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
   if useSay then
     send(name .. " : " .. text, "SAY")
   else
-    local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
     send(text, "WHISPER", nil, target)
   end
-  BuffDiggerDB.asked[name] = time()
+  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = useSay and "SAY" or "WHISPER", target = target }
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -274,6 +352,7 @@ end
 -- A key press counts as a real input, so /say works from here too.
 function ns.askBest()
   if InCombatLockdown() then return end
+  ns.flushThanks()
   local _, myClass = UnitClass("player")
   local prefs = ns.prefsFor(myClass)
   local KIND_ORDER = { new = 0, replace = 1, upgrade = 2 }
@@ -497,8 +576,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
-    for name, at in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour
-      if time() - at > 3600 then BuffDiggerDB.asked[name] = nil end
+    for name, e in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour (or old format)
+      if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerDB.asked[name] = nil end
     end
     hookTooltip()
     if ns.buildUI then ns.buildUI() end
@@ -529,6 +608,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
     if a1 == ADDON_NAME then
       say("|cffff5555Blizzard blocked|r " .. tostring(a2))
       if tostring(a2):find("SendChatMessage") then record("say", false, "blocked: " .. tostring(a2)) end
+      -- The emote needs a real click here: from now on, /thank waits for the next Buff Digger action.
+      if tostring(a2):find("DoEmote") then BuffDiggerDB.emoteNeedsClick = true end
     end
   end
 end)

@@ -141,6 +141,26 @@ ns.MESSAGES = {
   },
 }
 
+-- Sent in the same channel as the request, once the buff lands.
+ns.THANKS = {
+  fr = {
+    "Merci beaucoup ! :)",
+    "Merci, t'es au top !",
+    "Super, merci ! Bon jeu à toi !",
+    "Merci ! Que la Lumière te garde :)",
+    "Génial, merci beaucoup !",
+    "Merci pour le buff, bonne aventure !",
+  },
+  en = {
+    "Thanks a lot! :)",
+    "Thank you, you're the best!",
+    "Cheers, much appreciated!",
+    "Thanks! Have a great one!",
+    "Awesome, thank you!",
+    "Thanks for the buff, good luck out there!",
+  },
+}
+
 local lastPick = {}
 
 local function pick(list)
@@ -159,6 +179,10 @@ local function spellText(buff, french)
   local link = C_Spell.GetSpellLink and C_Spell.GetSpellLink(buff.id)
   if not link then return name end
   return (link:gsub("%[.-%]", "[" .. name .. "]"))
+end
+
+function ns.thanks(french)
+  return pick(french and ns.THANKS.fr or ns.THANKS.en)
 end
 
 function ns.message(kind, key, french)
