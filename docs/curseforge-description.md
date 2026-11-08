@@ -27,15 +27,20 @@ You know the drill. You zone into Stormwind, three paladins and a priest run pas
 - **One key, no aiming:** bind *Ask the best buff around me* and it finds the right player for you. Handy when everyone's running around the bank.
 - Spell links in every request, a bunch of different phrasings so you don't sound like a bot, English or French.
 - Won't nag. Same player, same buff? It waits (1 to 10 min, your call).
-- Auto **/thank** whoever buffs you. Manners matter.
+- Auto **/thank** whoever buffs you, plus a thank-you in the same channel you asked in. Manners matter.
 
 **Two small windows**
 - **Nearby**: everyone around who can buff you, and with what. One click asks.
 - **Give buffs**: for pallies, priests, mages and druids. Who around is missing *your* buff, picked for *their* class (Might for the warrior, Wisdom for the mage). One click casts it. Be the hero of Ironforge.
 
+**Buff Digger talks to Buff Digger**
+- Asking someone who also runs Buff Digger? No whisper at all: a little **Requests** window pops up on their screen, *"Yann wants Blessing of Might"*, and one click casts it.
+- No answer within a second and a half? A normal whisper goes out instead.
+- A small star marks fellow Buff Digger users.
+
 **Stays out of your way**
 - Out of combat only: everything hides when the pull starts.
-- Quiet chat, a minimap button, interface in English or French.
+- Quiet chat, and a minimap button that tells you what each click does.
 
 ---
 
@@ -62,7 +67,6 @@ Minimap button: left click = settings, right click = Nearby, Shift + right click
 
 ### Coming next
 
-- Silent requests between two Buff Digger users, with a "Cast" button for the buffer.
 - Whatever you ask for in the comments.
 
 Happy digging!

@@ -64,6 +64,7 @@ local SECTIONS = {
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "frenchMessages", label = "Write to players in French" },
+    { key = "acceptRequests", label = "Pop up requests from Buff Digger users" },
   }, delay = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },
@@ -445,7 +446,8 @@ local function nearbyEntries()
         entries[#entries + 1] = {
           unit = unit,
           icon = C_Spell.GetSpellTexture(buff.id),
-          text = ("%s %d — %s r%d%s"):format(classColored(name, class), level,
+          text = ("%s%s %d — %s r%d%s"):format(classColored(name, class),
+            ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level,
             spellName(key), rankAt(buff, level), extra),
         }
       end
@@ -478,6 +480,7 @@ local function unitHas(unit, buff)
   ns.record("others", true)
   return false
 end
+ns.unitHas = unitHas
 
 local function myCastableBuffs()
   local _, myClass = UnitClass("player")

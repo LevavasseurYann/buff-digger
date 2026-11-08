@@ -30,6 +30,7 @@ ns.DEFAULTS = {
   frenchMessages = false, -- messages to other players in French (English otherwise)
   debug = false,     -- print bet verdicts in chat
   delay = 120,       -- seconds before asking the same player again (#6)
+  acceptRequests = true, -- show silent requests from other Buff Digger users (#10)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -339,12 +340,9 @@ function ns.request(unit, chosenKey)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
-  if useSay then
-    send(name .. " : " .. text, "SAY")
-  else
-    send(text, "WHISPER", nil, target)
-  end
-  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = useSay and "SAY" or "WHISPER", target = target }
+  -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
+  local channel = ns.deliver(name, target, key, text, useSay, kind)
+  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target }
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -402,6 +400,11 @@ local function iconFor(unit)
       button:SetSize(18, 18)
       button.icon = button:CreateTexture(nil, "OVERLAY")
       button.icon:SetAllPoints()
+      -- Small star: this player has Buff Digger too (#10).
+      button.peer = button:CreateTexture(nil, "OVERLAY", nil, 2)
+      button.peer:SetSize(10, 10)
+      button.peer:SetPoint("TOPRIGHT", 4, 4)
+      button.peer:SetTexture("Interface\\COMMON\\FavoritesIcon")
       button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
       button:SetScript("OnClick", function(self, mouse)
         record("click", true)
@@ -442,6 +445,7 @@ local function updateIcon(unit)
   button.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id))
   -- My top missing buff at full opacity, the rest (and upgrades) dimmed.
   button.icon:SetAlpha(top and 1 or 0.55)
+  button.peer:SetShown(ns.isPeer(name))
   button:Show()
 end
 
@@ -456,6 +460,7 @@ local function refreshNow()
   hideIcons(nil)
   for _, unit in ipairs(ns.nearbyUnits()) do updateIcon(unit) end
   if ns.refreshWindow then ns.refreshWindow() end
+  if ns.refreshIncoming then ns.refreshIncoming() end
 end
 
 function ns.refreshAll()
@@ -544,6 +549,7 @@ function COMMANDS.nearby() if ns.toggleWindow then ns.toggleWindow() end end
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
+function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 
 SLASH_BUFFDIGGER1 = "/bd"
 SlashCmdList.BUFFDIGGER = function(text)
@@ -576,6 +582,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2)
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
+    BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     for name, e in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour (or old format)
       if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerDB.asked[name] = nil end
     end
