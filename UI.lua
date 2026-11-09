@@ -604,15 +604,14 @@ local function makeWindow(globalName, title, setting, secure, point)
     w.rows[i] = row
   end
   -- More players than rows (a city): the mouse wheel scrolls; small arrows show there is more
-  -- above or below, and a click on one scrolls too.
-  -- Get buffs only: Give buffs rows aim spells at nameplate tokens that a scroll would leave stale.
+  -- above or below, and a click on one scrolls too. fill() re-aims every row (out of combat).
   w.offset = 0
   local function scroll(delta)
-    if InCombatLockdown() or secure or not w.entries then return end
+    if InCombatLockdown() or not w.entries then return end
     w.offset = math.max(0, math.min(w.offset - delta, #w.entries - visibleRows(w)))
     w.fill()
   end
-  w:EnableMouseWheel(not secure)
+  w:EnableMouseWheel(true)
   w:SetScript("OnMouseWheel", function(_, delta) scroll(delta) end)
   local function arrow(dir, delta, point, y)
     local a = CreateFrame("Button", nil, w)
@@ -672,8 +671,8 @@ local function fill(w, entries, emptyMessage)
   end
   w.empty:SetText(emptyMessage)
   w.empty:SetShown(#entries == 0)
-  w.up:SetShown(not w.rows[1].secure and w.offset > 0)
-  w.down:SetShown(not w.rows[1].secure and #entries - w.offset > shown)
+  w.up:SetShown(w.offset > 0)
+  w.down:SetShown(#entries - w.offset > shown)
 end
 
 local nearby, give, giveNext, requests

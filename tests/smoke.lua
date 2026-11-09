@@ -331,7 +331,14 @@ w.lock._OnClick(w.lock); assert(not BuffDiggerDB.lockWindows and w.grip._shown, 
 -- The padlock of one window locks both, at once (even in combat: nothing secure).
 InCombatLockdown=function() return true end; local gw=_G.BuffDiggerGive; gw.lock._OnClick(gw.lock)
 assert(not w.grip._shown and not gw.grip._shown, "both locked at once"); gw.lock._OnClick(gw.lock); InCombatLockdown=function() return false end
-local g=_G.BuffDiggerGive; if g.fill then g.fill() end; assert(not g.down._shown, "Give buffs never scrolls: no arrow")
+-- Give buffs scrolls too: a scrolled row casts on the player it now shows.
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
+local realAura=C_UnitAuras.GetAuraDataBySpellName; C_UnitAuras.GetAuraDataBySpellName=function() return nil end -- nobody has Fortitude
+local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
+print("give entries:", #g.entries); assert(#g.entries>10 and g.down._shown, "Give buffs: more than 10, down arrow")
+local second=g.entries[2]; g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].unit==second.unit)
+assert(g.rows[1]:GetAttribute("macrotext"):find("^/target "..UnitName(second.unit).."\n"), "scrolled row re-aimed")
+g._OnMouseWheel(g,100); BuffDiggerDB.give=false; ns.applyWindows(); C_UnitAuras.GetAuraDataBySpellName=realAura
 print("=== #13 Requests window (buffer side)")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 local rq=_G.BuffDiggerRequests; local played, count=0, nil
