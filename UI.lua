@@ -36,7 +36,16 @@ function ns.buffTooltip(owner, unit, key)
   if rank > 0 then
     GameTooltip:AddLine(L["Rank %d"]:format(rank) .. (" (+%s %s)"):format(buff.values[rank], L[buff.stat]), 1, 1, 1)
   end
-  if ns.haveBuff(key) then GameTooltip:AddLine(L["You have it already."], 0.6, 0.6, 0.6) end
+  -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
+  local his = ns.hisBlessing(name)
+  if his == key then
+    GameTooltip:AddLine(L["%s gave you this one."]:format(name), 1, 0.82, 0)
+  else
+    if ns.haveBuff(key) then GameTooltip:AddLine(L["You have it already."], 0.6, 0.6, 0.6) end
+    if his and buff.class == "PALADIN" then
+      GameTooltip:AddLine(L["Replaces the %s that %s gave you."]:format("|cffffd100" .. spellName(his) .. "|r", name), 1, 0.5, 0.25, true)
+    end
+  end
   GameTooltip:AddLine(L["Click: ask %s for it. Right click: other buffs."]:format(name), 0.4, 0.8, 1, true)
   GameTooltip:Show()
 end
@@ -638,7 +647,7 @@ local function fill(w, entries, emptyMessage)
         if buff then
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
-          ns.styleBuff(b, buff.key, buff.best)
+          ns.styleBuff(b, buff.key, buff.best, buff.his)
           b.rank:SetText(buff.rank)
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
         end
@@ -673,12 +682,13 @@ local function nearbyEntries()
     local offers = name and ns.offers(class, level) or {}
     if #offers > 0 then
       local key, kind, top = ns.bestBuff(name, class, level)
+      local his = ns.hisBlessing(name)
       local buffs = {}
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", best = key,
+          upgrade = k == key and kind == "upgrade", best = key, his = his,
         }
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
