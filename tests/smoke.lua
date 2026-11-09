@@ -287,6 +287,14 @@ local row=w.rows[1]; print("row 1:", row.text._t or "", "icons shown:", (row.buf
 local first=w.entries[1]; assert(#first.buffs>=1)
 b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]; pick._OnClick(pick,"LeftButton")
 local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key)
+-- "Only those with something better": the players whose buffs I all have leave the list.
+local realBest, n0 = ns.bestBuff, #w.entries
+ns.bestBuff=function(name, ...) if name==who then return nil end return realBest(name, ...) end -- I have all of who's buffs
+ns.refreshWindow(); assert(#w.entries==n0 and w.entries[#w.entries].order==2, "shown last by default")
+BuffDiggerDB.nearbyUseful=true; ns.refreshWindow()
+for _,e in ipairs(w.entries) do assert(UnitName(e.unit)~=who, "nothing better: hidden") end
+print("nothing better:", who, "hidden, entries", n0, "->", #w.entries); assert(#w.entries==n0-1)
+BuffDiggerDB.nearbyUseful=false; ns.bestBuff=realBest; ns.refreshWindow()
 -- 15 paladins around: 10 rows, the wheel shows the rest.
 for i=10,24 do units["nameplate"..i]={"Pal"..i,"PALADIN",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate"..i) end; runTimers(); ns.refreshWindow()
 print("entries:", #w.entries, "offset:", w.offset); assert(#w.entries>10)

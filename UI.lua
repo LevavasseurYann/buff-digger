@@ -80,6 +80,7 @@ local SECTIONS = {
   { title = "Display", options = {
     { key = "tooltip", label = "Line in players' tooltip" },
     { key = "nearby",  label = "Get buffs window: who can buff me" },
+    { key = "nearbyUseful", label = "Get buffs: only those with something better" },
     { key = "give",    label = "Give buffs window: who lacks my buffs", soon = true },
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
@@ -665,14 +666,17 @@ local nearby, give, giveNext
 -- ---------------------------------------------------------------- Get buffs (idea 4)
 
 -- Everyone around who can give me something: those with a buff I'm missing (or an upgrade) first,
--- my top pick first among them; then the ones whose buffs I all have, for picking by hand.
+-- my top pick first among them; then the ones whose buffs I all have, for picking by hand
+-- (left out with "nearbyUseful": nothing from my priority list missing, no higher rank, nothing
+-- running out — ns.bestBuff gave no key).
 local function nearbyEntries()
   local entries = {}
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
     local offers = name and ns.offers(class, level) or {}
-    if #offers > 0 then
-      local key, kind, top = ns.bestBuff(name, class, level)
+    local key, kind, top
+    if #offers > 0 then key, kind, top = ns.bestBuff(name, class, level) end
+    if #offers > 0 and (key or not BuffDiggerDB.nearbyUseful) then
       local buffs = {}
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
@@ -806,7 +810,9 @@ end
 function ns.refreshWindow()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
   if nearby and nearby:IsShown() then
-    fill(nearby, nearbyEntries(), L["Nobody around can buff you.\n(Friendly nameplates on?)"])
+    fill(nearby, nearbyEntries(), BuffDiggerDB.nearbyUseful
+      and L["Nobody around has anything better for you.\n(Friendly nameplates on?)"]
+      or L["Nobody around can buff you.\n(Friendly nameplates on?)"])
   end
   -- The next-player key works without the window, once it is bound.
   local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")

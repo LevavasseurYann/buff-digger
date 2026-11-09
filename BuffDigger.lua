@@ -36,6 +36,7 @@ ns.DEFAULTS = {
   plates = "best",   -- nameplates: "off", "hint" (small Buff Digger icon), "best" (best buff), "all" (each buff)
   tooltip = true,    -- "Can probably give you..." line
   nearby = false,    -- "Nearby" window
+  nearbyUseful = false, -- Get buffs: hide players with nothing better for me
   lockWindows = false, -- windows can't be moved or resized
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- automatic /thank emote
