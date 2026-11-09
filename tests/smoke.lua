@@ -461,7 +461,7 @@ ns.refreshWindow(); assert(not rowOf("nameplate60"), "my blessing on them: nothi
 -- One of their auras unreadable (Kings readable, missing): stay silent rather than guess.
 C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate60" and name=="Bénédiction de puissance" then error("secret") end end
 ns.refreshWindow(); assert(not rowOf("nameplate60"), "unreadable: nothing")
-C_UnitAuras.GetAuraDataBySpellName=realAura2; BuffDiggerDB.give=false; ns.applyWindows(); units.nameplate60=nil
+C_UnitAuras.GetAuraDataBySpellName=realAura2; BuffDiggerDB.give=false; ns.applyWindows(); fire("NAME_PLATE_UNIT_REMOVED","nameplate60"); units.nameplate60=nil
 
 print("=== Forever names: first name + last name, with a space")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.asked={}
