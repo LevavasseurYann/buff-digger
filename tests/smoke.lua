@@ -56,6 +56,9 @@ local ns={}
 for _,f in ipairs{"Locales","Data","BuffDigger","UI","Comm"} do assert(loadfile(DIR..f..".lua"))("BuffDigger", ns) end
 local function fire(ev,...) for _,f in ipairs(events) do if f._OnEvent then f._OnEvent(f,ev,...) end end end
 fire("ADDON_LOADED","BuffDigger"); fire("PLAYER_LOGIN"); fire("PLAYER_ENTERING_WORLD", true); fire("NAME_PLATE_UNIT_ADDED","nameplate1"); fire("NAME_PLATE_UNIT_ADDED","nameplate2"); print("nearby:", #ns.nearbyUnits())
+-- Login warning: checked 10 s later, once plates showed; friendly players in sight -> no false "off".
+do local said, p0 = false, print; print=function(...) for _,v in ipairs({...}) do if tostring(v):find("nameplates are off") then said=true end end p0(...) end
+  runTimers(); print=p0; assert(not said, "no 'nameplates off' line while friendly plates show") end
 -- 1. Warrior lacks everything: paladin 25 should offer Might (top pick), mage nothing.
 print("paladin:", ns.bestBuff("Arthas","PALADIN",25)); print("mage:", ns.bestBuff("Jaina","MAGE",30))
 ns.askBest()
@@ -492,6 +495,9 @@ assert(jean, "Jean Dupont listed in Give buffs"); print("line:", jean.text._t, "
 assert(jean.text._t:find("Jean Dupont", 1, true), "whole name shown in Give buffs")
 assert(jean.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "macro targets the first name")
 assert(jean.entry.who=="Jean Dupont", "aim frozen on the whole name")
+-- Setting reads off, but a friendly player's plate is in sight: they are on (seen in Forever).
+local cv=CVARS.nameplateShowFriends; CVARS.nameplateShowFriends="0"
+assert(ns.friendlyPlatesOn(), "a friendly plate in sight means friendly nameplates are on"); CVARS.nameplateShowFriends=cv
 -- A cast sent at "Jean-Dupont" skips them for a while.
 fire("UNIT_SPELLCAST_SENT","player","Jean-Dupont","guid",1243); ns.refreshWindow()
 for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end

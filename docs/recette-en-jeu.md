@@ -93,6 +93,7 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 44 | Get buffs, Give buffs, Requests, info-bulles | Prénom **et** nom sur chaque ligne et dans les info-bulles (« Click: ask Jean Dupont… ») | — |
 | 37 | Taper `/target Jean Dupont` dans le chat, puis `/target Jean-Dupont` | Noter lequel le cible (aucun, l'un, les deux) : si oui, les clics viseront le nom entier au lieu du prénom seul (deux « Jean » voisins ne seraient plus confondus) | — |
 | 45 | Réglages > *Debug messages* coché, clic sur son icône dans Give buffs | Noter la ligne « Spell sent: … on X » : X = « Jean », « Jean-Dupont » ou « Jean Dupont » ? Puis il disparaît de Give buffs quelques secondes | Cast a buff… |
+| 46 | Barres de nom alliées affichées (on voit les joueurs), taper `/run for _,c in ipairs({"nameplateShowFriends","nameplateShowFriendlyPlayers","nameplateShowAll","nameplateShowFriendlyNPCs"}) do print(c, C_CVar.GetCVar(c)) end` ; puis Réglages de Buff Digger | Noter les 4 valeurs ; Réglages : « Friendly nameplates: on », bouton *Turn on* grisé | — |
 | 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
 | 39 | Se faire buffer par lui après une demande | `/merci` vise bien lui, et le remerciement en MP lui arrive | Automatic /thank |
 | 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, un clic sur l'icône le buffe ; l'étoile ★ Buff Digger apparaît après son nom dans Get buffs | — |

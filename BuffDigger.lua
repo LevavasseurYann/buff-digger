@@ -505,7 +505,10 @@ end
 local getCVar = (C_CVar and C_CVar.GetCVar) or GetCVar
 local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
 
-function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" end
+-- In Forever the setting can read "off" while friendly players' plates show (seen 2026-11-09):
+-- a friendly player's plate in sight proves they are on.
+-- ponytail: with nobody around and that setting off, still says off; the real setting is recette 46.
+function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" or #ns.nearbyUnits() > 0 end
 
 function ns.turnOnFriendlyPlates()
   if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
@@ -919,8 +922,13 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     ready = false
     readMyBuffs()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
-    if a1 and not ns.friendlyPlatesOn() then
-      say(L["Friendly nameplates are off, so icons and windows can't see anyone. Type /bd nameplates to turn them on."])
+    -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
+    if a1 then
+      C_Timer.After(10, function()
+        if not ns.friendlyPlatesOn() then
+          say(L["Friendly nameplates are off, so icons and windows can't see anyone. Type /bd nameplates to turn them on."])
+        end
+      end)
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
     -- Hiding frames that hold protected buttons is still allowed during this very event.
