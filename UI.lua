@@ -819,8 +819,9 @@ end
 
 -- I cast at someone (macro or by hand): skip them for a few seconds, the macro moves to the next one.
 function ns.onSpellSent(target)
-  local name = target and target:match("^[^-]+") -- "Name-Realm" -> "Name", as in justCast
-  if not name then return end -- no target (a buff on myself, a bolt with nothing selected)
+  -- nil for a spell with no target (an attack, a self buff); "Name-Realm" -> "Name", as in justCast
+  local name = type(target) == "string" and target:match("^[^-]+")
+  if not name then return end
   justCast[name] = GetTime()
   C_Timer.After(1, ns.refreshAll)
 end
