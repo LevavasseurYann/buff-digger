@@ -563,16 +563,15 @@ local function makeWindow(globalName, title, setting, secure, point)
     if secure then
       ns.secureClicks(row)
       ns.watchClick(row)
-      row:HookScript("PostClick", function(self, _, down)
-        if down then return end -- release only (secureClicks); kept as a guard
+      row:HookScript("PostClick", function(self)
         if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
         ns.castOn()
       end)
     else
       -- Click the name = target them (secure macro, set in fill); right click = menu.
       ns.secureClicks(row)
-      row:HookScript("PostClick", function(self, mouse, down)
-        if not down and mouse == "RightButton" then ns.openMenu(self, self.unit) end
+      row:HookScript("PostClick", function(self, mouse)
+        if mouse == "RightButton" then ns.openMenu(self, self.unit) end
       end)
       -- One icon slot per buff they can give, my priorities left to right; the name comes after,
       -- so names line up whatever the number of icons. Click an icon = ask for that buff (and
@@ -589,8 +588,7 @@ local function makeWindow(globalName, title, setting, secure, point)
         b.rank:SetPoint("BOTTOMRIGHT", 3, -2)
         b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
         ns.secureClicks(b)
-        b:HookScript("PostClick", function(self, mouse, down)
-          if down then return end -- release only (secureClicks); kept as a guard
+        b:HookScript("PostClick", function(self, mouse)
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
           elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
@@ -912,7 +910,7 @@ function ns.buildUI()
   giveNext:Hide()
   ns.watchClick(giveNext)
   giveNext:HookScript("PostClick", function(self, _, down)
-    if down then return end
+    if down then return end -- a CLICK binding may send the press too: kept until recette test 14
     if self:GetAttribute("type") then ns.castOn(self.unit)
     else ns.notice(L["Nobody around lacks your buffs right now."]) end
   end)

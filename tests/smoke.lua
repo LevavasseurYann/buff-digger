@@ -18,6 +18,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
   if k=="GetAttribute" then return function(s,a) return rawget(s,"_a_"..a) end end
   if k=="SetAttribute" then return function(s,a,v) rawset(s,"_a_"..a,v) end end
+  if k=="RegisterForClicks" then return function(s,...) rawset(s,"_clicks",table.concat({...},",")) end end
   if k=="RegisterEvent" or k=="RegisterUnitEvent" then return function(s) if not rawget(s,"_reg") then rawset(s,"_reg",true); events[#events+1]=s end end end
   if k=="CreateFontString" or k=="CreateTexture" or k=="CreateAnimationGroup" or k=="CreateAnimation" then return function() return obj() end end
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
@@ -230,11 +231,10 @@ ns.refreshWindow(); print("everyone too far -> key aims at:", rawget(nb,"unit"))
 C_Spell.IsSpellInRange=nil
 
 -- The cast check: a spell sent by hand after a click is not a success; one sent during the click is.
+-- Secure buttons hear the release only ("AnyUp", ns.secureClicks), so a click is one release.
 local function click(b, sendSpell)
-  for _,f in ipairs(b._hooks.PreClick) do f(b,"LeftButton",true) end
-  if sendSpell then fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243) end
-  for _,f in ipairs(b._hooks.PostClick) do f(b,"LeftButton",true) end
   for _,f in ipairs(b._hooks.PreClick) do f(b,"LeftButton",false) end
+  if sendSpell then fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243) end
   for _,f in ipairs(b._hooks.PostClick) do f(b,"LeftButton",false) end
 end
 BuffDiggerDB.confirmed.cast=nil; BuffDiggerDB.debug=true
@@ -296,7 +296,11 @@ local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
 local row=w.rows[1]; print("row 1:", row.text._t or "", "icons shown:", (row.buffs[1]._shown and 1 or 0)+(row.buffs[2]._shown and 1 or 0)+(row.buffs[3]._shown and 1 or 0))
 local first=w.entries[1]; assert(#first.buffs>=1)
 b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]
-for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",true); f(pick,"LeftButton",false) end -- down then up: one request
+for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",false) end -- a release: one request
+-- The fix of 2026-11-09: release only, whatever ActionButtonUseKeyDown says.
+for _,sb in ipairs({row, pick, _G.BuffDiggerGiveNext, _G.BuffDiggerGive.rows[1], _G.BuffDiggerRequests.rows[1]}) do
+  assert(rawget(sb,"_clicks")=="AnyUp" and sb:GetAttribute("useOnKeyDown")==false, "secure clicks: AnyUp only")
+end
 local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
 -- #14: the name targets them (any modifier), asks nothing; icons target only with targetOnAsk.
 print("name click:", row:GetAttribute("*type1"), row:GetAttribute("macrotext"))

@@ -800,13 +800,13 @@ frame:RegisterEvent("UI_ERROR_MESSAGE")
 
 -- Secure cast buttons (Give buffs, next-player key, Requests): did a click really send a spell?
 -- Only a cast sent DURING the click counts (between PreClick and PostClick), so a spell cast by
--- hand right after a failed click is never taken for a success. With "Debug messages", every
--- click prints what the button held and what came of it.
+-- hand right after a failed click is never taken for a success.
 local clicking, sentDuringClick = false, nil
 
--- Aim a secure button at a player: a click casts `spell` on them. Seen in game (2026-11-08): with
--- type=spell and unit=nameplateN the click sends nothing, no error. So it goes through a macro, the
--- classic buff-addon way: target them by name, cast, give the previous target back.
+-- Aim a secure button at a player: a click casts `spell` on them, through a macro, the classic
+-- buff-addon way: target them by name, cast, give the previous target back. Proven in game
+-- (2026-11-09). Casting without a macro (type=spell + unit) is untested since the AnyUp fix:
+-- docs/recette-en-jeu.md, tests 31-35.
 -- [help,nodead]: if they left and the targeting failed, never buff whoever is targeted instead.
 -- ponytail: with no target before, the buffed player stays targeted (/targetlasttarget has nothing).
 -- The name for /target; nil when the game hides it. In game (2026-11-09) /targetexact did nothing,
@@ -854,13 +854,8 @@ end
 
 function ns.watchClick(button)
   button:HookScript("PreClick", function() clicking = true end)
-  button:HookScript("PostClick", function(self, mouse, down)
+  button:HookScript("PostClick", function()
     clicking = false
-    if down then return end -- release only (secureClicks); kept as a guard
-    local macro = self:GetAttribute("macrotext")
-    debug(("Click %s: type=%s macro=%s keydown=%s -> %s"):format(tostring(mouse),
-      tostring(self:GetAttribute("type")), macro and macro:gsub("\n", " | ") or "nil",
-      tostring(getCVar("ActionButtonUseKeyDown")), sentDuringClick or "|cffff5555nothing sent|r"))
     if sentDuringClick then record("cast", true, sentDuringClick) end
     sentDuringClick = nil
   end)
