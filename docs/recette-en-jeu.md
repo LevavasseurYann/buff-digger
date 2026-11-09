@@ -74,9 +74,9 @@ Pour chaque test : le sort part-il ? sur qui ? ta cible a-t-elle changé ?
 | # | Ligne à taper, puis clic sur le carré | Question |
 |---|---|---|
 | 31 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","nameplateN")` | Le sort part-il sur ce joueur, sans changer ma cible ? |
-| 32 | `/run B:SetAttribute("type","target") B:SetAttribute("unit","nameplateN")` | Le joueur devient-il ma cible ? |
-| 33 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","Nom")` | Un nom marche-t-il à la place du jeton ? |
-| 34 | `/run B:SetAttribute("spell",1243)` après le 31 (1243 = Robustesse rang 1, ou l'ID de ton buff) | L'ID du sort marche-t-il à la place du nom ? |
+| 32 | `/run B:SetAttribute("spell",1243)` juste après le 31, même jeton (1243 = Robustesse rang 1, ou l'ID de ton buff) | L'ID du sort marche-t-il à la place du nom ? |
+| 33 | `/run B:SetAttribute("type","target") B:SetAttribute("unit","nameplateN")` | Le joueur devient-il ma cible ? |
+| 34 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","Nom")` | Un nom marche-t-il à la place du jeton ? |
 | 35 | Taper dans le chat : `/cast [@Nom] Sort` | Une macro peut-elle viser un joueur hors groupe par son nom, sans le cibler ? |
 
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10
