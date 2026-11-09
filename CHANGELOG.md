@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.2-alpha
+## 0.4.2-beta
 
 - **Clearer buff icons.** Every icon is fully visible now, in your priority order; buffs you already have are greyed out, like spells you can't use (Get buffs, and nameplates on *Every buff*).
 
