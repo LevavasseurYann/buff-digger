@@ -2,8 +2,7 @@
   <Binding name="BUFFDIGGER_BEST" header="BUFFDIGGER" category="ADDONS">BuffDigger.askBest()</Binding>
   <Binding name="BUFFDIGGER_TARGET" category="ADDONS">BuffDigger.request("target")</Binding>
   <Binding name="BUFFDIGGER_NEARBY" category="ADDONS">BuffDigger.toggleWindow()</Binding>
-  <!-- Off while casting from Buff Digger doesn't work in Forever (ns.CASTING, BuffDigger.lua):
+  <!-- Named in BuffDigger.lua only while ns.CASTING is on (XML can't read it). -->
   <Binding name="BUFFDIGGER_GIVE" category="ADDONS">BuffDigger.toggleGive()</Binding>
   <Binding name="CLICK BuffDiggerGiveNext:LeftButton" category="ADDONS"/>
-  -->
 </Bindings>

@@ -168,8 +168,8 @@ b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5";
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
 -- A peer sees a refresh request (kind accepted).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
--- Off in the game (ns.CASTING: nothing casts from an addon in Forever): no ACK, so the asker whispers.
-b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); assert(#sent==b, "casting off: no ACK")
+-- Kill switch off (ns.CASTING): no ACK, so the asker whispers.
+ns.CASTING=false; b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); assert(#sent==b, "casting off: no ACK")
 ns.CASTING=true -- on for the rest, to keep that code tested
 b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zia-Realm"); print("refresh REQ -> ACK:", sent[#sent]); assert(sent[#sent]:find("ACK"))
 

@@ -4,10 +4,10 @@
 -- "Debug messages" is ticked in the settings; /bd always prints the full report.
 
 local ADDON_NAME, ns = ...
--- Casting a buff from Buff Digger (Give buffs, its next-player key, the Requests pop-up) does nothing
--- in Forever: no addon button sends a spell, nor a macro the addon rewrites (seen 2026-11-08, every
--- click setting and ActionButtonUseKeyDown 0/1 tried). Off and greyed "coming soon" until it works.
-ns.CASTING = false
+-- Casting a buff from Buff Digger (Give buffs, its next-player key, the Requests window). Works in
+-- game since 2026-11-09 (secure clicks on release + /target Name). Kill switch: false greys it
+-- "coming soon" and requests to Buff Digger users fall back to a whisper.
+ns.CASTING = true
 local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
