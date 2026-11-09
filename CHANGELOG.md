@@ -7,6 +7,8 @@
 - **No more surprise whispers to Buff Digger users.** Asking another Buff Digger user sends only the silent request. If no buff comes after 30 s, Get buffs says *no answer* on their line: click one of their buffs to whisper them. In instances, and to players without the addon, the whisper goes out right away as before.
 - **See who's asking.** When another Buff Digger user asks you for a buff, a big pulsing icon of that buff shows above their nameplate, so you spot them in the crowd. Only you see it, and it goes away once they have the buff, after 90 seconds, or when you click their request. New option *Marker above players who request a buff* (on by default).
 - **Target from Get buffs.** Click a player's name to target them (to find them in the crowd, see their buffs, invite them); it no longer asks for a buff, the icons do. New option *Get buffs: target the player I ask*: clicking a buff icon also targets them.
+- **See which blessing a paladin gave you.** A paladin can keep only one blessing on you: ask for another and it replaces the first. The blessing a paladin put on you now has a gold frame, in Get buffs and on nameplates, and hovering their other blessings says which one it would replace.
+- **Hide who has nothing for you.** New option *Get buffs: only those with something better*: players with nothing you want leave the Get buffs list: no buff from your priority list that you lack, no higher rank, nothing running out. A mage disappears for a warrior, a paladin whose blessings you all have too, so a busy city only shows who can actually help. Off by default.
 
 ## 0.4.2-beta
 

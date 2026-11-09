@@ -2,6 +2,7 @@
 -- Run from the repo root: uv run --no-project -q --with lupa python -I tests/run_smoke.py
 local sent, events = {}, {}
 local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k)
+  if type(k)=="string" and k:match("^%l") then return nil end -- a field, not a method: nil, as on a real frame
   if k=="IsShown" then return function(s) return s._shown end end
   if k=="SetShown" then return function(s,v) s._shown=v end end
   if k=="Show" then return function(s) s._shown=true end end
@@ -57,6 +58,18 @@ ns.askBest()
 myAuras[1]={auraInstanceID=7,name="Bénédiction des rois",spellId=20217,sourceUnit="nameplate1"}
 fire("UNIT_AURA","player")
 print("after kings:", ns.bestBuff("Arthas","PALADIN",25))
+-- His blessing is framed in gold; his others warn they would replace it; nobody else's.
+assert(ns.hisBlessing("Arthas")=="kings" and ns.hisBlessing("Jaina")==nil)
+local fb=CreateFrame(); fb.icon=CreateFrame(); ns.styleBuff(fb,"kings","might","kings"); assert(fb.his._shown, "his blessing: gold frame")
+ns.styleBuff(fb,"might","might","kings"); assert(not fb.his._shown, "another blessing: no frame")
+ns.styleBuff(fb,"kings","might","kings"); ns.styleBuff(fb); assert(not fb.his._shown, "hint mode (no buff): frame gone")
+local tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
+ns.buffTooltip(fb,"nameplate1","might"); print("tooltip:", table.concat(tip," / "))
+assert(table.concat(tip,"\n"):find("Replaces the .- that Arthas gave you"), "warns it replaces his blessing")
+units.nameplate9={"Turalyon","PALADIN",25}; tip={}; ns.buffTooltip(fb,"nameplate9","might")
+assert(not table.concat(tip,"\n"):find("Replaces"), "another paladin replaces nothing")
+tip={}; ns.buffTooltip(fb,"nameplate1","kings"); assert(table.concat(tip,"\n"):find("Arthas gave you this one"))
+GameTooltip.AddLine=nil
 -- 3. Anti-nag: asking him again right away is refused.
 ns.request("nameplate1")
 SlashCmdList.BUFFDIGGER("spells"); SlashCmdList.BUFFDIGGER("")
@@ -295,6 +308,14 @@ b=#sent; for _,f in ipairs(row._hooks.PostClick) do f(row,"LeftButton",false) en
 assert(pick:GetAttribute("*type1")==nil and pick:GetAttribute("macrotext")==nil, "icon: no target by default")
 BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/target "..who, "icon targets with the option")
 BuffDiggerDB.targetOnAsk=false; ns.refreshWindow(); assert(pick:GetAttribute("*type1")==nil)
+-- "Only those with something better": the players whose buffs I all have leave the list.
+local realBest, n0 = ns.bestBuff, #w.entries
+ns.bestBuff=function(name, ...) if name==who then return nil end return realBest(name, ...) end -- I have all of who's buffs
+ns.refreshWindow(); assert(#w.entries==n0 and w.entries[#w.entries].order==2, "shown last by default")
+BuffDiggerDB.nearbyUseful=true; ns.refreshWindow()
+for _,e in ipairs(w.entries) do assert(UnitName(e.unit)~=who, "nothing better: hidden") end
+print("nothing better:", who, "hidden, entries", n0, "->", #w.entries); assert(#w.entries==n0-1)
+BuffDiggerDB.nearbyUseful=false; ns.bestBuff=realBest; ns.refreshWindow()
 -- 15 paladins around: 10 rows, the wheel shows the rest.
 for i=10,24 do units["nameplate"..i]={"Pal"..i,"PALADIN",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate"..i) end; runTimers(); ns.refreshWindow()
 print("entries:", #w.entries, "offset:", w.offset); assert(#w.entries>10)
