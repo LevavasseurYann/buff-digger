@@ -279,8 +279,9 @@ local function readMyBuffs()
       local expires, duration = auraExpires(aura)
       local old = not info and had[buffKeyOf(aura.name) or false]
       local same = old and old.expires and expires and math.abs(old.expires - expires) < 2
-      -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks).
-      local renewed = info and info.expires and expires and expires > info.expires + 60
+      -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
+      -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
+      local renewed = info and info.expires and expires and expires > info.expires + 5
       if not info or renewed then
         local oldRank = info and info.rank
         info = info or { key = buffKeyOf(aura.name) }
