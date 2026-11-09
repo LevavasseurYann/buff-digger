@@ -46,6 +46,8 @@ ns.DEFAULTS = {
   delay = 120,       -- seconds before asking the same player again (#6)
   refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
   acceptRequests = true, -- show silent requests from other Buff Digger users (#10)
+  requests = false,  -- "Requests" window (#13)
+  requestSound = true, -- a sound when a request arrives (#13)
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
 }
 
@@ -206,8 +208,8 @@ local lastThank = {}
 
 local function thank(name, request)
   -- A thank-you in the same channel as the request, if there was one.
+  if request then request.thanked = true end -- answered: Get buffs stops offering a re-ask (#13)
   if request and BuffDiggerDB.thankMessage then
-    request.thanked = true
     local text = ns.thanks(BuffDiggerDB.language)
     if request.channel == "SAY" then
       sendLater(name, function() send(name .. " : " .. text, "SAY") end)
@@ -429,18 +431,20 @@ function ns.request(unit, chosenKey)
     key, kind = ns.bestBuff(name, class, level)
   end
   if not key then notice(L["%s has nothing better for you right now."]:format(name)) return end
-  local ago = ns.askedAgo(name)
+  -- A silent request that brought nothing: this click re-asks them by whisper (#13).
+  local reask = ns.unanswered(name)
+  local ago = not reask and ns.askedAgo(name)
   if ago then
     notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
   local text = ns.message(kind, key, BuffDiggerDB.language)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
-  local useSay = BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
+  local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
-  local channel = ns.deliver(name, target, key, text, useSay, kind)
-  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target }
+  local channel, silent = ns.deliver(name, target, key, text, useSay, kind, reask)
+  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -704,6 +708,7 @@ function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
 function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
 COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
+function COMMANDS.requests() if ns.toggleRequests then ns.toggleRequests() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
 function COMMANDS.selftest()

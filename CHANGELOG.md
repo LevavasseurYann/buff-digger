@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Requests stay where you put them** (still off in this version, like Give buffs). Requests from other Buff Digger users no longer pop up mid-screen: they go to the Requests window (Ctrl+right click on the minimap button, or `/bd requests`), which moves, resizes and locks like Get buffs. A count on the minimap button says how many wait, and a sound of its own rings when one arrives (*Sound when a request arrives* turns it off).
+- **No more surprise whispers to Buff Digger users.** Asking another Buff Digger user sends only the silent request. If no buff comes after 30 s, Get buffs says *no answer* on their line: click one of their buffs to whisper them. In instances, and to players without the addon, the whisper goes out right away as before.
 - **Target from Get buffs.** Click a player's name to target them (to find them in the crowd, see their buffs, invite them); it no longer asks for a buff, the icons do. New option *Get buffs: target the player I ask*: clicking a buff icon also targets them.
 
 ## 0.4.2-beta

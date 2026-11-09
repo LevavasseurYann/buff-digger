@@ -53,11 +53,15 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 | 13 | Clic sur une ligne Give buffs | Le sort part sur ce joueur | Cast a buff from a Buff Digger click or key |
 | 14 | Raccourcis > *Give my buff to the next player around*, puis presser la touche plusieurs fois en ville | Un joueur différent à chaque pression ; personne → « Nobody around lacks your buffs » | Cast a buff… |
 | 15 | Même touche, cible bien plus basse que mon rang (ex. Robustesse rang 5 sur un niveau 10) | Le jeu baisse-t-il le rang tout seul, ou refuse-t-il le sort ? **Noter le message exact** | — |
-| 16 | Avec un 2ᵉ joueur qui a Buff Digger : il me demande un buff | Fenêtre Requests chez moi, un clic lance le sort | — |
+| 16 | Avec un 2ᵉ joueur qui a Buff Digger : il me demande un buff | Un son (pas celui d'un MP), un chiffre sur le bouton de minimap, **aucune fenêtre ne surgit** ; Ctrl+clic droit sur le bouton : fenêtre Requests, un clic lance le sort | — |
 
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
-| 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
+| 17 | A clique sur l'icône de B | Pas de MP ; demande ajoutée chez B (son, chiffre sur la minimap) ; étoile sur l'icône de B chez A |
+| 18 | B ne répond pas (pas de buff) | **Aucun MP tout seul**. Au bout de 30 s, Get buffs chez A affiche « no answer: click a buff to whisper » sur la ligne de B ; un clic sur un buff de B envoie le MP, une seule fois |
+| 19 | Chez B : déplacer, agrandir, verrouiller (cadenas) la fenêtre Requests, `/reload` | Même place, même taille ; le cadenas verrouille aussi Get buffs et Give buffs |
+| 20 | Chez B : entrer en combat avec la fenêtre Requests ouverte | Elle disparaît, aucune erreur « action bloquée » ; elle revient après le combat. Une demande reçue en combat fait monter le chiffre de la minimap |
+| 21 | Chez B : décocher *Sound when a request arrives* | Une demande arrive sans son |
+| 22 | A et B en instance (donjon) : A clique sur l'icône de B | MP direct, comme avant (Blizzard bloque les messages d'addon en instance) |

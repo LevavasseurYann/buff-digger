@@ -3,12 +3,13 @@
 -- Requester side (ns.deliver, called by ns.request):
 --   * Every request also sends an invisible addon message "REQ:<buff key>" to that player.
 --   * Player not yet known to have Buff Digger: the usual whisper / /say goes out too.
---   * Known Buff Digger user: ONLY the invisible request. If they don't answer within ACK_WAIT
---     seconds, a plain whisper goes out instead (a whisper needs no click, so it may be delayed;
---     a /say could not, which is why /say is never the fallback).
+--   * Known Buff Digger user: ONLY the invisible request, never a whisper on its own (#13). If no
+--     buff comes within NO_ANSWER seconds, Get buffs says so, and the player's next click on one
+--     of their buffs re-asks by whisper (ns.unanswered, ns.request).
 -- Buffer side:
---   * On "REQ", if I accept requests and know that spell, I answer "ACK" and a small "Requests"
---     window pops up: "Yann wants Blessing of Might". Clicking the line casts it (secure button).
+--   * On "REQ", if I accept requests and know that spell, I answer "ACK", a sound plays, and the
+--     request joins the Requests window (UI.lua, opened by the player, never by itself) and the
+--     count on the minimap button: "Yann wants Blessing of Might". Clicking the line casts it.
 --   * Requests expire after REQUEST_TTL seconds, or as soon as the player has the buff.
 -- Blizzard blocks addon messages between players inside instances: there, plain chat only.
 -- Anyone who answers or asks is remembered as a Buff Digger user (star on their icon).
@@ -17,10 +18,8 @@ local _, ns = ...
 local BUFFS, L = ns.BUFFS, ns.L
 
 local PREFIX = "BuffDigger" -- 16 characters max
-local ACK_WAIT = 1.5
+local NO_ANSWER = 30 -- seconds without the buff before Get buffs offers to whisper them
 local REQUEST_TTL = 90
-local MAX_ROWS = 5
-local ROW_HEIGHT = 20
 
 local sendAddon = C_ChatInfo and C_ChatInfo.SendAddonMessage
 local sendChat = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
@@ -39,7 +38,7 @@ local function fullName(name, realm)
 end
 local function canTalk() return sendAddon ~= nil and not IsInInstance() end
 
--- One sender may not make me ring, pop the window and answer more than once per SENDER_GAP seconds.
+-- One sender may not make me ring, list a request and answer more than once per SENDER_GAP seconds.
 local SENDER_GAP = 10
 local lastFrom = {}
 
@@ -47,80 +46,40 @@ function ns.isPeer(name) return name and BuffDiggerDB.peers[name] ~= nil end
 
 -- ---------------------------------------------------------------- requester side
 
-local waiting = {} -- name -> the request still waiting for an ACK
-
--- Sends the request; returns the channel the thank-you should use later ("SAY" or "WHISPER").
-function ns.deliver(name, target, key, text, useSay, kind)
+-- Sends the request; returns the channel the thank-you should use later ("SAY" or "WHISPER"), and
+-- true when it went out silently (addon message only). `reask`: a whisper whatever the peer (#13).
+function ns.deliver(name, target, key, text, useSay, kind, reask)
   local function visible()
     if useSay then sendChat(name .. " : " .. text, "SAY") else sendChat(text, "WHISPER", nil, target) end
   end
   -- Casting off (ns.CASTING): a peer can't cast from a pop-up, so ask out loud, at once, as chosen.
-  if not ns.CASTING or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
+  if reask or not ns.CASTING or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
 
   sendAddon(PREFIX, "REQ:" .. key .. ":" .. (kind or "new"), "WHISPER", target)
   if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
+  return "WHISPER", true
+end
 
-  local request = { text = text, target = target }
-  waiting[name] = request
-  C_Timer.After(ACK_WAIT, function()
-    if waiting[name] ~= request then return end -- answered
-    waiting[name] = nil
-    sendChat(text, "WHISPER", nil, target)
-  end)
-  return "WHISPER"
+-- A silent request with no buff after NO_ANSWER seconds (thanks close it once the buff lands).
+function ns.unanswered(name)
+  local e = BuffDiggerDB.asked[name]
+  local ago = type(e) == "table" and e.silent and not e.thanked and time() - e.at
+  return ago and ago >= NO_ANSWER and ago < 600 or false
 end
 
 -- ---------------------------------------------------------------- buffer side
 
 local incoming = {} -- { name, full, key, at }
-local window, rows
 
-local function buildWindow()
-  window = CreateFrame("Frame", "BuffDiggerRequests", UIParent, "BasicFrameTemplateWithInset")
-  window:SetSize(290, 60)
-  window:SetPoint("TOP", 0, -140)
-  window:SetMovable(true)
-  window:EnableMouse(true)
-  window:RegisterForDrag("LeftButton")
-  window:SetScript("OnDragStart", window.StartMoving)
-  window:SetScript("OnDragStop", window.StopMovingOrSizing)
-  window:Hide()
-  window.CloseButton:HookScript("OnClick", function() wipe(incoming) end)
-  local header = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  header:SetPoint("TOP", 0, -5)
-  header:SetText(L["Buff Digger — Requests"])
-
-  rows = {}
-  for i = 1, MAX_ROWS do
-    local row = CreateFrame("Button", nil, window, "SecureActionButtonTemplate")
-    row:SetSize(262, ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
-    row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-    ns.secureClicks(row)
-    ns.watchClick(row)
-    row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(16, 16)
-    row.icon:SetPoint("LEFT", 2, 0)
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-    row.text:SetPoint("RIGHT", -2, 0)
-    row.text:SetJustifyH("LEFT")
-    row:HookScript("PostClick", function(self, _, down)
-      if down then return end -- registered for down and up: act once
-      ns.flushThanks()
-      -- A normal request clears itself once the player has the buff (a failed cast — range,
-      -- line of sight — leaves it there to retry). A higher-rank or refresh request can't be
-      -- checked that way (they already have the buff), so the click closes it.
-      local req = self.request
-      if req and req.kind ~= "new" and self:GetAttribute("type") then
-        for i2, r in ipairs(incoming) do
-          if r == req then tremove(incoming, i2) break end
-        end
-      end
-      C_Timer.After(0.5, ns.refreshIncoming)
-    end)
-    row:Hide()
-    rows[i] = row
+-- A click on a Requests line (makeWindow's own hook casts, thanks and refreshes): a higher-rank or
+-- refresh request can't close itself (they already have the buff), so the click closes it. A normal
+-- one clears once they have the buff (a failed cast — range, line of sight — leaves it to retry).
+function ns.onRequestClick(self, _, down)
+  local req = not down and self.entry and self.entry.request
+  if req and req.kind ~= "new" and self:GetAttribute("type") then
+    for i, r in ipairs(incoming) do
+      if r == req then tremove(incoming, i) break end
+    end
   end
 end
 
@@ -137,7 +96,6 @@ local function unitOf(full)
 end
 
 function ns.refreshIncoming()
-  if not window or InCombatLockdown() then return end -- secure rows cannot change in combat
   -- Drop expired requests and the ones already fulfilled.
   for i = #incoming, 1, -1 do
     local req = incoming[i]
@@ -150,27 +108,21 @@ function ns.refreshIncoming()
       tremove(incoming, i)
     end
   end
-  for i, row in ipairs(rows) do
-    local req = incoming[i]
-    if req then
-      local spell = C_Spell.GetSpellName(BUFFS[req.key].id)
-      local unit = unitOf(req.full)
-      row.request = req
-      row.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[req.key].id))
-      row.icon:SetDesaturated(unit == nil)
-      if unit then
-        ns.aimCast(row, unit, spell)
-        row.text:SetText(L["%s wants %s"]:format(req.name, spell))
-      else
-        row:SetAttribute("type", nil) -- can't target someone out of sight
-        row.text:SetText(L["%s wants %s (out of sight)"]:format(req.name, spell))
-      end
-    end
-    row:SetShown(req ~= nil)
+  if ns.showRequestCount then ns.showRequestCount(#incoming) end -- not secure: in combat too
+  local w = ns.requestsWindow
+  -- Secure rows: never in combat, never under the cursor (a re-fill between press and release
+  -- would cast on someone else), and only when the player opened it.
+  if not w or InCombatLockdown() or not w:IsShown() or w:IsMouseOver() then return end
+  local entries, far = {}, {}
+  for _, req in ipairs(incoming) do
+    local spell = C_Spell.GetSpellName(BUFFS[req.key].id)
+    local unit = unitOf(req.full)
+    local e = { unit = unit, spell = unit and spell, request = req, icon = C_Spell.GetSpellTexture(BUFFS[req.key].id),
+      text = (unit and L["%s wants %s"] or L["%s wants %s (out of sight)"]):format(req.name, spell) }
+    tinsert(unit and entries or far, e) -- like Give buffs: castable first, greyed after
   end
-  local count = math.min(#incoming, MAX_ROWS)
-  window:SetHeight(40 + math.max(count, 1) * ROW_HEIGHT)
-  window:SetShown(count > 0)
+  for _, e in ipairs(far) do entries[#entries + 1] = e end
+  ns.fillRequests(entries)
 end
 
 local function onRequest(full, key, kind)
@@ -186,37 +138,29 @@ local function onRequest(full, key, kind)
     if req.name == name then tremove(incoming, i) break end
   end
   incoming[#incoming + 1] = { name = name, full = full, key = key, kind = kind, at = time() }
-  if SOUNDKIT and SOUNDKIT.TELL_MESSAGE then PlaySound(SOUNDKIT.TELL_MESSAGE) end
+  -- Its own sound, not a whisper's (a party invite's chime); off in the settings.
+  local sound = SOUNDKIT and (SOUNDKIT.IG_PLAYER_INVITE or SOUNDKIT.TELL_MESSAGE)
+  if BuffDiggerDB.requestSound and sound then PlaySound(sound) end
   ns.refreshIncoming()
 end
 
 local function onAck(full)
-  local name = shortName(full)
-  BuffDiggerDB.peers[name] = time()
-  if waiting[name] then
-    waiting[name] = nil
-    ns.debug(L["%s has Buff Digger: request sent without a whisper."]:format(name)) -- the star says it
-  end
+  BuffDiggerDB.peers[shortName(full)] = time() -- next time, the request goes out silently
 end
 
 -- ---------------------------------------------------------------- events
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("CHAT_MSG_ADDON")
-frame:RegisterEvent("PLAYER_REGEN_DISABLED")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(_, event, prefix, message, _, sender)
   if event == "PLAYER_LOGIN" then
     for name, at in pairs(BuffDiggerDB.peers) do -- forget users not seen for 30 days
       if time() - at > 30 * 86400 then BuffDiggerDB.peers[name] = nil end
     end
-    buildWindow()
-    C_Timer.NewTicker(5, ns.refreshIncoming) -- expiry, and players coming into sight
-  elseif event == "PLAYER_REGEN_DISABLED" then
-    if window then window:Hide() end -- still allowed during this very event
-  elseif event == "PLAYER_REGEN_ENABLED" then
-    ns.refreshIncoming()
+    -- Every second, like Get buffs: expiry, players coming into sight, and a re-fill once the cursor
+    -- leaves the window (a clicked request then disappears quickly).
+    C_Timer.NewTicker(1, ns.refreshIncoming)
   elseif event == "CHAT_MSG_ADDON" and prefix == PREFIX and ns.readable(message) and ns.readable(sender) then
     local myName, realm = UnitFullName("player")
     if sender == fullName(myName, realm) and message == "ACK" then return end -- my own self-test answer
@@ -234,6 +178,8 @@ function ns.selfTest()
   for key, buff in pairs(BUFFS) do
     if buff.class == myClass and IsPlayerSpell(buff.id) then
       sendAddon(PREFIX, "REQ:" .. key .. ":new", "WHISPER", UnitName("player"))
+      BuffDiggerDB.requests = true -- the one time it opens by itself: the player asked to see it
+      ns.applyWindows()
       return
     end
   end

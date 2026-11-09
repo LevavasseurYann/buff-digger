@@ -310,4 +310,48 @@ w.lock._OnClick(w.lock); assert(not BuffDiggerDB.lockWindows and w.grip._shown, 
 InCombatLockdown=function() return true end; local gw=_G.BuffDiggerGive; gw.lock._OnClick(gw.lock)
 assert(not w.grip._shown and not gw.grip._shown, "both locked at once"); gw.lock._OnClick(gw.lock); InCombatLockdown=function() return false end
 local g=_G.BuffDiggerGive; if g.fill then g.fill() end; assert(not g.down._shown, "Give buffs never scrolls: no arrow")
+print("=== #13 Requests window (buffer side)")
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
+local rq=_G.BuffDiggerRequests; local played, count=0, nil
+PlaySound=function() played=played+1 end; SOUNDKIT.IG_PLAYER_INVITE=2
+local realCount=ns.showRequestCount; ns.showRequestCount=function(n) count=n; realCount(n) end
+BuffDiggerDB.requests=false; ns.applyWindows(); local c0=count -- Zia's refresh request above still waits
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Arthas-Realm")
+print("window:", rq._shown, "count:", count, "sounds:", played)
+assert(not rq._shown and count==c0+1 and played==1, "a request rings and counts, never pops the window")
+BuffDiggerDB.requestSound=false
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jaina-Realm"); assert(count==c0+2 and played==1, "sound off")
+ns.toggleRequests(); assert(rq._shown and BuffDiggerDB.requests)
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Ghost-Realm") -- out of sight
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:upgrade","WHISPER","Pal10-Realm")
+local byName, lastSeen = {}, nil
+for i,r in ipairs(rq.rows) do if r._shown then byName[r.entry.request.name]=r; lastSeen=r; print("row", i, r.entry.request.name, r:GetAttribute("type")) end end
+assert(rq.rows[1].entry.request.name=="Arthas" and rq.rows[1]:GetAttribute("type")=="macro", "in sight first, in arrival order")
+assert(byName.Ghost:GetAttribute("type")==nil and not lastSeen.entry.spell, "out of sight: after, not castable")
+click(byName.Pal10, false); ns.refreshIncoming(); assert(count==c0+3, "clicking a higher-rank request closes it")
+for _,r in ipairs(rq.rows) do assert(not (r._shown and r.entry.request.name=="Pal10")) end
+InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(not rq._shown, "hidden in combat")
+InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); assert(rq._shown, "back after combat")
+rq.CloseButton._hooks.OnClick[1](); assert(BuffDiggerDB.requests==false)
+BuffDiggerDB.requestSound=true; ns.showRequestCount=realCount
+
+print("=== #13 silent request, re-ask offered (requester side)")
+units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end
+myAuras={}; fire("UNIT_AURA","player"); runTimers(); BuffDiggerDB.asked={}; BuffDiggerDB.peers={Pal11=time(), Pal13=time()}
+b=#sent; ns.request("nameplate11"); runTimers()
+for i=b+1,#sent do print("PEER", sent[i]) end
+assert(#sent==b+1 and sent[b+1]:find("^ADDON>Pal11"), "a peer gets only the silent request, no whisper after a while")
+assert(BuffDiggerDB.asked.Pal11.silent and not ns.unanswered("Pal11"))
+b=#sent; ns.request("nameplate11"); assert(#sent==b, "too early to ask again")
+BuffDiggerDB.asked.Pal11.at=time()-31; ns.refreshWindow()
+local marked; for _,e in ipairs(w.entries) do if e.unit=="nameplate11" then marked=e.text:find("no answer") end end
+print("Get buffs offers a re-ask:", marked ~= nil); assert(marked, "Get buffs proposes the whisper")
+b=#sent; ns.request("nameplate11"); print("re-ask:", sent[#sent])
+assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal11"), "the click re-asks by whisper only")
+assert(not ns.unanswered("Pal11"), "offered once")
+BuffDiggerDB.asked.Pal12={at=time()-31, key="might", silent=true, thanked=true}; assert(not ns.unanswered("Pal12"), "buff came: nothing to offer")
+IsInInstance=function() return true end; b=#sent; ns.request("nameplate13")
+assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal13"), "in an instance: whisper at once"); IsInInstance=function() return false end
+ns.CASTING=false; BuffDiggerDB.asked={}; b=#sent; ns.request("nameplate11")
+assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal11"), "casting off: whisper at once, as shipped"); ns.CASTING=true
 print("SMOKE OK")

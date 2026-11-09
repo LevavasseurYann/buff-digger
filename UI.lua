@@ -1,10 +1,11 @@
 -- Buff Digger: minimap button, settings window, two list windows, and the "pick a buff" menu.
 -- Minimap button: left click = settings, right click = Get buffs, Shift+right click = Give buffs,
--- drag = move around the minimap.
+-- Ctrl+right click = Requests (with the count of waiting requests on it), drag = move around the minimap.
 --   * Get buffs (idea 4, "Nearby" before 0.4.0): who around can give me what; click asks, right click picks the buff (#4).
 --   * Give buffs (idea 5, buffer classes): who around lacks a buff I can cast, chosen from THEIR
 --     class preferences; one click casts it on them (secure button, out of combat only).
--- Both hide in combat and come back after it.
+--   * Requests (#10, #13): what other Buff Digger users asked me for; filled by Comm.lua.
+-- All three hide in combat and come back after it.
 
 local _, ns = ...
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
@@ -85,7 +86,8 @@ local SECTIONS = {
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
-    { key = "acceptRequests", label = "Pop up requests from Buff Digger users", soon = true },
+    { key = "acceptRequests", label = "Accept requests from Buff Digger users", soon = true },
+    { key = "requestSound", label = "Sound when a request arrives", soon = true },
   }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },
@@ -418,11 +420,16 @@ local function buildMinimapButton()
   border:SetSize(53, 53)
   border:SetPoint("TOPLEFT")
   border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  -- Requests waiting (#13): their count, even with the Requests window closed or in combat.
+  local count = button:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+  count:SetPoint("BOTTOMRIGHT", -2, 2)
+  function ns.showRequestCount(n) count:SetText(n > 0 and n or "") end
 
   button:SetScript("OnClick", function(_, mouse)
     ns.flushThanks() -- a real click: waiting thanks can go out
     if mouse ~= "RightButton" then ns.toggleSettings()
     elseif IsShiftKeyDown() then ns.toggleGive()
+    elseif IsControlKeyDown() then ns.toggleRequests()
     else ns.toggleWindow() end
   end)
   -- Hover: what each click does (the only place the shortcuts are listed outside the settings).
@@ -433,6 +440,7 @@ local function buildMinimapButton()
     GameTooltip:AddDoubleLine(L["Right click"], L["Get buffs: who can buff me"], 1, 1, 1, 1, 1, 1)
     if ns.CASTING then
       GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
+      GameTooltip:AddDoubleLine(L["Ctrl + right click"], L["Requests: what others ask me"], 1, 1, 1, 1, 1, 1)
     else
       GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs (coming soon)"], 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     end
@@ -457,7 +465,7 @@ end
 
 -- ---------------------------------------------------------------- list windows
 
-local listWindows = {} -- Get buffs and Give buffs: they share the padlock
+local listWindows = {} -- Get buffs, Give buffs and Requests: they share the padlock
 
 -- Padlock look and resize grip, from the setting (neither is secure: fine in combat too).
 local function applyLock()
@@ -634,6 +642,7 @@ local function fill(w, entries, emptyMessage)
     local e = i <= shown and entries[w.offset + i] or nil
     if e then
       row.unit = e.unit
+      row.entry = e
       row.icon:SetTexture(e.icon)
       row.text:SetText(e.text)
       row.rank:SetText(e.rank or "")
@@ -668,7 +677,7 @@ local function fill(w, entries, emptyMessage)
   w.down:SetShown(not w.rows[1].secure and #entries - w.offset > shown)
 end
 
-local nearby, give, giveNext
+local nearby, give, giveNext, requests
 
 -- ---------------------------------------------------------------- Get buffs (idea 4)
 
@@ -691,10 +700,12 @@ local function nearbyEntries()
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
         or kind == "refresh" and L[" (running out)"] or ""
+      -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
+      if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       entries[#entries + 1] = {
         unit = unit, buffs = buffs, order = key and (top and 0 or 1) or 2,
         text = ("%s%s %d%s"):format(classColored(name, class),
-          ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, key and extra or ""),
+          ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra),
       }
     end
   end
@@ -842,7 +853,9 @@ function ns.applyWindows()
   if InCombatLockdown() or not nearby then return end
   nearby:SetShown(BuffDiggerDB.nearby)
   give:SetShown(ns.CASTING and BuffDiggerDB.give)
+  requests:SetShown(ns.CASTING and BuffDiggerDB.requests)
   ns.refreshWindow()
+  if ns.refreshIncoming then ns.refreshIncoming() end
 end
 
 function ns.toggleWindow()
@@ -856,12 +869,19 @@ function ns.toggleGive()
   ns.applyWindows()
 end
 
+function ns.toggleRequests()
+  if not ns.CASTING then ns.notice(L["Requests: coming soon."]) return end
+  BuffDiggerDB.requests = not BuffDiggerDB.requests
+  ns.applyWindows()
+end
+
 -- Hide on entering combat (still allowed during PLAYER_REGEN_DISABLED), back on leaving it.
 function ns.onCombat(inCombat)
   if not nearby then return end
   if inCombat then
     nearby:Hide()
     give:Hide()
+    requests:Hide()
     -- Still allowed during PLAYER_REGEN_DISABLED: in combat the key can't be re-aimed (nameplate
     -- tokens move to other players), so it does nothing until combat ends.
     giveNext:SetAttribute("type", nil)
@@ -875,6 +895,11 @@ function ns.buildUI()
   buildMinimapButton()
   nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Get buffs"], "nearby", false, { "LEFT", 40, 60 })
   give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 })
+  -- Requests: opened by the player and placed where they like; requests never pop it up (#13).
+  requests = makeWindow("BuffDiggerRequests", L["Buff Digger — Requests"], "requests", true, { "RIGHT", -40, 60 })
+  ns.requestsWindow = requests
+  function ns.fillRequests(entries) fill(requests, entries, L["No requests right now."]) end
+  for _, row in ipairs(requests.rows) do row:HookScript("PostClick", ns.onRequestClick) end
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")
