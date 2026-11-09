@@ -285,8 +285,16 @@ print("=== Get buffs: one icon per buff, scrolling")
 local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
 local row=w.rows[1]; print("row 1:", row.text._t or "", "icons shown:", (row.buffs[1]._shown and 1 or 0)+(row.buffs[2]._shown and 1 or 0)+(row.buffs[3]._shown and 1 or 0))
 local first=w.entries[1]; assert(#first.buffs>=1)
-b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]; pick._OnClick(pick,"LeftButton")
-local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key)
+b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]
+for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",true); f(pick,"LeftButton",false) end -- down then up: one request
+local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
+-- #14: the name targets them (any modifier), asks nothing; icons target only with targetOnAsk.
+print("name click:", row:GetAttribute("*type1"), row:GetAttribute("macrotext"))
+assert(row:GetAttribute("*type1")=="macro" and row:GetAttribute("macrotext")=="/targetexact "..who)
+b=#sent; for _,f in ipairs(row._hooks.PostClick) do f(row,"LeftButton",false) end; assert(#sent==b, "name click asks nothing")
+assert(pick:GetAttribute("*type1")==nil and pick:GetAttribute("macrotext")==nil, "icon: no target by default")
+BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/targetexact "..who, "icon targets with the option")
+BuffDiggerDB.targetOnAsk=false; ns.refreshWindow(); assert(pick:GetAttribute("*type1")==nil)
 -- 15 paladins around: 10 rows, the wheel shows the rest.
 for i=10,24 do units["nameplate"..i]={"Pal"..i,"PALADIN",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate"..i) end; runTimers(); ns.refreshWindow()
 print("entries:", #w.entries, "offset:", w.offset); assert(#w.entries>10)

@@ -46,6 +46,7 @@ ns.DEFAULTS = {
   delay = 120,       -- seconds before asking the same player again (#6)
   refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
   acceptRequests = true, -- show silent requests from other Buff Digger users (#10)
+  targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -746,18 +747,30 @@ local clicking, sentDuringClick = false, nil
 -- classic buff-addon way: target them by exact name, cast, give the previous target back.
 -- [help,nodead]: if they left and the targeting failed, never buff whoever is targeted instead.
 -- ponytail: with no target before, the buffed player stays targeted (/targetlasttarget has nothing).
+-- "Name" or "Name-Realm", what /targetexact wants; nil when the game hides it.
+local function fullName(unit)
+  local name, realm = UnitName(unit)
+  if not (readable(name) and readable(realm) and name) then return nil end
+  return (realm and realm ~= "") and (name .. "-" .. realm) or name
+end
+
 function ns.castMacro(unit, spell)
   local macro
   if unit == "player" and spell then
     macro = "/cast [@player] " .. spell -- /bd selftest
   elseif unit and spell then
-    local name, realm = UnitName(unit)
-    if readable(name) and readable(realm) and name then
-      local who = (realm and realm ~= "") and (name .. "-" .. realm) or name
-      macro = ("/targetexact %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell)
-    end
+    local who = fullName(unit)
+    if who then macro = ("/targetexact %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell) end
   end
   return macro
+end
+
+-- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
+-- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
+function ns.aimTarget(button, unit)
+  local who = unit and fullName(unit)
+  button:SetAttribute("*type1", who and "macro" or nil)
+  button:SetAttribute("macrotext", who and "/targetexact " .. who or nil)
 end
 
 function ns.aimCast(button, unit, spell)

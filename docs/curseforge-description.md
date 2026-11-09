@@ -39,7 +39,7 @@ Buff Digger looks at the friendly players around you, their class and their leve
 
 **The Get buffs window**
 
-- Everyone around who can buff you, and with what. One click asks.
+- Everyone around who can buff you, and with what. Click a buff to ask for it, a name to target them.
 
 **Stays out of your way**
 

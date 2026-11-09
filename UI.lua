@@ -84,6 +84,7 @@ local SECTIONS = {
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
+    { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Pop up requests from Buff Digger users", soon = true },
   }, delay = true, language = true },
   { title = "Thanks", options = {
@@ -351,7 +352,7 @@ refreshPrefs = function()
 end
 
 local HOW_TO = {
-  "Click a buff icon to ask for that buff, a name in Get buffs for the best one. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
+  "Click a buff icon to ask for that buff, a name in Get buffs to target them. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
   "Right-click: every buff that player can give.",
   "Minimap button: right click = Get buffs.",
   "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
@@ -534,7 +535,8 @@ local function makeWindow(globalName, title, setting, secure, point)
 
   w.rows = {}
   for i = 1, MAX_ROWS do
-    local row = CreateFrame("Button", nil, w, secure and "SecureActionButtonTemplate" or nil)
+    -- Secure in both windows: Give buffs rows cast, Get buffs rows target (#14).
+    local row = CreateFrame("Button", nil, w, "SecureActionButtonTemplate")
     row:SetHeight(ROW_HEIGHT)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetPoint("RIGHT", -24, 0) -- room for the scroll arrows
@@ -558,16 +560,18 @@ local function makeWindow(globalName, title, setting, secure, point)
         ns.castOn()
       end)
     else
-      row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-      row:SetScript("OnClick", function(self, mouse)
-        if mouse == "RightButton" then ns.openMenu(self, self.unit) else ns.request(self.unit) end
+      -- Click the name = target them (secure macro, set in fill); right click = menu.
+      ns.secureClicks(row)
+      row:HookScript("PostClick", function(self, mouse, down)
+        if not down and mouse == "RightButton" then ns.openMenu(self, self.unit) end
       end)
       -- One icon slot per buff they can give, my priorities left to right; the name comes after,
-      -- so names line up whatever the number of icons. Click an icon = that buff, the name = the best.
+      -- so names line up whatever the number of icons. Click an icon = ask for that buff (and
+      -- target them too with "targetOnAsk": secure as well).
       row.icon:Hide()
       row.buffs = {}
       for j = 1, MAX_BUFFS do
-        local b = CreateFrame("Button", nil, row)
+        local b = CreateFrame("Button", nil, row, "SecureActionButtonTemplate")
         b:SetSize(18, 18)
         b:SetPoint("LEFT", 2 + (j - 1) * 22, 0)
         b.icon = b:CreateTexture(nil, "ARTWORK")
@@ -575,9 +579,11 @@ local function makeWindow(globalName, title, setting, secure, point)
         b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
         b.rank:SetPoint("BOTTOMRIGHT", 3, -2)
         b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-        b:SetScript("OnClick", function(self, mouse)
-          if mouse == "RightButton" then ns.openMenu(self, row.unit) else ns.request(row.unit, self.key) end
+        ns.secureClicks(b)
+        b:HookScript("PostClick", function(self, mouse, down)
+          if down then return end -- registered for down and up: act once
+          if mouse == "RightButton" then ns.openMenu(self, row.unit)
+          elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
         b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key) end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -641,9 +647,11 @@ local function fill(w, entries, emptyMessage)
           ns.styleBuff(b, buff.key, buff.best)
           b.rank:SetText(buff.rank)
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
+          ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit)
         end
         b:SetShown(buff ~= nil)
       end
+      if not row.secure then ns.aimTarget(row, e.unit) end
       if row.secure then
         -- Every attribute is set each time: a row reused for another player never keeps the old target.
         ns.aimCast(row, e.unit, e.spell)
@@ -805,7 +813,9 @@ end
 
 function ns.refreshWindow()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
-  if nearby and nearby:IsShown() then
+  -- Not under the cursor either: with targetOnAsk, the press targets and the release asks; a
+  -- re-fill in between would ask someone else than the one targeted.
+  if nearby and nearby:IsShown() and not nearby:IsMouseOver() then
     fill(nearby, nearbyEntries(), L["Nobody around can buff you.\n(Friendly nameplates on?)"])
   end
   -- The next-player key works without the window, once it is bound.
