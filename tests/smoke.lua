@@ -181,9 +181,6 @@ b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5";
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
 -- A peer sees a refresh request (kind accepted).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
--- Kill switch off (ns.CASTING): no ACK, so the asker whispers.
-ns.CASTING=false; b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zoe-Realm"); assert(#sent==b, "casting off: no ACK")
-ns.CASTING=true -- on for the rest, to keep that code tested
 b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Zia-Realm"); print("refresh REQ -> ACK:", sent[#sent]); assert(sent[#sent]:find("ACK"))
 
 -- Unknown rank (value hidden): no refresh asked, it could lower the rank.
@@ -373,11 +370,9 @@ assert(not ns.unanswered("Pal11"), "offered once")
 BuffDiggerDB.asked.Pal12={at=time()-31, key="might", silent=true, thanked=true}; assert(not ns.unanswered("Pal12"), "buff came: nothing to offer")
 IsInInstance=function() return true end; b=#sent; ns.request("nameplate13")
 assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal13"), "in an instance: whisper at once"); IsInInstance=function() return false end
-ns.CASTING=false; BuffDiggerDB.asked={}; b=#sent; ns.request("nameplate11")
-assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal11"), "casting off: whisper at once, as shipped"); ns.CASTING=true
 
 print("=== #15 marker above a Buff Digger user asking me")
-units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; ns.CASTING=true
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 local plates, markerOf = {}, {}
 C_NamePlate.GetNamePlateForUnit=function(u) plates[u]=plates[u] or {}; return plates[u] end
 CreateFrame=function(t,n,parent,...) local f=mk(t,n,parent,...); for u,p in pairs(plates) do if parent==p and t=="Frame" then markerOf[u]=f end end; return f end

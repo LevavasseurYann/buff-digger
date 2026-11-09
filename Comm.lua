@@ -52,8 +52,7 @@ function ns.deliver(name, target, key, text, useSay, kind, reask)
   local function visible()
     if useSay then sendChat(name .. " : " .. text, "SAY") else sendChat(text, "WHISPER", nil, target) end
   end
-  -- Casting off (ns.CASTING): a peer can't cast from the Requests window, so ask out loud, at once, as chosen.
-  if reask or not ns.CASTING or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
+  if reask or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
 
   sendAddon(PREFIX, "REQ:" .. key .. ":" .. (kind or "new"), "WHISPER", target)
   if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
@@ -130,7 +129,7 @@ end
 local function onRequest(full, key, kind)
   local name = shortName(full)
   local buff = BUFFS[key]
-  if not ns.CASTING or not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
+  if not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
   if lastFrom[full] and time() - lastFrom[full] < SENDER_GAP then return end
   lastFrom[full] = time()
   BuffDiggerDB.peers[name] = time()

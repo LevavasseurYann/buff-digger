@@ -57,6 +57,28 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 | 15 | Même touche, cible bien plus basse que mon rang (ex. Robustesse rang 5 sur un niveau 10) | Le jeu baisse-t-il le rang tout seul, ou refuse-t-il le sort ? **Noter le message exact** | — |
 | 16 | Avec un 2ᵉ joueur qui a Buff Digger : il me demande un buff | Un son (pas celui d'un MP), un chiffre sur le bouton de minimap, **aucune fenêtre ne surgit** ; Ctrl+clic droit sur le bouton : fenêtre Requests, un clic lance le sort | — |
 
+## Viser sans macro — avant de retirer `/target` + `/targetlasttarget` (bilan § 3)
+
+Rien de tout ça n'a été vu marcher dans Forever (l'essai du 2026-11-08 date d'avant la correction
+`AnyUp` : il ne compte pas). Hors combat, **une autre cible déjà choisie** avant chaque clic. Créer
+le bouton de test (carré au centre de l'écran), puis lister les jetons des joueurs visibles :
+
+```
+/run B=CreateFrame("Button","BDT",UIParent,"SecureActionButtonTemplate") B:SetSize(48,48) B:SetPoint("CENTER") B:SetNormalTexture(134400) B:SetAttribute("useOnKeyDown",false) B:RegisterForClicks("AnyUp")
+/run for i=1,40 do local n=UnitName("nameplate"..i) if n then print(i,n) end end
+```
+
+`N` = un numéro affiché, `Sort` = le nom exact de ton buff (langue du jeu), `Nom` = un joueur hors groupe.
+Pour chaque test : le sort part-il ? sur qui ? ta cible a-t-elle changé ?
+
+| # | Ligne à taper, puis clic sur le carré | Question |
+|---|---|---|
+| 31 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","nameplateN")` | Le sort part-il sur ce joueur, sans changer ma cible ? |
+| 32 | `/run B:SetAttribute("type","target") B:SetAttribute("unit","nameplateN")` | Le joueur devient-il ma cible ? |
+| 33 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","Nom")` | Un nom marche-t-il à la place du jeton ? |
+| 34 | `/run B:SetAttribute("spell",1243)` après le 31 (1243 = Robustesse rang 1, ou l'ID de ton buff) | L'ID du sort marche-t-il à la place du nom ? |
+| 35 | Taper dans le chat : `/cast [@Nom] Sort` | Une macro peut-elle viser un joueur hors groupe par son nom, sans le cibler ? |
+
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10
 
 | # | Test | Ce qu'on doit voir |

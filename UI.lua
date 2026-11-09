@@ -91,14 +91,14 @@ local SECTIONS = {
     { key = "tooltip", label = "Line in players' tooltip" },
     { key = "nearby",  label = "Get buffs window: who can buff me" },
     { key = "nearbyUseful", label = "Get buffs: only those with something better" },
-    { key = "give",    label = "Give buffs window: who lacks my buffs", soon = true },
+    { key = "give",    label = "Give buffs window: who lacks my buffs" },
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
-    { key = "acceptRequests", label = "Accept requests from Buff Digger users", soon = true },
-    { key = "requestSound", label = "Sound when a request arrives", soon = true },
-    { key = "requestMarkers", label = "Marker above players who request a buff", soon = true },
+    { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
+    { key = "requestSound", label = "Sound when a request arrives" },
+    { key = "requestMarkers", label = "Marker above players who request a buff" },
   }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },
@@ -169,13 +169,7 @@ local function checkbox(x, y, option)
   label:SetWidth(COL_W - ROW_H - 8)
   label:SetJustifyH("LEFT")
   label:SetText(L[option.label])
-  local soon = option.soon and not ns.CASTING
-  if soon then -- a feature that casts: greyed until it works in Forever
-    box:Disable()
-    label:SetText(L[option.label] .. L[" (coming soon)"])
-    label:SetTextColor(0.5, 0.5, 0.5)
-  end
-  box:SetScript("OnShow", function(self) self:SetChecked(not soon and BuffDiggerDB[option.key]) end)
+  box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[option.key]) end)
   box:SetScript("OnClick", function(self)
     BuffDiggerDB[option.key] = self:GetChecked() and true or false
     ns.applyWindows()
@@ -449,12 +443,8 @@ local function buildMinimapButton()
     GameTooltip:AddLine("Buff Digger")
     GameTooltip:AddDoubleLine(L["Left click"], L["Settings"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(L["Right click"], L["Get buffs: who can buff me"], 1, 1, 1, 1, 1, 1)
-    if ns.CASTING then
-      GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
-      GameTooltip:AddDoubleLine(L["Ctrl + right click"], L["Requests: what others ask me"], 1, 1, 1, 1, 1, 1)
-    else
-      GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs (coming soon)"], 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
-    end
+    GameTooltip:AddDoubleLine(L["Shift + right click"], L["Give buffs: who lacks mine"], 1, 1, 1, 1, 1, 1)
+    GameTooltip:AddDoubleLine(L["Ctrl + right click"], L["Requests: what others ask me"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(L["Drag"], L["Move this button"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Key Bindings > AddOns > Buff Digger: one key asks the best buff around you."], 0.6, 0.6, 0.6, true)
@@ -848,7 +838,7 @@ function ns.refreshWindow()
   end
   -- The next-player key works without the window, once it is bound.
   local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")
-  if not ns.CASTING or not ((give and give:IsShown()) or nextBound) then return end
+  if not ((give and give:IsShown()) or nextBound) then return end
   local myBuffs = myCastableBuffs()
   local entries = #myBuffs > 0 and giveEntries(myBuffs) or {}
   -- Never re-fill under the cursor: rows would shift while the player aims (the cast
@@ -869,8 +859,8 @@ end
 function ns.applyWindows()
   if InCombatLockdown() or not nearby then return end
   nearby:SetShown(BuffDiggerDB.nearby)
-  give:SetShown(ns.CASTING and BuffDiggerDB.give)
-  requests:SetShown(ns.CASTING and BuffDiggerDB.requests)
+  give:SetShown(BuffDiggerDB.give)
+  requests:SetShown(BuffDiggerDB.requests)
   ns.refreshWindow()
   if ns.refreshIncoming then ns.refreshIncoming() end
 end
@@ -881,13 +871,11 @@ function ns.toggleWindow()
 end
 
 function ns.toggleGive()
-  if not ns.CASTING then ns.notice(L["Give buffs: coming soon."]) return end
   BuffDiggerDB.give = not BuffDiggerDB.give
   ns.applyWindows()
 end
 
 function ns.toggleRequests()
-  if not ns.CASTING then ns.notice(L["Requests: coming soon."]) return end
   BuffDiggerDB.requests = not BuffDiggerDB.requests
   ns.applyWindows()
 end

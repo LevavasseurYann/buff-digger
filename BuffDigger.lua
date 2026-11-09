@@ -4,10 +4,6 @@
 -- "Debug messages" is ticked in the settings; /bd always prints the full report.
 
 local ADDON_NAME, ns = ...
--- Casting a buff from Buff Digger (Give buffs, its next-player key, the Requests window). Works in
--- game since 2026-11-09 (secure clicks on release + /target Name). Kill switch: false greys it
--- "coming soon" and requests to Buff Digger users fall back to a whisper.
-ns.CASTING = true
 local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
@@ -767,7 +763,7 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
 }
-if ns.CASTING then _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"] end
+_G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
 function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
 COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
@@ -775,10 +771,7 @@ function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.requests() if ns.toggleRequests then ns.toggleRequests() end end
 function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
-function COMMANDS.selftest()
-  if not ns.CASTING then notice(L["Give buffs: coming soon."]) return end
-  if ns.selfTest then ns.selfTest() end
-end -- see the Requests window alone
+function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
 
 SLASH_BUFFDIGGER1 = "/bd"
@@ -927,7 +920,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- a2 = target name, a4 = spell ID
     local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)
     if clicking and spell then sentDuringClick = spell .. " -> " .. show(a2) end
-    if spell and readable(a2) and ns.CASTING then ns.onSpellSent(a2) end
+    if spell and readable(a2) then ns.onSpellSent(a2) end
     debug("Spell sent: " .. show(spell) .. " on " .. show(a2) .. (clicking and " (during a click)" or ""))
   elseif event == "UI_ERROR_MESSAGE" then
     debug("Game error: " .. show(a2))
