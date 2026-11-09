@@ -80,6 +80,19 @@ Pour chaque test : le sort part-il ? sur qui ? ta cible a-t-elle changé ?
 | 34 | `/run B:SetAttribute("type","spell") B:SetAttribute("spell","Sort") B:SetAttribute("unit","Nom")` | Un nom marche-t-il à la place du jeton ? |
 | 35 | Taper dans le chat : `/cast [@Nom] Sort` | Une macro peut-elle viser un joueur hors groupe par son nom, sans le cibler ? |
 
+## Noms à deux mots (Forever : prénom + nom, avec une espace)
+
+Le test sans le jeu vérifie que l'addon garde le nom entier partout ; ce qui suit dépend de Blizzard.
+Avec un joueur dont le nom a une espace (« Jean Dupont ») :
+
+| # | Test | Ce qu'on doit voir | Ligne `/bd` |
+|---|---|---|---|
+| 37 | Taper `/target Jean Dupont` dans le chat, puis clic sur sa ligne Give buffs | Il devient ma cible (pas un « Jean » voisin) ; le sort part sur lui | Cast a buff… |
+| 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
+| 39 | Se faire buffer par lui après une demande | `/merci` vise bien lui, et le remerciement en MP lui arrive | Automatic /thank |
+| 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, mon clic le buffe | — |
+| 41 | Voit-on des noms avec un tiret (« Jean-Pierre Dupont ») ? | Noter oui / non : l'addon coupe aujourd'hui le royaume au **premier** tiret | — |
+
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10
 
 | # | Test | Ce qu'on doit voir |

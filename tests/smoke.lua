@@ -428,4 +428,27 @@ fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Oli-Realm"); a
 BuffDiggerDB.requestMarkers=true; CreateFrame=mk
 -- A spell with no target (Lightning Bolt with nothing selected): no error (seen in game 2026-11-09).
 fire("UNIT_SPELLCAST_SENT","player",nil,"guid",403)
+print("=== Forever names: first name + last name, with a space")
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.asked={}
+units.nameplate50={"Jean Dupont","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate50"); runTimers()
+-- Give buffs: the macro targets the whole name.
+BuffDiggerDB.give=true; ns.applyWindows(); local gv=_G.BuffDiggerGive
+gv._OnMouseWheel(gv,-100); local jean; for _,r in ipairs(gv.rows) do if r._shown and r.unit=="nameplate50" then jean=r end end
+assert(jean, "Jean Dupont listed in Give buffs"); print("macro:", (jean:GetAttribute("macrotext"):gsub("\n"," | ")))
+assert(jean:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "whole name targeted")
+-- A cast sent at "Jean Dupont-Realm" skips the whole name for a while.
+fire("UNIT_SPELLCAST_SENT","player","Jean Dupont-Realm","guid",1243); ns.refreshWindow()
+for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end
+BuffDiggerDB.give=false; ns.applyWindows()
+-- A request from "Jean Dupont-Realm": in sight, aimed at the whole name.
+BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean Dupont-Realm"); ns.refreshIncoming()
+local rq; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Jean Dupont" then rq=r end end
+assert(rq and rq.unit=="nameplate50" and rq:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "request from a two-word name")
+print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean Dupont-Realm: ACK")
+BuffDiggerDB.requests=false; ns.applyWindows()
+-- Asking them: the whisper goes to the whole name.
+units.player={"Yann","WARRIOR",21}; units.nameplate51={"Marie Curie","PALADIN",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate51")
+BuffDiggerDB.asked={}; BuffDiggerDB.peers={}; b=#sent; ns.request("nameplate51"); print("ask:", sent[b+1], sent[b+2])
+assert(sent[b+1]:find("^ADDON>Marie Curie:") and sent[b+2]:find("^WHISPER Marie Curie:"), "silent request and whisper to the whole name")
 print("SMOKE OK")
