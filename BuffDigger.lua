@@ -331,10 +331,8 @@ end
 function ns.bestBuff(name, class, level)
   local _, myClass = UnitClass("player")
   local prefs = ns.prefsFor(myClass)
-  local hisBlessing
-  for key, have in pairs(mine) do
-    if have.giver == name and BUFFS[key].class == "PALADIN" and not expiring(have) then hisBlessing = key end
-  end
+  local hisBlessing = ns.hisBlessing(name)
+  if hisBlessing and expiring(mine[hisBlessing]) then hisBlessing = nil end
 
   local missingSeen = 0
   for i, key in ipairs(prefs) do
@@ -388,11 +386,8 @@ local function kindFor(name, key, level)
     if expiring(have) then return "refresh" end
     return (have.rank and rankAt(BUFFS[key], level) > have.rank) and "upgrade" or "new"
   end
-  for k, h in pairs(mine) do
-    if h.giver == name and BUFFS[k].class == "PALADIN" and BUFFS[key].class == "PALADIN" and k ~= key then
-      return "replace"
-    end
-  end
+  local his = ns.hisBlessing(name)
+  if his and his ~= key and BUFFS[key].class == "PALADIN" then return "replace" end
   return "new"
 end
 
@@ -413,6 +408,13 @@ function ns.offers(class, level)
 end
 
 function ns.haveBuff(key) return mine[key] ~= nil end
+
+-- The blessing this paladin put on me, if any: he has one per target, a new one replaces it.
+function ns.hisBlessing(name)
+  for key, have in pairs(mine) do
+    if have.giver == name and BUFFS[key].class == "PALADIN" then return key end
+  end
+end
 
 -- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4).
 function ns.request(unit, chosenKey)
@@ -558,6 +560,7 @@ end
 local function updateIcon(unit)
   local name, class, level = ns.identity(unit)
   local key = name and ns.bestBuff(name, class, level)
+  local his = name and ns.hisBlessing(name)
   local mode = BuffDiggerDB.plates
   if mode == "off" or not name then return end
   -- "all": every buff they can give, I pick (my priorities left to right).
@@ -576,7 +579,7 @@ local function updateIcon(unit)
     else
       button:SetSize(18, 18)
       button.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[k].id))
-      ns.styleBuff(button, k, key)
+      ns.styleBuff(button, k, key, his)
     end
     button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
     button:Show()
@@ -585,9 +588,18 @@ end
 
 -- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
 -- can't use (not when it's Buff Digger's pick: a refresh or a higher rank). Order says the rest.
-function ns.styleBuff(button, k, best)
+-- `his`: the blessing this paladin already put on me, framed in gold: asking him for another one
+-- would replace it (the tooltip says so on his other blessings).
+function ns.styleBuff(button, k, best, his)
   button.icon:SetAlpha(1)
   button.icon:SetDesaturated(k ~= nil and k ~= best and ns.haveBuff(k))
+  if not button.his then
+    button.his = button:CreateTexture(nil, "BACKGROUND")
+    button.his:SetPoint("TOPLEFT", -2, 2)
+    button.his:SetPoint("BOTTOMRIGHT", 2, -2)
+    button.his:SetColorTexture(1, 0.82, 0) -- gold, like a quest reward border
+  end
+  button.his:SetShown(k ~= nil and k == his)
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **See which blessing a paladin gave you.** A paladin can keep only one blessing on you: ask for another and it replaces the first. The blessing a paladin put on you now has a gold frame, in Get buffs and on nameplates, and hovering their other blessings says which one it would replace.
+
 ## 0.4.2-beta
 
 - **Clearer buff icons.** Every icon is fully visible now, in your priority order; buffs you already have are greyed out, like spells you can't use (Get buffs, and nameplates on *Every buff*).
