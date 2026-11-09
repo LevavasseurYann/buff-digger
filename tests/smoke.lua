@@ -237,11 +237,13 @@ local function click(b, sendSpell)
   if sendSpell then fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243) end
   for _,f in ipairs(b._hooks.PostClick) do f(b,"LeftButton",false) end
 end
-BuffDiggerDB.confirmed.cast=nil; BuffDiggerDB.debug=true
+BuffDiggerDB.confirmed.cast=nil
 click(nb, false); fire("UNIT_SPELLCAST_SENT","player","Arthas","guid",1243)
 print("manual cast after a dead click -> cast confirmed?", BuffDiggerDB.confirmed.cast); assert(not BuffDiggerDB.confirmed.cast)
 click(nb, true); print("cast during the click -> confirmed:", BuffDiggerDB.confirmed.cast); assert(BuffDiggerDB.confirmed.cast)
-BuffDiggerDB.debug=false
+-- The next-player key ignores a press (a CLICK binding may send one): no cast until the release.
+local rc, rn, hit = ns.castOn, ns.notice, false; ns.castOn=function() hit=true end; ns.notice=function() hit=true end
+for _,f in ipairs(nb._hooks.PostClick) do f(nb,"LeftButton",true) end; ns.castOn, ns.notice = rc, rn; assert(not hit, "key press: nothing")
 
 -- In the window: a far player is listed last, greyed, and his row casts nothing.
 local gw=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()

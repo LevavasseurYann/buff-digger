@@ -73,8 +73,8 @@ local incoming = {} -- { name, full, key, at }
 -- A click on a Requests line (makeWindow's own hook casts, thanks and refreshes): a higher-rank or
 -- refresh request can't close itself (they already have the buff), so the click closes it. A normal
 -- one clears once they have the buff (a failed cast — range, line of sight — leaves it to retry).
-function ns.onRequestClick(self, _, down)
-  local req = not down and self.entry and self.entry.request
+function ns.onRequestClick(self)
+  local req = self.entry and self.entry.request
   if req and req.kind ~= "new" and self:GetAttribute("type") then
     for i, r in ipairs(incoming) do
       if r == req then tremove(incoming, i) break end
