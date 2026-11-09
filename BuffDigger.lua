@@ -820,7 +820,8 @@ local function targetName(unit)
 end
 ns.targetName = targetName
 
--- `who`: the name to aim at, when the caller froze it (a window row: see fill in UI.lua);
+-- `who`: the name to aim at, read when the window entry was built (nearbyEntries, giveEntries,
+-- refreshIncoming);
 -- false = frozen as unreadable, aim at nobody.
 function ns.castMacro(unit, spell, who)
   local macro

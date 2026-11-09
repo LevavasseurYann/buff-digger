@@ -569,9 +569,16 @@ local function makeWindow(globalName, title, setting, secure, point)
       end)
     else
       -- Click the name = target them (secure macro, set in fill); right click = menu.
+      -- The token may have gone to someone else since the list was built (cursor on it): then
+      -- the menu or the request would reach whoever holds it now, not the player shown.
+      local function gone()
+        if ns.targetName(row.unit) == row.entry.who then return false end
+        ns.notice(L["%s is no longer around."]:format(row.entry.who or "?"))
+        return true
+      end
       ns.secureClicks(row)
       row:HookScript("PostClick", function(self, mouse)
-        if mouse == "RightButton" then ns.openMenu(self, self.unit) end
+        if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
       end)
       -- One icon slot per buff they can give, my priorities left to right; the name comes after,
       -- so names line up whatever the number of icons. Click an icon = ask for that buff (and
@@ -589,12 +596,9 @@ local function makeWindow(globalName, title, setting, secure, point)
         b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
         ns.secureClicks(b)
         b:HookScript("PostClick", function(self, mouse)
+          if gone() then return end
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
-          elseif mouse == "LeftButton" then
-            -- The token may have gone to someone else since the list was built (cursor on it).
-            if ns.targetName(row.unit) ~= row.entry.who then ns.notice(L["%s is no longer in sight."]:format(row.entry.who or "?")) return end
-            ns.request(row.unit, self.key)
-          end
+          elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
         b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key) end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
