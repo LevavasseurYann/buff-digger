@@ -52,11 +52,11 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 | # | Test | Ce qu'on doit voir | Ligne `/bd` |
 |---|---|---|---|
 | 12 | Maj+clic droit sur le bouton de minimap : fenêtre Give buffs | Les joueurs proches sans mon buff ; **vide partout** = le jeu cache les buffs des autres (le signaler) | Read another player's buffs |
-| 13 | Clic sur une ligne Give buffs | Le sort part sur ce joueur | Cast a buff from a Buff Digger click or key |
+| 13 | Give buffs, comme Get buffs : une icône par buff qui lui manque (dans l'ordre de **sa** classe, 3 au plus ; paladin : rien si ma bénédiction est déjà sur lui), pas de nom de sort sur la ligne. Survol d'une icône, clic sur une icône, clic sur le nom | Info-bulle : nom du sort, mon rang, « Click: cast it on X. » ; clic sur l'icône : ce sort part sur ce joueur ; clic sur le nom : il devient ma cible, rien n'est lancé ; joueur trop loin : ligne et icônes grises, clic = « Too far » | Cast a buff from a Buff Digger click or key |
 | 14 | Raccourcis > *Give my buff to the next player around*, puis presser la touche plusieurs fois en ville (WoW relancé : `Bindings.xml` a changé) | Le sort part au **relâchement** de la touche ; un joueur différent à chaque pression ; personne → « Nobody around lacks your buffs » | Cast a buff… |
 | 15 | Même touche, cible bien plus basse que mon rang (ex. Robustesse rang 5 sur un niveau 10) | Le jeu baisse-t-il le rang tout seul, ou refuse-t-il le sort ? **Noter le message exact** | — |
-| 16 | Avec un 2ᵉ joueur qui a Buff Digger : il me demande un buff | Un son (pas celui d'un MP), un chiffre sur le bouton de minimap, **aucune fenêtre ne surgit** ; Ctrl+clic droit sur le bouton : fenêtre Requests, un clic lance le sort | — |
-| 36 | Give buffs en ville (plus de lignes que la fenêtre) : laisser la souris sur la fenêtre 10 s (des joueurs passent), molette vers le bas, puis clic sur la 1re et la dernière ligne | Flèches haut/bas comme dans Get buffs ; le sort part sur le joueur **affiché** sur la ligne après défilement, pas sur celui d'avant ; pareil dans Requests avec beaucoup de demandes | Cast a buff… |
+| 16 | Avec un 2ᵉ joueur qui a Buff Digger : il me demande un buff | Un son (pas celui d'un MP), un chiffre sur le bouton de minimap, **aucune fenêtre ne surgit** ; Ctrl+clic droit sur le bouton : fenêtre Requests : son nom et l'icône du buff demandé (info-bulle : le sort), un clic sur l'icône lance le sort, un clic sur le nom le cible | — |
+| 36 | Give buffs en ville (plus de lignes que la fenêtre) : laisser la souris sur la fenêtre 10 s (des joueurs passent), molette vers le bas, puis clic sur l'icône de la 1re et de la dernière ligne | Flèches haut/bas comme dans Get buffs ; le sort part sur le joueur **affiché** sur la ligne après défilement, pas sur celui d'avant ; pareil dans Requests avec beaucoup de demandes | Cast a buff… |
 
 ## Viser sans macro — avant de retirer `/target` + `/targetlasttarget` (bilan § 3)
 
@@ -87,10 +87,10 @@ Avec un joueur dont le nom a une espace (« Jean Dupont ») :
 
 | # | Test | Ce qu'on doit voir | Ligne `/bd` |
 |---|---|---|---|
-| 37 | Taper `/target Jean Dupont` dans le chat, puis clic sur sa ligne Give buffs | Il devient ma cible (pas un « Jean » voisin) ; le sort part sur lui | Cast a buff… |
+| 37 | Taper `/target Jean Dupont` dans le chat, puis clic sur son icône dans Give buffs | Il devient ma cible (pas un « Jean » voisin) ; le sort part sur lui | Cast a buff… |
 | 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
 | 39 | Se faire buffer par lui après une demande | `/merci` vise bien lui, et le remerciement en MP lui arrive | Automatic /thank |
-| 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, mon clic le buffe | — |
+| 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, un clic sur l'icône le buffe | — |
 | 41 | Voit-on des noms avec un tiret (« Jean-Pierre Dupont ») ? | Noter oui / non : l'addon coupe aujourd'hui le royaume au **premier** tiret | — |
 
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10

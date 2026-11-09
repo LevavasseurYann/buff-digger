@@ -9,7 +9,7 @@
 -- Buffer side:
 --   * On "REQ", if I accept requests and know that spell, I answer "ACK", a sound plays, and the
 --     request joins the Requests window (UI.lua, opened by the player, never by itself) and the
---     count on the minimap button: "Yann wants Blessing of Might". Clicking the line casts it.
+--     count on the minimap button: their name and the requested buff's icon. Clicking the icon casts it.
 --   * Requests expire after REQUEST_TTL seconds, or as soon as the player has the buff.
 -- Blizzard blocks addon messages between players inside instances: there, plain chat only.
 -- Anyone who answers or asks is remembered as a Buff Digger user (star on their icon).
@@ -70,11 +70,12 @@ end
 
 local incoming = {} -- { name, full, key, at }
 
--- A click on a Requests line (makeWindow's own hook casts, thanks and refreshes): a higher-rank or
+-- A click on a Requests icon (makeWindow's own hook casts, thanks and refreshes): a higher-rank or
 -- refresh request can't close itself (they already have the buff), so the click closes it. A normal
 -- one clears once they have the buff (a failed cast — range, line of sight — leaves it to retry).
-function ns.onRequestClick(self)
-  local req = self.entry and self.entry.request
+function ns.onRequestClick(self) -- self: the buff icon of a Requests line
+  local entry = self:GetParent().entry
+  local req = entry and entry.request
   if req and req.kind ~= "new" and self:GetAttribute("type") then
     for i, r in ipairs(incoming) do
       if r == req then tremove(incoming, i) break end
@@ -115,11 +116,15 @@ function ns.refreshIncoming()
   -- would cast on someone else), and only when the player opened it.
   if not w or InCombatLockdown() or not w:IsShown() or w:IsMouseOver() then return end
   local entries, far = {}, {}
+  local myLevel = UnitLevel("player")
   for _, req in ipairs(incoming) do
-    local spell = C_Spell.GetSpellName(BUFFS[req.key].id)
+    local buff = BUFFS[req.key]
     local unit = unitOf(req.full)
-    local e = { unit = unit, who = unit and ns.targetName(unit) or false, spell = unit and spell, request = req, icon = C_Spell.GetSpellTexture(BUFFS[req.key].id),
-      text = (unit and L["%s wants %s"] or L["%s wants %s (out of sight)"]):format(req.name, spell) }
+    -- The requested buff is the line's icon (its name in the tooltip), like Give buffs.
+    local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req, grey = not unit,
+      buffs = { { key = req.key, icon = C_Spell.GetSpellTexture(buff.id), rank = ns.rankAt(buff, myLevel),
+        spell = unit and C_Spell.GetSpellName(buff.id) or nil } },
+      text = unit and req.name or L["%s (out of sight)"]:format(req.name) }
     tinsert(unit and entries or far, e) -- like Give buffs: castable first, greyed after
   end
   for _, e in ipairs(far) do entries[#entries + 1] = e end

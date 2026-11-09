@@ -1,9 +1,10 @@
--- Buff Digger: minimap button, settings window, two list windows, and the "pick a buff" menu.
+-- Buff Digger: minimap button, settings window, three list windows, and the "pick a buff" menu.
 -- Minimap button: left click = settings, right click = Get buffs, Shift+right click = Give buffs,
 -- Ctrl+right click = Requests (with the count of waiting requests on it), drag = move around the minimap.
 --   * Get buffs (idea 4, "Nearby" before 0.4.0): who around can give me what; click asks, right click picks the buff (#4).
 --   * Give buffs (idea 5, buffer classes): who around lacks a buff I can cast, chosen from THEIR
---     class preferences; one click casts it on them (secure button, out of combat only).
+--     class preferences; one icon per buff, a click on it casts it on them (secure, out of combat).
+-- The three share one line: buff icons, then the name (click = target them); see makeWindow.
 --   * Requests (#10, #13): what other Buff Digger users asked me for; filled by Comm.lua.
 -- All three hide in combat and come back after it.
 
@@ -25,17 +26,23 @@ end
 
 local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFFS[key].en end
 
--- Hovering a buff icon (nameplate or Get buffs): the spell, the rank they can probably give, what a click does.
-function ns.buffTooltip(owner, unit, key)
+-- Hovering a buff icon: the spell, the rank, for whom, what a click does. Nameplates and Get buffs:
+-- the rank they can probably give me. `cast` (Give buffs, Requests): the rank I give them.
+function ns.buffTooltip(owner, unit, key, cast)
   if not (key and unit) or InCombatLockdown() then return end
   local name, _, level = ns.identity(unit)
   if not name then return end
   local buff = BUFFS[key]
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
   GameTooltip:AddLine(spellName(key))
-  local rank = rankAt(buff, level)
+  local rank = rankAt(buff, cast and UnitLevel("player") or level)
   if rank > 0 then
     GameTooltip:AddLine(L["Rank %d"]:format(rank) .. (" (+%s %s)"):format(buff.values[rank], L[buff.stat]), 1, 1, 1)
+  end
+  if cast then
+    GameTooltip:AddLine(L["Click: cast it on %s."]:format(name), 0.4, 0.8, 1, true)
+    GameTooltip:Show()
+    return
   end
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
@@ -482,10 +489,10 @@ local function visibleRows(w)
   return math.max(1, math.min(MAX_ROWS, math.floor((w:GetHeight() - 40) / ROW_HEIGHT)))
 end
 
--- A movable, resizable window holding up to MAX_ROWS lines; `secure` lines cast a spell on click.
+-- A movable, resizable window holding up to MAX_ROWS lines; with `cast`, its icons cast the buff.
 -- Size kept in BuffDiggerDB.sizes; "Lock windows" stops both moving and resizing.
 -- `setting` is the BuffDiggerDB key that remembers whether it is open.
-local function makeWindow(globalName, title, setting, secure, point)
+local function makeWindow(globalName, title, setting, cast, point)
   local w = CreateFrame("Frame", globalName, UIParent, "BasicFrameTemplateWithInset")
   BuffDiggerDB.sizes = BuffDiggerDB.sizes or {}
   w:SetSize(unpack(BuffDiggerDB.sizes[globalName] or DEFAULT_SIZE))
@@ -545,68 +552,57 @@ local function makeWindow(globalName, title, setting, secure, point)
   w.rows = {}
   for i = 1, MAX_ROWS do
     -- Secure in both windows: Give buffs rows cast, Get buffs rows target (#14).
+    -- The same line in every window: one icon slot per buff, in priority order, then the name,
+    -- so names line up whatever the number of icons. Click the name = target them (secure).
+    -- Click an icon: Get buffs asks them for that buff (and targets them too with "targetOnAsk");
+    -- Give buffs and Requests cast it on them. The spell's name is only in the icon's tooltip.
     local row = CreateFrame("Button", nil, w, "SecureActionButtonTemplate")
     row:SetHeight(ROW_HEIGHT)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetPoint("RIGHT", -24, 0) -- room for the scroll arrows
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-    row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(18, 18) -- room for the rank number in its corner
-    row.icon:SetPoint("LEFT", 2, 0)
-    row.rank = row:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    row.rank:SetPoint("BOTTOMRIGHT", row.icon, 3, -2)
     row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
     row.text:SetPoint("RIGHT", -2, 0)
     row.text:SetJustifyH("LEFT")
-    row.secure = secure
-    if secure then
-      ns.secureClicks(row)
-      ns.watchClick(row)
-      row:HookScript("PostClick", function(self)
-        if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
-        ns.castOn()
-      end)
-    else
-      -- Click the name = target them (secure macro, set in fill); right click = menu.
-      -- The token may have gone to someone else since the list was built (cursor on it): then
-      -- the menu or the request would reach whoever holds it now, not the player shown.
-      local function gone()
-        if ns.targetName(row.unit) == row.entry.who then return false end
-        ns.notice(L["%s is no longer around."]:format(row.entry.who or "?"))
-        return true
-      end
-      ns.secureClicks(row)
-      row:HookScript("PostClick", function(self, mouse)
-        if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
-      end)
-      -- One icon slot per buff they can give, my priorities left to right; the name comes after,
-      -- so names line up whatever the number of icons. Click an icon = ask for that buff (and
-      -- target them too with "targetOnAsk": secure as well).
-      row.icon:Hide()
-      row.buffs = {}
-      for j = 1, MAX_BUFFS do
-        local b = CreateFrame("Button", nil, row, "SecureActionButtonTemplate")
-        b:SetSize(18, 18)
-        b:SetPoint("LEFT", 2 + (j - 1) * 22, 0)
-        b.icon = b:CreateTexture(nil, "ARTWORK")
-        b.icon:SetAllPoints()
-        b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-        b.rank:SetPoint("BOTTOMRIGHT", 3, -2)
-        b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-        ns.secureClicks(b)
+    -- The token may have gone to someone else since the list was built (cursor on it): then
+    -- the menu or the request would reach whoever holds it now, not the player shown.
+    local function gone()
+      if ns.targetName(row.unit) == row.entry.who then return false end
+      ns.notice(L["%s is no longer around."]:format(row.entry.who or "?"))
+      return true
+    end
+    ns.secureClicks(row)
+    row:HookScript("PostClick", function(self, mouse)
+      if not cast and mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
+    end)
+    row.buffs = {}
+    for j = 1, MAX_BUFFS do
+      local b = CreateFrame("Button", nil, row, "SecureActionButtonTemplate")
+      b:SetSize(18, 18) -- room for the rank number in its corner
+      b:SetPoint("LEFT", 2 + (j - 1) * 22, 0)
+      b.icon = b:CreateTexture(nil, "ARTWORK")
+      b.icon:SetAllPoints()
+      b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+      b.rank:SetPoint("BOTTOMRIGHT", 3, -2)
+      b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+      ns.secureClicks(b)
+      if cast then
+        ns.watchClick(b)
+        b:HookScript("PostClick", function(self)
+          if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
+          ns.castOn()
+        end)
+      else
         b:HookScript("PostClick", function(self, mouse)
           if gone() then return end
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
           elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
-        b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key) end)
-        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        row.buffs[j] = b
       end
-      row.text:ClearAllPoints()
-      row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
-      row.text:SetPoint("RIGHT", -2, 0)
+      b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key, cast) end)
+      b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      row.buffs[j] = b
     end
     row:Hide()
     w.rows[i] = row
@@ -614,6 +610,7 @@ local function makeWindow(globalName, title, setting, secure, point)
   -- More players than rows (a city): the mouse wheel scrolls; small arrows show there is more
   -- above or below, and a click on one scrolls too. fill() re-aims every row (out of combat).
   w.offset = 0
+  w.cast = cast
   local function scroll(delta)
     if InCombatLockdown() or not w.entries then return end
     w.offset = math.max(0, math.min(w.offset - delta, #w.entries - visibleRows(w)))
@@ -638,8 +635,9 @@ local function makeWindow(globalName, title, setting, secure, point)
 end
 
 -- entries: { { unit, who (their name, read with the text: scrolling re-fills from these cached
---   entries, by then the nameplate token may be someone else's; false = unreadable), text, icon, rank, upgrade, spell (secure windows; nil = shown greyed, not castable),
---   buffs = { { key, best, icon, rank, upgrade }, ... } (Get buffs: one icon per buff) }, ... }
+--   entries, by then the nameplate token may be someone else's; false = unreadable), text, grey,
+--   buffs = { { key, icon, rank, upgrade, best, his (Get buffs), spell (cast windows; nil = greyed,
+--   not castable) }, ... } }, ... }
 local function fill(w, entries, emptyMessage)
   w.entries = entries
   w.fill = function() fill(w, w.entries, emptyMessage) end
@@ -650,30 +648,29 @@ local function fill(w, entries, emptyMessage)
     if e then
       row.unit = e.unit
       row.entry = e
-      row.icon:SetTexture(e.icon)
       row.text:SetText(e.text)
-      row.rank:SetText(e.rank or "")
-      -- Green: higher than the one I have, like an upgrade in a loot tooltip.
-      if e.upgrade then row.rank:SetTextColor(0.1, 1, 0.1) else row.rank:SetTextColor(1, 1, 1) end
-      for j, b in ipairs(row.secure and {} or row.buffs) do
+      local c = e.grey and 0.5 or 1
+      row.text:SetTextColor(c, c, c)
+      -- Every attribute is set each time: a row reused for another player never keeps the old target.
+      ns.aimTarget(row, e.unit, e.who)
+      for j, b in ipairs(row.buffs) do
         local buff = e.buffs[j]
         if buff then
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
-          ns.styleBuff(b, buff.key, buff.best, buff.his)
-          b.rank:SetText(buff.rank)
+          b.rank:SetText(buff.rank or "")
+          -- Green: higher than the one I have, like an upgrade in a loot tooltip.
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
-          ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit, e.who)
+          if w.cast then
+            ns.styleBuff(b) -- no gold frame, full colour...
+            b.icon:SetDesaturated(buff.spell == nil) -- ...grey when it can't be cast (too far)
+            ns.aimCast(b, e.unit, buff.spell, e.who)
+          else
+            ns.styleBuff(b, buff.key, buff.best, buff.his)
+            ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit, e.who)
+          end
         end
         b:SetShown(buff ~= nil)
-      end
-      if not row.secure then ns.aimTarget(row, e.unit, e.who) end
-      if row.secure then
-        -- Every attribute is set each time: a row reused for another player never keeps the old target.
-        ns.aimCast(row, e.unit, e.spell, e.who)
-        row.icon:SetDesaturated(e.spell == nil)
-        local c = e.spell and 1 or 0.5
-        row.text:SetTextColor(c, c, c)
       end
     end
     row:SetShown(e ~= nil)
@@ -761,26 +758,28 @@ local function myCastableBuffs()
   return list
 end
 
--- Which of my buffs should this player get? THEIR class's default preferences decide (not my
--- own edited list: that one says what I want, not what a warrior wants).
+-- Which of my buffs should this player get, best first? THEIR class's default preferences decide
+-- (not my own edited list: that one says what I want, not what a warrior wants).
 -- A paladin keeps one blessing per target: if mine is already on them, offer nothing.
-local function buffToGive(unit, theirClass, myBuffs)
+local function buffsToGive(unit, theirClass, myBuffs)
+  local list = {}
   local _, myClass = UnitClass("player")
   if myClass == "PALADIN" then
     for _, key in ipairs(myBuffs) do
       local _, fromMe = unitHas(unit, BUFFS[key])
-      if fromMe then return end
+      if fromMe then return list end
     end
   end
   for _, key in ipairs(ns.PREFERENCES[theirClass] or {}) do
     for _, mineKey in ipairs(myBuffs) do
-      if key == mineKey then
+      if key == mineKey and #list < MAX_BUFFS then
         local has = unitHas(unit, BUFFS[key])
-        if has == false then return key end
-        if has == nil then return end -- unreadable: stay silent rather than guess
+        if has == nil then return {} end -- unreadable: stay silent rather than guess
+        if has == false then list[#list + 1] = key end
       end
     end
   end
+  return list
 end
 
 -- Players I just buffed with the next-player key: name -> GetTime(). They stay out of the list a
@@ -796,25 +795,24 @@ function ns.castOn(unit)
 end
 
 local function giveEntries(myBuffs)
-  local entries = {}
+  local entries, myLevel = {}, UnitLevel("player")
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
     if name and justCast[name] and GetTime() - justCast[name] < SKIP_AFTER_CAST then name = nil end
-    local key = name and buffToGive(unit, class, myBuffs)
-    if key then
-      local spell = C_Spell.GetSpellName(BUFFS[key].id)
+    local keys = name and buffsToGive(unit, class, myBuffs) or {}
+    if #keys > 0 then
       -- Nameplates show players far beyond a buff's 30 yards: those are listed greyed, not
       -- clickable, after the ones in range. nil (the game can't tell) counts as in range.
-      local r = C_Spell.IsSpellInRange and C_Spell.IsSpellInRange(BUFFS[key].id, unit)
+      local r = C_Spell.IsSpellInRange and C_Spell.IsSpellInRange(BUFFS[keys[1]].id, unit)
       local far = ns.readable(r) and r == false
+      local buffs = {}
+      for j, k in ipairs(keys) do
+        buffs[j] = { key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], myLevel),
+          spell = not far and C_Spell.GetSpellName(BUFFS[k].id) or nil }
+      end
       entries[#entries + 1] = {
-        unit = unit,
-        name = name,
-        who = name,
-        far = far,
-        icon = C_Spell.GetSpellTexture(BUFFS[key].id),
-        text = ("%s %d — %s%s"):format(classColored(name, class), level, spell, far and L[" (too far)"] or ""),
-        spell = not far and spell or nil,
+        unit = unit, who = name, far = far, grey = far, buffs = buffs,
+        text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
       }
     end
   end
@@ -858,9 +856,10 @@ function ns.refreshWindow()
       fill(give, entries, L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
     end
   end
-  local first = entries[1] and entries[1].spell and entries[1] -- in range, or nobody
+  -- Their first buff (in their class's order), if they are in range; far ones come last.
+  local first = entries[1] and entries[1].buffs[1].spell and entries[1]
   giveNext.unit = first and first.unit
-  ns.aimCast(giveNext, first and first.unit, first and first.spell)
+  ns.aimCast(giveNext, first and first.unit, first and first.buffs[1].spell)
 end
 
 -- Show each window according to its setting (out of combat only).
@@ -912,7 +911,7 @@ function ns.buildUI()
   requests = makeWindow("BuffDiggerRequests", L["Buff Digger — Requests"], "requests", true, { "RIGHT", -40, 60 })
   ns.requestsWindow = requests
   function ns.fillRequests(entries) fill(requests, entries, L["No requests right now."]) end
-  for _, row in ipairs(requests.rows) do row:HookScript("PostClick", ns.onRequestClick) end
+  for _, row in ipairs(requests.rows) do row.buffs[1]:HookScript("PostClick", ns.onRequestClick) end
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")

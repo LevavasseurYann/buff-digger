@@ -16,6 +16,8 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetCenter" then return function() return 0,0 end end
   if k=="SetScript" then return function(s,e,f) s["_"..e]=f end end
   if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
+  if k=="SetText" then return function(s,t) rawset(s,"_t",t) end end
+  if k=="GetParent" then return function(s) return rawget(s,"_parent") end end
   if k=="GetAttribute" then return function(s,a) return rawget(s,"_a_"..a) end end
   if k=="SetAttribute" then return function(s,a,v) rawset(s,"_a_"..a,v) end end
   if k=="RegisterForClicks" then return function(s,...) rawset(s,"_clicks",table.concat({...},",")) end end
@@ -23,7 +25,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="CreateFontString" or k=="CreateTexture" or k=="CreateAnimationGroup" or k=="CreateAnimation" then return function() return obj() end end
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
   return function() end end}) end
-CreateFrame=function(_,name) local o=obj(); if name then _G[name]=o end; return o end
+CreateFrame=function(_,name,parent) local o=obj(); rawset(o,"_parent",parent); if name then _G[name]=o end; return o end
 UIParent, Minimap, UISpecialFrames, GameTooltip = obj(), obj(), {}, obj()
 SlashCmdList={}; TIMERS={}; C_Timer={After=function(_,f) TIMERS[#TIMERS+1]=f end, NewTicker=function() end}; function runTimers() local t=TIMERS; TIMERS={}; for _,f in ipairs(t) do f() end end; IsInInstance=function() return false end; PlaySound=function() end; SOUNDKIT={TELL_MESSAGE=1}; wipe=function(t) for k in pairs(t) do t[k]=nil end end; tremove=table.remove; unpack=unpack; tinsert=table.insert; strtrim=function(s) return (s:gsub("^%s+",""):gsub("%s+$","")) end
 time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
@@ -251,13 +253,20 @@ C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate1" end
 NOW=NOW+60 -- the casts on Arthas above skip him for 10 s
 ns.refreshWindow()
 local last; for _,r in ipairs(gw.rows) do if r._shown then last=r end end
-print("last row:", last.unit, last:GetAttribute("type")); assert(last.unit=="nameplate1" and last:GetAttribute("type")==nil)
-assert(gw.rows[1]:GetAttribute("type")=="macro" and gw.rows[1].unit~="nameplate1")
-print("row 1 macro:", gw.rows[1]:GetAttribute("macrotext"))
+print("last row:", last.unit, last.buffs[1]:GetAttribute("type")); assert(last.unit=="nameplate1" and last.buffs[1]:GetAttribute("type")==nil)
+-- Like Get buffs: icons, no spell name on the line, the name targets them, the tooltip says it all.
+local r1=gw.rows[1]; print("give row 1:", rawget(r1.text,"_t"))
+assert(not rawget(r1.text,"_t"):find("Robustesse") and r1.buffs[1]._shown, "icon, no spell name on the line")
+assert(r1:GetAttribute("*type1")=="macro" and r1:GetAttribute("macrotext")=="/target "..UnitName(r1.unit), "name click targets")
+local tip={}; local realAdd=GameTooltip.AddLine; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
+r1.buffs[1]._OnEnter(r1.buffs[1]); GameTooltip.AddLine=realAdd; print("give tooltip:", table.concat(tip," / "))
+assert(tip[1]=="Mot de pouvoir : Robustesse" and tip[#tip]==("Click: cast it on %s."):format(UnitName(r1.unit)), "tooltip: spell, rank, for whom")
+assert(gw.rows[1].buffs[1]:GetAttribute("type")=="macro" and gw.rows[1].unit~="nameplate1")
+print("row 1 macro:", gw.rows[1].buffs[1]:GetAttribute("macrotext"))
 -- Aimed by name (no realm, /target), cast only on a friendly living target, previous target back.
-assert(gw.rows[1]:GetAttribute("macrotext"):find("^/target [^\n]+\n/cast %[help,nodead%] Mot de pouvoir : Robustesse\n/targetlasttarget$"))
+assert(gw.rows[1].buffs[1]:GetAttribute("macrotext"):find("^/target [^\n]+\n/cast %[help,nodead%] Mot de pouvoir : Robustesse\n/targetlasttarget$"))
 -- A click in the window does not hide that player (the list used to empty this way).
-local clicked=gw.rows[1].unit; click(gw.rows[1], false); ns.refreshWindow()
+local clicked=gw.rows[1].unit; click(gw.rows[1].buffs[1], false); ns.refreshWindow()
 local still=false; for _,r in ipairs(gw.rows) do if r._shown and r.unit==clicked then still=true end end
 print("clicked player still listed:", still); assert(still)
 C_Spell.IsSpellInRange=nil
@@ -300,7 +309,7 @@ local first=w.entries[1]; assert(#first.buffs>=1)
 b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]
 for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",false) end -- a release: one request
 -- The fix of 2026-11-09: release only, whatever ActionButtonUseKeyDown says.
-for _,sb in ipairs({row, pick, _G.BuffDiggerGiveNext, _G.BuffDiggerGive.rows[1], _G.BuffDiggerRequests.rows[1]}) do
+for _,sb in ipairs({row, pick, _G.BuffDiggerGiveNext, _G.BuffDiggerGive.rows[1], _G.BuffDiggerGive.rows[1].buffs[1], _G.BuffDiggerRequests.rows[1].buffs[1]}) do
   assert(rawget(sb,"_clicks")=="AnyUp" and sb:GetAttribute("useOnKeyDown")==false, "secure clicks: AnyUp only")
 end
 local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
@@ -348,8 +357,8 @@ local second, eleventh = g.entries[2], g.entries[11]; local shown, shown11 = Uni
 local was, was11 = units[second.unit], units[eleventh.unit]
 units[second.unit]={"Intrus","WARRIOR",40}; units[eleventh.unit]={"Bob","WARRIOR",40}
 g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].entry==second and g.rows[10].entry==eleventh)
-assert(g.rows[1]:GetAttribute("macrotext"):find("^/target "..shown.."\n"), "scrolled row aims at the name it shows")
-assert(g.rows[10]:GetAttribute("macrotext"):find("^/target "..shown11.."\n"), "newly shown row too")
+assert(g.rows[1].buffs[1]:GetAttribute("macrotext"):find("^/target "..shown.."\n"), "scrolled row aims at the name it shows")
+assert(g.rows[10].buffs[1]:GetAttribute("macrotext"):find("^/target "..shown11.."\n"), "newly shown row too")
 units[second.unit], units[eleventh.unit] = was, was11
 g._OnMouseWheel(g,100); BuffDiggerDB.give=false; ns.applyWindows(); C_UnitAuras.GetAuraDataBySpellName=realAura
 print("=== #13 Requests window (buffer side)")
@@ -367,10 +376,10 @@ ns.toggleRequests(); assert(rq._shown and BuffDiggerDB.requests)
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Ghost-Realm") -- out of sight
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:upgrade","WHISPER","Pal10-Realm")
 local byName, lastSeen = {}, nil
-for i,r in ipairs(rq.rows) do if r._shown then byName[r.entry.request.name]=r; lastSeen=r; print("row", i, r.entry.request.name, r:GetAttribute("type")) end end
-assert(rq.rows[1].entry.request.name=="Arthas" and rq.rows[1]:GetAttribute("type")=="macro", "in sight first, in arrival order")
-assert(byName.Ghost:GetAttribute("type")==nil and not lastSeen.entry.spell, "out of sight: after, not castable")
-click(byName.Pal10, false); ns.refreshIncoming(); assert(count==c0+3, "clicking a higher-rank request closes it")
+for i,r in ipairs(rq.rows) do if r._shown then byName[r.entry.request.name]=r; lastSeen=r; print("row", i, r.entry.request.name, r.buffs[1]:GetAttribute("type")) end end
+assert(rq.rows[1].entry.request.name=="Arthas" and rq.rows[1].buffs[1]:GetAttribute("type")=="macro", "in sight first, in arrival order")
+assert(byName.Ghost.buffs[1]:GetAttribute("type")==nil and not lastSeen.entry.buffs[1].spell, "out of sight: after, not castable")
+click(byName.Pal10.buffs[1], false); ns.refreshIncoming(); assert(count==c0+3, "clicking a higher-rank request closes it")
 for _,r in ipairs(rq.rows) do assert(not (r._shown and r.entry.request.name=="Pal10")) end
 InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(not rq._shown, "hidden in combat")
 InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); assert(rq._shown, "back after combat")
@@ -420,7 +429,7 @@ assert(not marked("nameplate41"), "expired: marker gone")
 units.nameplate42={"Ned","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate42"); runTimers()
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:upgrade","WHISPER","Ned-Realm"); assert(marked("nameplate42"))
 ns.toggleRequests(); local ned; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Ned" then ned=r end end
-click(ned, false); ns.refreshIncoming(); assert(not marked("nameplate42"), "clicked: marker gone"); ns.toggleRequests()
+click(ned.buffs[1], false); ns.refreshIncoming(); assert(not marked("nameplate42"), "clicked: marker gone"); ns.toggleRequests()
 -- Setting off: no marker.
 BuffDiggerDB.requestMarkers=false
 units.nameplate43={"Oli","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
@@ -434,8 +443,8 @@ units.nameplate50={"Jean Dupont","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","na
 -- Give buffs: the macro targets the whole name.
 BuffDiggerDB.give=true; ns.applyWindows(); local gv=_G.BuffDiggerGive
 gv._OnMouseWheel(gv,-100); local jean; for _,r in ipairs(gv.rows) do if r._shown and r.unit=="nameplate50" then jean=r end end
-assert(jean, "Jean Dupont listed in Give buffs"); print("macro:", (jean:GetAttribute("macrotext"):gsub("\n"," | ")))
-assert(jean:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "whole name targeted")
+assert(jean, "Jean Dupont listed in Give buffs"); print("macro:", (jean.buffs[1]:GetAttribute("macrotext"):gsub("\n"," | ")))
+assert(jean.buffs[1]:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "whole name targeted")
 -- A cast sent at "Jean Dupont-Realm" skips the whole name for a while.
 fire("UNIT_SPELLCAST_SENT","player","Jean Dupont-Realm","guid",1243); ns.refreshWindow()
 for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end
@@ -444,7 +453,7 @@ BuffDiggerDB.give=false; ns.applyWindows()
 BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean Dupont-Realm"); ns.refreshIncoming()
 local rq; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Jean Dupont" then rq=r end end
-assert(rq and rq.unit=="nameplate50" and rq:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "request from a two-word name")
+assert(rq and rq.unit=="nameplate50" and rq.buffs[1]:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "request from a two-word name")
 print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean Dupont-Realm: ACK")
 BuffDiggerDB.requests=false; ns.applyWindows()
 -- Asking them: the whisper goes to the whole name.
