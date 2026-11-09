@@ -311,6 +311,10 @@ b=#sent; for _,f in ipairs(row._hooks.PostClick) do f(row,"LeftButton",false) en
 assert(pick:GetAttribute("*type1")==nil and pick:GetAttribute("macrotext")==nil, "icon: no target by default")
 BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/target "..who, "icon targets with the option")
 BuffDiggerDB.targetOnAsk=false; ns.refreshWindow(); assert(pick:GetAttribute("*type1")==nil)
+-- The token went to someone else while the list sat under the cursor: the icon asks nobody.
+local wasP=units[first.unit]; units[first.unit]={"Intrus","PALADIN",30}; b=#sent; BuffDiggerDB.asked={}
+for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",false) end; units[first.unit]=wasP
+assert(#sent==b and not BuffDiggerDB.asked.Intrus, "stale token: no request")
 -- "Only those with something better": the players whose buffs I all have leave the list.
 local realBest, n0 = ns.bestBuff, #w.entries
 ns.bestBuff=function(name, ...) if name==who then return nil end return realBest(name, ...) end -- I have all of who's buffs
@@ -339,11 +343,14 @@ local realAura=C_UnitAuras.GetAuraDataBySpellName; C_UnitAuras.GetAuraDataBySpel
 local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
 print("give entries:", #g.entries); assert(#g.entries>10 and g.down._shown, "Give buffs: more than 10, down arrow")
 -- Its token goes to someone else before the scroll: the row still aims at the name it shows.
-local second=g.entries[2]; local shown=UnitName(second.unit); local was=units[second.unit]
-units[second.unit]={"Intrus","WARRIOR",40}
-g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].entry==second)
+-- Same for an entry never shown yet (row 10 after one notch shows entry 11).
+local second, eleventh = g.entries[2], g.entries[11]; local shown, shown11 = UnitName(second.unit), UnitName(eleventh.unit)
+local was, was11 = units[second.unit], units[eleventh.unit]
+units[second.unit]={"Intrus","WARRIOR",40}; units[eleventh.unit]={"Bob","WARRIOR",40}
+g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].entry==second and g.rows[10].entry==eleventh)
 assert(g.rows[1]:GetAttribute("macrotext"):find("^/target "..shown.."\n"), "scrolled row aims at the name it shows")
-units[second.unit]=was
+assert(g.rows[10]:GetAttribute("macrotext"):find("^/target "..shown11.."\n"), "newly shown row too")
+units[second.unit], units[eleventh.unit] = was, was11
 g._OnMouseWheel(g,100); BuffDiggerDB.give=false; ns.applyWindows(); C_UnitAuras.GetAuraDataBySpellName=realAura
 print("=== #13 Requests window (buffer side)")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end

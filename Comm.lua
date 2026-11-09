@@ -118,7 +118,7 @@ function ns.refreshIncoming()
   for _, req in ipairs(incoming) do
     local spell = C_Spell.GetSpellName(BUFFS[req.key].id)
     local unit = unitOf(req.full)
-    local e = { unit = unit, spell = unit and spell, request = req, icon = C_Spell.GetSpellTexture(BUFFS[req.key].id),
+    local e = { unit = unit, who = unit and ns.targetName(unit) or false, spell = unit and spell, request = req, icon = C_Spell.GetSpellTexture(BUFFS[req.key].id),
       text = (unit and L["%s wants %s"] or L["%s wants %s (out of sight)"]):format(req.name, spell) }
     tinsert(unit and entries or far, e) -- like Give buffs: castable first, greyed after
   end

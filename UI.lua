@@ -590,7 +590,11 @@ local function makeWindow(globalName, title, setting, secure, point)
         ns.secureClicks(b)
         b:HookScript("PostClick", function(self, mouse)
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
-          elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
+          elseif mouse == "LeftButton" then
+            -- The token may have gone to someone else since the list was built (cursor on it).
+            if ns.targetName(row.unit) ~= row.entry.who then ns.notice(L["%s is no longer in sight."]:format(row.entry.who or "?")) return end
+            ns.request(row.unit, self.key)
+          end
         end)
         b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key) end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -629,7 +633,8 @@ local function makeWindow(globalName, title, setting, secure, point)
   return w
 end
 
--- entries: { { unit, text, icon, rank, upgrade, spell (secure windows; nil = shown greyed, not castable),
+-- entries: { { unit, who (their name, read with the text: scrolling re-fills from these cached
+--   entries, by then the nameplate token may be someone else's; false = unreadable), text, icon, rank, upgrade, spell (secure windows; nil = shown greyed, not castable),
 --   buffs = { { key, best, icon, rank, upgrade }, ... } (Get buffs: one icon per buff) }, ... }
 local function fill(w, entries, emptyMessage)
   w.entries = entries
@@ -639,9 +644,6 @@ local function fill(w, entries, emptyMessage)
   for i, row in ipairs(w.rows) do
     local e = i <= shown and entries[w.offset + i] or nil
     if e then
-      -- The name is read once, when the entry is first shown, like its text: a scroll or a resize
-      -- re-fills from these cached entries, and by then the nameplate token may be someone else's.
-      if e.who == nil then e.who = e.unit and ns.targetName(e.unit) or false end
       row.unit = e.unit
       row.entry = e
       row.icon:SetTexture(e.icon)
@@ -708,7 +710,7 @@ local function nearbyEntries()
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       entries[#entries + 1] = {
-        unit = unit, buffs = buffs, order = key and (top and 0 or 1) or 2,
+        unit = unit, who = name, buffs = buffs, order = key and (top and 0 or 1) or 2,
         text = ("%s%s %d%s"):format(classColored(name, class),
           ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra),
       }
@@ -804,6 +806,7 @@ local function giveEntries(myBuffs)
       entries[#entries + 1] = {
         unit = unit,
         name = name,
+        who = name,
         far = far,
         icon = C_Spell.GetSpellTexture(BUFFS[key].id),
         text = ("%s %d — %s%s"):format(classColored(name, class), level, spell, far and L[" (too far)"] or ""),
