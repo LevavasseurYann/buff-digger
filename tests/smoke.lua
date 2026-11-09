@@ -9,6 +9,9 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetChecked" then return function() return true end end
   if k=="GetStringHeight" then return function() return 60 end end
   if k=="GetWidth" then return function() return 140 end end
+  if k=="SetSize" then return function(s,_,h) rawset(s,"_h",h) end end
+  if k=="SetHeight" then return function(s,h) rawset(s,"_h",h) end end
+  if k=="GetHeight" then return function(s) return rawget(s,"_h") or 0 end end
   if k=="GetCenter" then return function() return 0,0 end end
   if k=="SetScript" then return function(s,e,f) s["_"..e]=f end end
   if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
@@ -19,7 +22,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
   return function() end end}) end
 CreateFrame=function(_,name) local o=obj(); if name then _G[name]=o end; return o end
-UIParent, Minimap, UISpecialFrames = obj(), obj(), {}
+UIParent, Minimap, UISpecialFrames, GameTooltip = obj(), obj(), {}, obj()
 SlashCmdList={}; TIMERS={}; C_Timer={After=function(_,f) TIMERS[#TIMERS+1]=f end, NewTicker=function() end}; function runTimers() local t=TIMERS; TIMERS={}; for _,f in ipairs(t) do f() end end; IsInInstance=function() return false end; PlaySound=function() end; SOUNDKIT={TELL_MESSAGE=1}; wipe=function(t) for k in pairs(t) do t[k]=nil end end; tremove=table.remove; unpack=unpack; tinsert=table.insert; strtrim=function(s) return (s:gsub("^%s+",""):gsub("%s+$","")) end
 time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
 issecure=function() return false end; InCombatLockdown=function() return false end
@@ -185,6 +188,21 @@ print("unsolicited renewal sends:", #sent-b2); assert(#sent==b2)
 units.nameplate6={"Jaina","MAGE",40}; b2=#sent
 myAuras[#myAuras+1]={auraInstanceID=63,name="Food",spellId=433,sourceUnit="nameplate6"}; fire("UNIT_AURA","player"); runTimers()
 print("food sends:", #sent-b2); assert(#sent==b2, "eating must not thank")
+-- Ghost Wolf: my Fortitude comes back with a new instance ID, from a priest I just asked for
+-- something else. Same buff, not a landing: no thanks.
+BuffDiggerDB.asked={Anduin={at=time(), key="spirit", channel="WHISPER", target="Anduin"}}
+local fort=myAuras[1]; b2=#sent
+myAuras[1]={auraInstanceID=99,name=fort.name,spellId=fort.spellId,sourceUnit="nameplate5",points=fort.points,expirationTime=fort.expirationTime,duration=fort.duration}
+fire("UNIT_AURA","player"); runTimers(); print("re-indexed aura sends:", #sent-b2); assert(#sent==b2, "a re-indexed aura must not thank")
+-- A stale token pointing at the mage I asked for Intellect, on a real new Fortitude: a mage
+-- can't give it, no thanks either.
+BuffDiggerDB.asked={Jaina={at=time(), key="intellect", channel="WHISPER", target="Jaina"}}
+myAuras[1].sourceUnit="nameplate6"; myAuras[1].auraInstanceID=100; myAuras[1].expirationTime=NOW+3000; fire("UNIT_AURA","player"); runTimers()
+print("mage giving Fortitude sends:", #sent-b2); assert(#sent==b2, "wrong-class giver must not thank")
+-- Same stale token, but I did ask a priest for Fortitude: the buff is theirs, they get the thanks.
+BuffDiggerDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}
+myAuras[1].auraInstanceID=101; myAuras[1].expirationTime=NOW+3500; fire("UNIT_AURA","player"); runTimers()
+print("falls back to the asked priest:", sent[#sent]); assert(sent[#sent]:find("WHISPER Anduin"))
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 
 print("=== next-player key")
@@ -236,7 +254,6 @@ print("=== checklist")
 SlashCmdList.BUFFDIGGER("")
 for key, d in pairs(BuffDiggerDB.confirmed) do print("confirmed", key, d) end
 assert(BuffDiggerDB.confirmed.points and BuffDiggerDB.confirmed.expires)
-print("SMOKE OK")
 
 -- Talented givers seen in Forever (2026-11-08): values above the base rank still give that rank.
 local B = ns.BUFFS
@@ -244,3 +261,45 @@ assert(ns.rankOfValue(B.fortitude, 8) == 2 and ns.rankOfValue(B.fortitude, 10) =
 assert(ns.rankOfValue(B.fortitude, 26) == 3 and ns.rankOfValue(B.thorns, 7) == 2)
 assert(ns.rankOfValue(B.intellect, 8) == nil and ns.rankOfValue(B.fortitude, 99) == nil)
 print("rankOfValue talents OK")
+
+print("=== nameplates: off / hint / best / all")
+units.player={"Yann","SHAMAN",30}; IsPlayerSpell=function() return false end
+myAuras={}; BuffDiggerDB.asked={}; fire("UNIT_AURA","player"); runTimers()
+local plate, onPlate = {}, {}
+C_NamePlate.GetNamePlateForUnit=function(u) if u=="nameplate1" then return plate end end
+local mk=CreateFrame; CreateFrame=function(t,n,parent,...) local f=mk(t,n,parent,...); if parent==plate then onPlate[#onPlate+1]=f end; return f end
+local function shownKeys() local out={} for _,x in ipairs(onPlate) do if x._shown then out[#out+1]=tostring(rawget(x,"key")) end end return out end
+BuffDiggerDB.plates="all"; ns.refreshAll(); runTimers()
+print("all:", table.concat(shownKeys(), ",")); assert(#shownKeys()==3, "might, kings, wisdom")
+local b=#sent; onPlate[3]._OnClick(onPlate[3], "LeftButton"); print("3rd icon asks:", sent[#sent]); assert(#sent>b and BuffDiggerDB.asked.Arthas.key==onPlate[3].key)
+for _, mode in ipairs({"best","hint"}) do
+  BuffDiggerDB.plates=mode; BuffDiggerDB.asked={}; ns.refreshAll(); runTimers()
+  print(mode..":", table.concat(shownKeys(), ",")); assert(#shownKeys()==1 and shownKeys()[1]=="nil")
+end
+BuffDiggerDB.plates="off"; ns.refreshAll(); runTimers(); print("off:", #shownKeys()); assert(#shownKeys()==0)
+CreateFrame=mk; BuffDiggerDB.plates="best"
+-- An old saved "icons = false" becomes "off".
+local saved=BuffDiggerDB; BuffDiggerDB={icons=false}; fire("ADDON_LOADED","BuffDigger"); assert(BuffDiggerDB.plates=="off" and BuffDiggerDB.icons==nil); BuffDiggerDB=saved
+
+print("=== Get buffs: one icon per buff, scrolling")
+local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
+local row=w.rows[1]; print("row 1:", row.text._t or "", "icons shown:", (row.buffs[1]._shown and 1 or 0)+(row.buffs[2]._shown and 1 or 0)+(row.buffs[3]._shown and 1 or 0))
+local first=w.entries[1]; assert(#first.buffs>=1)
+b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]; pick._OnClick(pick,"LeftButton")
+local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key)
+-- 15 paladins around: 10 rows, the wheel shows the rest.
+for i=10,24 do units["nameplate"..i]={"Pal"..i,"PALADIN",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate"..i) end; runTimers(); ns.refreshWindow()
+print("entries:", #w.entries, "offset:", w.offset); assert(#w.entries>10)
+w._OnMouseWheel(w,-1); print("after wheel down, offset:", w.offset); assert(w.offset==1)
+w._OnMouseWheel(w,-100); assert(w.offset==#w.entries-10); w._OnMouseWheel(w,100); assert(w.offset==0)
+print("arrows: up", w.up._shown, "down", w.down._shown); assert(not w.up._shown and w.down._shown)
+-- Taller window: more rows show, the down arrow goes once everyone fits.
+w:SetSize(290, 40+20*20); w._OnSizeChanged(w, 290, 440); assert(BuffDiggerDB.sizes.BuffDiggerNearby[2]==440); local n=0; for _,r in ipairs(w.rows) do if r._shown then n=n+1 end end
+print("rows at 440 px:", n, "down arrow:", w.down._shown); assert(n==#w.entries and not w.down._shown)
+w.lock._OnClick(w.lock); assert(BuffDiggerDB.lockWindows and not w.grip._shown, "padlock locks: no grip")
+w.lock._OnClick(w.lock); assert(not BuffDiggerDB.lockWindows and w.grip._shown, "padlock unlocks")
+-- The padlock of one window locks both, at once (even in combat: nothing secure).
+InCombatLockdown=function() return true end; local gw=_G.BuffDiggerGive; gw.lock._OnClick(gw.lock)
+assert(not w.grip._shown and not gw.grip._shown, "both locked at once"); gw.lock._OnClick(gw.lock); InCombatLockdown=function() return false end
+local g=_G.BuffDiggerGive; if g.fill then g.fill() end; assert(not g.down._shown, "Give buffs never scrolls: no arrow")
+print("SMOKE OK")

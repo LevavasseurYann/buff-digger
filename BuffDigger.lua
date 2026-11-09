@@ -33,9 +33,10 @@ local function show(v)
 end
 
 ns.DEFAULTS = {
-  icons = true,      -- icon left of the health bar
+  plates = "best",   -- nameplates: "off", "hint" (small Buff Digger icon), "best" (best buff), "all" (each buff)
   tooltip = true,    -- "Can probably give you..." line
   nearby = false,    -- "Nearby" window
+  lockWindows = false, -- windows can't be moved or resized
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- automatic /thank emote
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
@@ -227,13 +228,19 @@ end
 local function onBuffLanded(aura, info, renewed)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
-  local name
+  local name, class, level, _
   if source then
     if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
     name = UnitName(source)
-    local _, class = UnitClass(source)
-    local level = UnitLevel(source)
+    _, class = UnitClass(source)
+    level = UnitLevel(source)
     if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
+  end
+  -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
+  if name and info.key and BUFFS[info.key].class ~= class then
+    debug("Ignored: " .. name .. " can't give " .. show(aura.name))
+    name = nil
+  elseif name then
     record("source", true, name .. " → " .. show(aura.name))
     info.giver = name
     -- The value read on the buff wins; the giver's level is only a guess at what they bought.
@@ -257,6 +264,10 @@ end
 
 local function readMyBuffs()
   local seen = {}
+  -- A shapeshift (Ghost Wolf...) can hand every aura a new instance ID: a known buff ending at the
+  -- same time is the one I already had, not a new landing to thank.
+  local had = {}
+  for _, info in pairs(byInstance) do if info.key then had[info.key] = info end end
   for i = 1, 40 do
     local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
     if not ok or not aura then break end
@@ -264,6 +275,8 @@ local function readMyBuffs()
     if readable(id) and readable(aura.name) then
       local info = byInstance[id]
       local expires, duration = auraExpires(aura)
+      local old = not info and had[buffKeyOf(aura.name) or false]
+      local same = old and old.expires and expires and math.abs(old.expires - expires) < 2
       -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks).
       local renewed = info and info.expires and expires and expires > info.expires + 60
       if not info or renewed then
@@ -277,9 +290,9 @@ local function readMyBuffs()
           local entry = value and logEntry(aura)
           if entry then entry.value = value end
         end
-        local oldGiver = info.giver
+        local oldGiver = info.giver or (same and old.giver)
         info.giver = nil
-        if ready then onBuffLanded(aura, info, renewed) end
+        if ready and not same then onBuffLanded(aura, info, renewed) end
         info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
         info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
@@ -486,13 +499,15 @@ function ns.nearbyUnits()
   return units
 end
 
-local icons = {} -- nameplate -> our button; Blizzard's frames are never modified
+local icons = {} -- nameplate -> our buttons, 1 = next to the bar; Blizzard's frames are never modified
 
-local function iconFor(unit)
+-- The i-th icon of that player's nameplate; button.key = the buff it asks for (nil = the best one).
+local function iconFor(unit, i)
   local plate = C_NamePlate.GetNamePlateForUnit(unit, issecure())
   if not plate then record("plate", false, "nameplate missing or forbidden") return end
   if plate.IsForbidden and plate:IsForbidden() then record("plate", false, "nameplate forbidden") return end
-  local button = icons[plate]
+  icons[plate] = icons[plate] or {}
+  local button = icons[plate][i]
   if not button then
     local ok, err = pcall(function()
       button = CreateFrame("Button", nil, plate)
@@ -508,17 +523,21 @@ local function iconFor(unit)
       button:SetScript("OnClick", function(self, mouse)
         record("click", true)
         if mouse == "RightButton" and ns.openMenu then ns.openMenu(self, self.unit)
-        else ns.request(self.unit) end
+        else ns.request(self.unit, self.key) end
       end)
+      button:SetScript("OnEnter", function(self) if ns.buffTooltip then ns.buffTooltip(self, self.unit, self.shows) end end)
+      button:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end)
     if not ok then record("plate", false, tostring(err)) return end
-    icons[plate] = button
+    icons[plate][i] = button
   end
-  -- Left of the health bar; the plate itself if Blizzard shows names only.
+  -- Left of the health bar (the plate itself if Blizzard shows names only), the next ones further left.
   local frame = plate.UnitFrame
   local bar = frame and (frame.HealthBarsContainer or frame.healthBar)
   button:ClearAllPoints()
-  if bar and bar:IsShown() then
+  if i > 1 then
+    button:SetPoint("RIGHT", icons[plate][i - 1], "LEFT", -2, 0)
+  elseif bar and bar:IsShown() then
     button:SetPoint("RIGHT", bar, "LEFT", -3, 0)
   else
     button:SetPoint("RIGHT", plate, "LEFT", -3, 0)
@@ -529,8 +548,10 @@ local function iconFor(unit)
 end
 
 local function hideIcons(unit)
-  for _, button in pairs(icons) do
-    if unit == nil or button.unit == unit then button:Hide() end
+  for _, buttons in pairs(icons) do
+    for _, button in ipairs(buttons) do
+      if unit == nil or button.unit == unit then button:Hide() end
+    end
   end
 end
 
@@ -538,14 +559,36 @@ local function updateIcon(unit)
   local name, class, level = ns.identity(unit)
   local key, kind, top
   if name then key, kind, top = ns.bestBuff(name, class, level) end
-  if not (key and BuffDiggerDB.icons) then return end
-  local button = iconFor(unit)
-  if not button then return end
-  button.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id))
-  -- My top missing buff at full opacity, the rest (and upgrades) dimmed.
-  button.icon:SetAlpha(top and 1 or 0.55)
-  button.peer:SetShown(ns.isPeer(name))
-  button:Show()
+  local mode = BuffDiggerDB.plates
+  if mode == "off" or not name then return end
+  -- "all": every buff they can give, I pick (the automatic choice stays the brightest).
+  -- "best": that choice only. "hint": a small Buff Digger icon saying "this one can buff you".
+  local keys = mode == "all" and ns.offers(class, level) or { key }
+  for i, k in ipairs(keys) do
+    local button = iconFor(unit, i)
+    if not button then return end
+    button.key = mode == "all" and k or nil
+    button.shows = k
+    if mode == "hint" then
+      button:SetSize(12, 12)
+      button.icon:SetTexture("Interface\\AddOns\\BuffDigger\\Media\\icon")
+      button.icon:SetAlpha(0.8)
+    else
+      button:SetSize(18, 18)
+      button.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[k].id))
+      button.icon:SetAlpha(ns.buffAlpha(k, key, top))
+    end
+    button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
+    button:Show()
+  end
+end
+
+-- Buff Digger's pick brightest (full when it's my top missing buff), other choices dimmed,
+-- the ones I already have faint.
+function ns.buffAlpha(k, best, top)
+  if k == best then return top and 1 or 0.8 end
+  if not ns.haveBuff(k) then return 0.55 end
+  return 0.3
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change
@@ -749,6 +792,9 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- Older versions only had a "write in French" checkbox: keep that choice.
     if BuffDiggerDB.frenchMessages and BuffDiggerDB.language == nil then BuffDiggerDB.language = "fr" end
     BuffDiggerDB.frenchMessages = nil
+    -- Up to 0.4.0, nameplate icons were a checkbox: unticked means "off".
+    if BuffDiggerDB.icons == false and BuffDiggerDB.plates == nil then BuffDiggerDB.plates = "off" end
+    BuffDiggerDB.icons = nil
     for k, v in pairs(ns.DEFAULTS) do
       if BuffDiggerDB[k] == nil then BuffDiggerDB[k] = v end
     end

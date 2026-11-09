@@ -2,7 +2,11 @@
 
 ## 0.4.1-alpha
 
+- **Pick the buff yourself.** Get buffs now shows every buff a player can give, side by side (a paladin: Might, Kings, Wisdom); click one to ask for that one, click the name for Buff Digger's pick. Hover an icon for the spell and rank. Same on nameplates with *Every buff*.
+- **Nameplates your way.** *On nameplates*: Nothing, Small icon (just "this one can buff you"), Best buff (as before) or Every buff.
+- **Get buffs scrolls, resizes and locks.** In a crowd, the mouse wheel (or the small arrows) shows everyone; those who can give you something you lack come first. Drag the bottom-right corner to make it as big as you like; the padlock in its title bar keeps it in place.
 - **No more thank-you for eating.** Only buffs Buff Digger knows (Fort, Kings, Mark...) get thanked: mage food, a refreshment table, heals over time and shields no longer send a /thank in dungeons.
+- **No more thank-you for a shapeshift.** Going Ghost Wolf (or any form) right after asking could thank the player you asked although they gave nothing: a buff you already had looked brand new. Also, a giver whose class can't cast that buff is no longer thanked for it.
 
 ## 0.4.0-alpha
 
