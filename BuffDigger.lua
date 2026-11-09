@@ -175,13 +175,14 @@ function ns.flushThanks()
   end
 end
 
--- Did I ask this player for a buff in the last 10 minutes? Giver unknown: only when exactly ONE
+-- Did I ask this player for this very buff in the last 10 minutes? Giver unknown: only when exactly ONE
 -- open request is for this very buff — with two candidates, guessing could thank the wrong one.
 -- Once the buff has landed, every other open request for it is closed: nobody else gets thanked.
 local function findRequest(name, key)
   local function fresh(e) return type(e) == "table" and not e.thanked and time() - e.at < 600 end
   local result, resultEntry, matches = name, nil, 0
-  if name and fresh(BuffDiggerDB.asked[name]) then resultEntry = BuffDiggerDB.asked[name] end
+  local theirs = name and BuffDiggerDB.asked[name]
+  if fresh(theirs) and key and theirs.key == key then resultEntry = theirs end -- that buff, not another
   for n, e in pairs(BuffDiggerDB.asked) do
     if fresh(e) and key and e.key == key and e ~= resultEntry then
       matches = matches + 1
@@ -226,7 +227,7 @@ local function thank(name, request)
   end
 end
 
-local function onBuffLanded(aura, info, renewed)
+local function onBuffLanded(aura, info)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name, class, level, _
@@ -258,9 +259,9 @@ local function onBuffLanded(aura, info, renewed)
   -- Giver unknown: if I just asked someone for this very buff, it was most likely them.
   local asked, request = findRequest(name, info.key)
   if not name and asked then name = asked; info.giver = asked end
-  -- A renewal nobody asked for (a raid buffer keeping buffs up) is not thanked again and again.
-  -- Only buffs from Data.lua: eating a mage's food or sitting at a table is not a buff to thank.
-  if name and info.key and (request or not renewed) then thank(name, request) end
+  -- Only the buff I asked this player for is thanked: not a buff nobody asked for, a renewal, food,
+  -- a table or any other interaction.
+  if name and request then thank(name, request) end
 end
 
 local function readMyBuffs()
@@ -293,7 +294,7 @@ local function readMyBuffs()
         end
         local oldGiver = info.giver or (same and old.giver)
         info.giver = nil
-        if ready and not same then onBuffLanded(aura, info, renewed) end
+        if ready and not same then onBuffLanded(aura, info) end
         info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
         info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
