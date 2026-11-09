@@ -26,24 +26,35 @@ end
 
 local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFFS[key].en end
 
--- Hovering a buff icon: the spell, the rank, for whom, what a click does. Nameplates and Get buffs:
--- the rank they can probably give me. `cast` (Give buffs, Requests): the rank I give them.
-function ns.buffTooltip(owner, unit, key, cast)
+-- First lines of a buff icon's tooltip: the spell, and the rank a caster of that level gives.
+local function spellLines(owner, key, level)
+  local buff = BUFFS[key]
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(spellName(key))
+  local rank = rankAt(buff, level)
+  if rank > 0 then
+    GameTooltip:AddLine(L["Rank %d"]:format(rank) .. (" (+%s %s)"):format(buff.values[rank], L[buff.stat]), 1, 1, 1)
+  end
+end
+
+-- Hovering an icon of Give buffs or Requests: the spell, the rank I give, for whom. `who`: the
+-- name the click casts on (the line's frozen name, not the token's current one); nil = can't cast.
+function ns.castTooltip(owner, key, who)
+  if not key or InCombatLockdown() then return end
+  spellLines(owner, key, UnitLevel("player"))
+  if who then GameTooltip:AddLine(L["Click: cast it on %s."]:format(who), 0.4, 0.8, 1, true)
+  else GameTooltip:AddLine(L["Too far"], 0.6, 0.6, 0.6) end
+  GameTooltip:Show()
+end
+
+-- Hovering a buff icon (nameplate or Get buffs): the spell, the rank they can probably give me,
+-- what a click does.
+function ns.buffTooltip(owner, unit, key)
   if not (key and unit) or InCombatLockdown() then return end
   local name, _, level = ns.identity(unit)
   if not name then return end
   local buff = BUFFS[key]
-  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-  GameTooltip:AddLine(spellName(key))
-  local rank = rankAt(buff, cast and UnitLevel("player") or level)
-  if rank > 0 then
-    GameTooltip:AddLine(L["Rank %d"]:format(rank) .. (" (+%s %s)"):format(buff.values[rank], L[buff.stat]), 1, 1, 1)
-  end
-  if cast then
-    GameTooltip:AddLine(L["Click: cast it on %s."]:format(name), 0.4, 0.8, 1, true)
-    GameTooltip:Show()
-    return
-  end
+  spellLines(owner, key, level)
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
   if his == key then
@@ -600,7 +611,10 @@ local function makeWindow(globalName, title, setting, cast, point)
           elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
       end
-      b:SetScript("OnEnter", function(self) ns.buffTooltip(self, row.unit, self.key, cast) end)
+      b:SetScript("OnEnter", function(self)
+        if cast then ns.castTooltip(self, self.key, self:GetAttribute("type") and row.entry.who or nil)
+        else ns.buffTooltip(self, row.unit, self.key) end
+      end)
       b:SetScript("OnLeave", function() GameTooltip:Hide() end)
       row.buffs[j] = b
     end

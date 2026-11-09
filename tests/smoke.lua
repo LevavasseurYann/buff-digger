@@ -437,6 +437,32 @@ fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Oli-Realm"); a
 BuffDiggerDB.requestMarkers=true; CreateFrame=mk
 -- A spell with no target (Lightning Bolt with nothing selected): no error (seen in game 2026-11-09).
 fire("UNIT_SPELLCAST_SENT","player",nil,"guid",403)
+print("=== Give buffs, a paladin: one icon per blessing they lack, in THEIR class's order")
+units.player={"Yann","PALADIN",40}; IsPlayerSpell=function(id) return id==19740 or id==20217 or id==19742 end
+units.nameplate60={"Garrosh","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate60"); runTimers()
+local realAura2=C_UnitAuras.GetAuraDataBySpellName; C_UnitAuras.GetAuraDataBySpellName=function() return nil end
+local gp=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
+local function rowOf(u) gp._OnMouseWheel(gp,100); for _=1,#gp.entries do for _,r in ipairs(gp.rows) do if r._shown and r.unit==u then return r end end; gp._OnMouseWheel(gp,-1) end end
+local gr=rowOf("nameplate60"); assert(gr, "Garrosh listed")
+-- Warrior: Might then Kings (Wisdom is not on a warrior's list), each icon its own spell.
+assert(gr.buffs[1].key=="might" and gr.buffs[2].key=="kings" and not gr.buffs[3]._shown, "their order, only what they want")
+assert(gr.buffs[2]:GetAttribute("macrotext"):find("/cast %[help,nodead%] Bénédiction des rois\n"), "2nd icon casts Kings")
+local tip={}; local realAdd=GameTooltip.AddLine; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
+units.nameplate60={"Intrus","WARRIOR",40}; gr.buffs[2]._OnEnter(gr.buffs[2]); GameTooltip.AddLine=realAdd; units.nameplate60={"Garrosh","WARRIOR",40}
+assert(tip[#tip]=="Click: cast it on Garrosh.", "tooltip names who the click casts on, not the token's new owner")
+-- Too far: icons grey, tooltip says so, nothing cast.
+C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate60" end; ns.refreshWindow(); gr=rowOf("nameplate60")
+assert(gr.buffs[1]:GetAttribute("type")==nil and gr.buffs[2]:GetAttribute("type")==nil, "too far: no cast")
+tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end; gr.buffs[1]._OnEnter(gr.buffs[1]); GameTooltip.AddLine=realAdd
+assert(tip[#tip]=="Too far", "too far: the tooltip says so"); C_Spell.IsSpellInRange=nil
+-- My blessing already on them: a paladin keeps one per target, offer nothing.
+C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate60" and name=="Bénédiction de puissance" then return {sourceUnit="player"} end end
+ns.refreshWindow(); assert(not rowOf("nameplate60"), "my blessing on them: nothing")
+-- One of their auras unreadable (Kings readable, missing): stay silent rather than guess.
+C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate60" and name=="Bénédiction de puissance" then error("secret") end end
+ns.refreshWindow(); assert(not rowOf("nameplate60"), "unreadable: nothing")
+C_UnitAuras.GetAuraDataBySpellName=realAura2; BuffDiggerDB.give=false; ns.applyWindows(); units.nameplate60=nil
+
 print("=== Forever names: first name + last name, with a space")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.asked={}
 units.nameplate50={"Jean Dupont","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate50"); runTimers()
