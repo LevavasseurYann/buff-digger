@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **See which blessing a paladin gave you.** A paladin can keep only one blessing on you: ask for another and it replaces the first. The blessing a paladin put on you now has a gold frame, in Get buffs and on nameplates, and hovering their other blessings says which one it would replace.
+- **Hide who has nothing for you.** New option *Get buffs: only those with something better*: players with nothing you want leave the Get buffs list: no buff from your priority list that you lack, no higher rank, nothing running out. A mage disappears for a warrior, a paladin whose blessings you all have too, so a busy city only shows who can actually help. Off by default.
 
 ## 0.4.2-beta
 
