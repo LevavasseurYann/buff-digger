@@ -338,8 +338,12 @@ units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 en
 local realAura=C_UnitAuras.GetAuraDataBySpellName; C_UnitAuras.GetAuraDataBySpellName=function() return nil end -- nobody has Fortitude
 local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
 print("give entries:", #g.entries); assert(#g.entries>10 and g.down._shown, "Give buffs: more than 10, down arrow")
-local second=g.entries[2]; g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].unit==second.unit)
-assert(g.rows[1]:GetAttribute("macrotext"):find("^/target "..UnitName(second.unit).."\n"), "scrolled row re-aimed")
+-- Its token goes to someone else before the scroll: the row still aims at the name it shows.
+local second=g.entries[2]; local shown=UnitName(second.unit); local was=units[second.unit]
+units[second.unit]={"Intrus","WARRIOR",40}
+g._OnMouseWheel(g,-1); assert(g.offset==1 and g.rows[1].entry==second)
+assert(g.rows[1]:GetAttribute("macrotext"):find("^/target "..shown.."\n"), "scrolled row aims at the name it shows")
+units[second.unit]=was
 g._OnMouseWheel(g,100); BuffDiggerDB.give=false; ns.applyWindows(); C_UnitAuras.GetAuraDataBySpellName=realAura
 print("=== #13 Requests window (buffer side)")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end

@@ -818,13 +818,16 @@ local function targetName(unit)
   local name = UnitName(unit)
   return readable(name) and name or nil
 end
+ns.targetName = targetName
 
-function ns.castMacro(unit, spell)
+-- `who`: the name to aim at, when the caller froze it (a window row: see fill in UI.lua);
+-- false = frozen as unreadable, aim at nobody.
+function ns.castMacro(unit, spell, who)
   local macro
   if unit == "player" and spell then
     macro = "/cast [@player] " .. spell -- /bd selftest
   elseif unit and spell then
-    local who = targetName(unit)
+    if who == nil then who = targetName(unit) end
     if who then macro = ("/target %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell) end
   end
   return macro
@@ -832,14 +835,15 @@ end
 
 -- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
 -- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
-function ns.aimTarget(button, unit)
-  local who = unit and targetName(unit)
+function ns.aimTarget(button, unit, who)
+  if who == nil then who = unit and targetName(unit) end
+  who = unit and who
   button:SetAttribute("*type1", who and "macro" or nil)
   button:SetAttribute("macrotext", who and "/target " .. who or nil)
 end
 
-function ns.aimCast(button, unit, spell)
-  local macro = ns.castMacro(unit, spell)
+function ns.aimCast(button, unit, spell, who)
+  local macro = ns.castMacro(unit, spell, who)
   button:SetAttribute("type", macro and "macro" or nil)
   button:SetAttribute("macrotext", macro)
 end

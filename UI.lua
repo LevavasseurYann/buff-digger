@@ -639,6 +639,9 @@ local function fill(w, entries, emptyMessage)
   for i, row in ipairs(w.rows) do
     local e = i <= shown and entries[w.offset + i] or nil
     if e then
+      -- The name is read once, when the entry is first shown, like its text: a scroll or a resize
+      -- re-fills from these cached entries, and by then the nameplate token may be someone else's.
+      if e.who == nil then e.who = e.unit and ns.targetName(e.unit) or false end
       row.unit = e.unit
       row.entry = e
       row.icon:SetTexture(e.icon)
@@ -654,14 +657,14 @@ local function fill(w, entries, emptyMessage)
           ns.styleBuff(b, buff.key, buff.best, buff.his)
           b.rank:SetText(buff.rank)
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
-          ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit)
+          ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit, e.who)
         end
         b:SetShown(buff ~= nil)
       end
-      if not row.secure then ns.aimTarget(row, e.unit) end
+      if not row.secure then ns.aimTarget(row, e.unit, e.who) end
       if row.secure then
         -- Every attribute is set each time: a row reused for another player never keeps the old target.
-        ns.aimCast(row, e.unit, e.spell)
+        ns.aimCast(row, e.unit, e.spell, e.who)
         row.icon:SetDesaturated(e.spell == nil)
         local c = e.spell and 1 or 0.5
         row.text:SetTextColor(c, c, c)
