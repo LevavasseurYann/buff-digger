@@ -201,6 +201,14 @@ print("unsolicited renewal sends:", #sent-b2); assert(#sent==b2)
 units.nameplate6={"Jaina","MAGE",40}; b2=#sent
 myAuras[#myAuras+1]={auraInstanceID=63,name="Food",spellId=433,sourceUnit="nameplate6"}; fire("UNIT_AURA","player"); runTimers()
 print("food sends:", #sent-b2); assert(#sent==b2, "eating must not thank")
+-- Only the buff I asked this player for is thanked (eating, a buff nobody asked for: nothing).
+units.nameplate7={"Tirion","PALADIN",40}; BuffDiggerDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; b2=#sent
+myAuras[#myAuras+1]={auraInstanceID=64,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate7",expirationTime=NOW+300,duration=300}
+fire("UNIT_AURA","player"); runTimers(); print("asked Kings, got Might, sends:", #sent-b2); assert(#sent==b2, "another buff than the one asked must not thank")
+BuffDiggerDB.asked={}; myAuras[#myAuras].auraInstanceID=65; myAuras[#myAuras].expirationTime=NOW+250
+units.nameplate7={"Turalyon","PALADIN",40}; fire("UNIT_AURA","player"); runTimers()
+print("buff nobody asked for sends:", #sent-b2); assert(#sent==b2, "a buff nobody asked for must not thank")
+table.remove(myAuras); units.nameplate7=nil; fire("UNIT_AURA","player")
 -- Ghost Wolf: my Fortitude comes back with a new instance ID, from a priest I just asked for
 -- something else. Same buff, not a landing: no thanks.
 BuffDiggerDB.asked={Anduin={at=time(), key="spirit", channel="WHISPER", target="Anduin"}}
