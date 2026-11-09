@@ -564,7 +564,7 @@ local function makeWindow(globalName, title, setting, secure, point)
       ns.secureClicks(row)
       ns.watchClick(row)
       row:HookScript("PostClick", function(self, _, down)
-        if down then return end -- registered for down and up: act once
+        if down then return end -- release only (secureClicks); kept as a guard
         if not self:GetAttribute("type") then ns.notice(L["Too far"]) return end
         ns.castOn()
       end)
@@ -590,7 +590,7 @@ local function makeWindow(globalName, title, setting, secure, point)
         b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
         ns.secureClicks(b)
         b:HookScript("PostClick", function(self, mouse, down)
-          if down then return end -- registered for down and up: act once
+          if down then return end -- release only (secureClicks); kept as a guard
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
           elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
         end)
@@ -825,8 +825,8 @@ end
 
 function ns.refreshWindow()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
-  -- Not under the cursor either: with targetOnAsk, the press targets and the release asks; a
-  -- re-fill in between would ask someone else than the one targeted.
+  -- Not under the cursor either: with targetOnAsk, the list must not change between aiming and
+  -- releasing, or the click would ask someone else than the one targeted.
   if nearby and nearby:IsShown() and not nearby:IsMouseOver() then
     fill(nearby, nearbyEntries(), L["Nobody around can buff you.\n(Friendly nameplates on?)"])
   end
@@ -835,8 +835,8 @@ function ns.refreshWindow()
   if not ns.CASTING or not ((give and give:IsShown()) or nextBound) then return end
   local myBuffs = myCastableBuffs()
   local entries = #myBuffs > 0 and giveEntries(myBuffs) or {}
-  -- Never re-fill under the cursor: rows would shift while the player aims (and with
-  -- ActionButtonUseKeyDown off, the cast fires on release, on whatever the row then holds).
+  -- Never re-fill under the cursor: rows would shift while the player aims (the cast
+  -- fires on release, on whatever the row then holds).
   if give and give:IsShown() and not (give:IsMouseOver() and #myBuffs > 0) then
     if #myBuffs == 0 then
       fill(give, {}, L["You know no buff to give (paladin, priest, mage or druid)."])

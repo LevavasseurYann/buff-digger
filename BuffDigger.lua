@@ -835,16 +835,19 @@ function ns.aimCast(button, unit, spell)
   button:SetAttribute("macrotext", macro)
 end
 
--- Clicks a secure button listens to: exactly what Blizzard's own action buttons register in the
--- 1.60.1 client. With "AnyUp", "AnyDown" and cast-on-key-down on (ActionButtonUseKeyDown=1), a
--- mouse click ran no action at all, no error (seen in game 2026-11-08; same report on Firekeeper).
-function ns.secureClicks(button) button:RegisterForClicks("AnyUp", "LeftButtonDown", "RightButtonDown") end
+-- Clicks a secure button listens to: release only, and act on release whatever the player's
+-- ActionButtonUseKeyDown. Registering down clicks too (with ActionButtonUseKeyDown=1) left Get
+-- buffs dead; a test button with exactly this setup ran its macro (seen in game 2026-11-09).
+function ns.secureClicks(button)
+  button:SetAttribute("useOnKeyDown", false)
+  button:RegisterForClicks("AnyUp")
+end
 
 function ns.watchClick(button)
   button:HookScript("PreClick", function() clicking = true end)
   button:HookScript("PostClick", function(self, mouse, down)
     clicking = false
-    if down then return end -- registered for down and up: report once, on release
+    if down then return end -- release only (secureClicks); kept as a guard
     local macro = self:GetAttribute("macrotext")
     debug(("Click %s: type=%s macro=%s keydown=%s -> %s"):format(tostring(mouse),
       tostring(self:GetAttribute("type")), macro and macro:gsub("\n", " | ") or "nil",
