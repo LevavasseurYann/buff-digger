@@ -49,6 +49,7 @@ ns.DEFAULTS = {
   requests = false,  -- "Requests" window (#13)
   requestSound = true, -- a sound when a request arrives (#13)
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
+  requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -588,6 +589,56 @@ local function updateIcon(unit)
   end
 end
 
+-- Request markers (#15): a Buff Digger user asked me for a buff, so a big pulsing icon of that
+-- buff floats above their nameplate. Visual only, seen by me alone (not a raid marker).
+-- Follows the incoming requests of Comm.lua, which calls ns.refreshMarkers whenever they change.
+local markers = {} -- nameplate -> our marker frame, one per player
+
+local function markerFor(unit)
+  local plate = C_NamePlate.GetNamePlateForUnit(unit, issecure())
+  if not plate or (plate.IsForbidden and plate:IsForbidden()) then return end
+  local m = markers[plate]
+  if not m then
+    m = CreateFrame("Frame", nil, plate) -- no mouse: never steals a click from the plate
+    m:SetSize(32, 32)
+    m:SetPoint("BOTTOM", plate, "TOP", 0, 2)
+    m.icon = m:CreateTexture(nil, "ARTWORK")
+    m.icon:SetAllPoints()
+    m.glow = m:CreateTexture(nil, "OVERLAY")
+    m.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    m.glow:SetBlendMode("ADD")
+    m.glow:SetSize(58, 58)
+    m.glow:SetPoint("CENTER")
+    m.pulse = m.glow:CreateAnimationGroup()
+    local fade = m.pulse:CreateAnimation("Alpha")
+    fade:SetFromAlpha(1)
+    fade:SetToAlpha(0.2)
+    fade:SetDuration(0.8)
+    m.pulse:SetLooping("BOUNCE")
+    markers[plate] = m
+  end
+  return m
+end
+
+-- requests: { key, unit } (unit = their nameplate token, nil when out of sight).
+function ns.refreshMarkers(requests)
+  local kept = {}
+  if BuffDiggerDB.requestMarkers and not InCombatLockdown() then
+    for _, req in ipairs(requests) do
+      local m = req.unit and BUFFS[req.key] and markerFor(req.unit)
+      if m then
+        kept[m] = true
+        m.unit = req.unit
+        m.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[req.key].id))
+        m:Show()
+        if not m.pulse:IsPlaying() then m.pulse:Play() end -- hiding a frame stops its animations
+      end
+    end
+  end
+  -- Only the unwanted ones are hidden: hiding a kept one would restart its pulse every refresh.
+  for _, m in pairs(markers) do if not kept[m] then m:Hide() m.unit = nil end end
+end
+
 -- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
 -- can't use (not when it's Buff Digger's pick: a refresh or a higher rank). Order says the rest.
 function ns.styleBuff(button, k, best)
@@ -838,6 +889,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   elseif event == "PLAYER_REGEN_DISABLED" then
     -- Hiding frames that hold protected buttons is still allowed during this very event.
     hideIcons(nil)
+    ns.refreshMarkers({}) -- plates change hands in combat while nothing refreshes
     if ns.onCombat then ns.onCombat(true) end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if ns.onCombat then ns.onCombat(false) end
@@ -847,6 +899,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_REMOVED" then
     shownPlates[a1] = nil
+    for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
     readMyBuffs() -- buffs received in combat are still recorded and thanked

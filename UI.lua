@@ -88,6 +88,7 @@ local SECTIONS = {
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Accept requests from Buff Digger users", soon = true },
     { key = "requestSound", label = "Sound when a request arrives", soon = true },
+    { key = "requestMarkers", label = "Marker above players who request a buff", soon = true },
   }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },

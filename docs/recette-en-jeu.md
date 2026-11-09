@@ -61,7 +61,8 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 |---|---|---|
 | 17 | A clique sur l'icône de B | Pas de MP ; demande ajoutée chez B (son, chiffre sur la minimap) ; étoile sur l'icône de B chez A |
 | 18 | B ne répond pas (pas de buff) | **Aucun MP tout seul**. Au bout de 30 s, Get buffs chez A affiche « no answer: click a buff to whisper » sur la ligne de B ; un clic sur un buff de B envoie le MP, une seule fois |
-| 19 | Chez B : déplacer, agrandir, verrouiller (cadenas) la fenêtre Requests, `/reload` | Même place, même taille ; le cadenas verrouille aussi Get buffs et Give buffs |
-| 20 | Chez B : entrer en combat avec la fenêtre Requests ouverte | Elle disparaît, aucune erreur « action bloquée » ; elle revient après le combat. Une demande reçue en combat fait monter le chiffre de la minimap |
-| 21 | Chez B : décocher *Sound when a request arrives* | Une demande arrive sans son |
-| 22 | A et B en instance (donjon) : A clique sur l'icône de B | MP direct, comme avant (Blizzard bloque les messages d'addon en instance) |
+| 24 | Chez B : déplacer, agrandir, verrouiller (cadenas) la fenêtre Requests, `/reload` | Même place, même taille ; le cadenas verrouille aussi Get buffs et Give buffs |
+| 25 | Chez B : entrer en combat avec la fenêtre Requests ouverte | Elle disparaît, aucune erreur « action bloquée » ; elle revient après le combat. Une demande reçue en combat fait monter le chiffre de la minimap |
+| 26 | Chez B : décocher *Sound when a request arrives* | Une demande arrive sans son |
+| 27 | A et B en instance (donjon) : A clique sur l'icône de B | MP direct, comme avant (Blizzard bloque les messages d'addon en instance) |
+| 28 | A demande un buff à B (barres de nom alliées allumées chez B) | Chez B, au-dessus de la barre de nom de A : grande icône du buff demandé, avec une lueur qui pulse, bien distincte des petites icônes ; un seul marqueur même si A redemande ; il disparaît quand A a le buff, au bout de 90 s, ou quand B clique sur la demande (rang supérieur ou rafraîchissement) ; A s'éloigne puis revient (barre de nom qui disparaît puis réapparaît) = le marqueur suit, jamais sur un autre joueur ; caché en combat ; Réglages > *Marker above players who request a buff* décoché = aucun marqueur ; le marqueur ne gêne pas le clic sur la barre de nom |

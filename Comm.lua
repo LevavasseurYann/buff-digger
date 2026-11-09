@@ -100,6 +100,7 @@ function ns.refreshIncoming()
   for i = #incoming, 1, -1 do
     local req = incoming[i]
     local unit = unitOf(req.full)
+    req.unit = unit -- for the marker above their nameplate (#15)
     -- "Has it already" only closes a request for a buff they lacked: a higher-rank request
     -- is for a buff they already have. My own (/bd selftest) is never closed this way.
     local done = req.kind == "new" and unit and unit ~= "player"
@@ -109,6 +110,7 @@ function ns.refreshIncoming()
     end
   end
   if ns.showRequestCount then ns.showRequestCount(#incoming) end -- not secure: in combat too
+  ns.refreshMarkers(incoming) -- above their nameplate (#15); hidden in combat by itself
   local w = ns.requestsWindow
   -- Secure rows: never in combat, never under the cursor (a re-fill between press and release
   -- would cast on someone else), and only when the player opened it.

@@ -18,7 +18,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetAttribute" then return function(s,a) return rawget(s,"_a_"..a) end end
   if k=="SetAttribute" then return function(s,a,v) rawset(s,"_a_"..a,v) end end
   if k=="RegisterEvent" or k=="RegisterUnitEvent" then return function(s) if not rawget(s,"_reg") then rawset(s,"_reg",true); events[#events+1]=s end end end
-  if k=="CreateFontString" or k=="CreateTexture" then return function() return obj() end end
+  if k=="CreateFontString" or k=="CreateTexture" or k=="CreateAnimationGroup" or k=="CreateAnimation" then return function() return obj() end end
   if k=="CloseButton" then local c=obj(); rawset(t,k,c); return c end
   return function() end end}) end
 CreateFrame=function(_,name) local o=obj(); if name then _G[name]=o end; return o end
@@ -354,4 +354,36 @@ IsInInstance=function() return true end; b=#sent; ns.request("nameplate13")
 assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal13"), "in an instance: whisper at once"); IsInInstance=function() return false end
 ns.CASTING=false; BuffDiggerDB.asked={}; b=#sent; ns.request("nameplate11")
 assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal11"), "casting off: whisper at once, as shipped"); ns.CASTING=true
+
+print("=== #15 marker above a Buff Digger user asking me")
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; ns.CASTING=true
+local plates, markerOf = {}, {}
+C_NamePlate.GetNamePlateForUnit=function(u) plates[u]=plates[u] or {}; return plates[u] end
+CreateFrame=function(t,n,parent,...) local f=mk(t,n,parent,...); for u,p in pairs(plates) do if parent==p and t=="Frame" then markerOf[u]=f end end; return f end
+local function marked(u) return markerOf[u] and markerOf[u]._shown or false end
+C_UnitAuras.GetAuraDataBySpellName=function() return false end
+units.nameplate40={"Lia","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate40"); runTimers()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Lia-Realm")
+print("marker on REQ:", marked("nameplate40")); assert(marked("nameplate40"))
+fire("NAME_PLATE_UNIT_REMOVED","nameplate40"); assert(not marked("nameplate40"), "plate gone: marker hidden at once"); runTimers()
+fire("NAME_PLATE_UNIT_ADDED","nameplate40"); runTimers(); assert(marked("nameplate40"), "plate back: marker back")
+fire("PLAYER_REGEN_DISABLED"); assert(not marked("nameplate40"), "combat: hidden"); fire("PLAYER_REGEN_ENABLED"); runTimers(); assert(marked("nameplate40"))
+-- They got the buff: gone.
+C_UnitAuras.GetAuraDataBySpellName=function(u) if u=="nameplate40" then return {} end return false end
+ns.refreshIncoming(); assert(not marked("nameplate40"), "got the buff: marker gone"); C_UnitAuras.GetAuraDataBySpellName=function() return false end
+-- Expiry (REQUEST_TTL).
+units.nameplate41={"Max","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate41"); runTimers()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Max-Realm"); assert(marked("nameplate41"))
+local realTime=time; time=function() return realTime()+91 end; ns.refreshIncoming(); time=realTime
+assert(not marked("nameplate41"), "expired: marker gone")
+-- A higher-rank request clicked in Requests: closed, marker gone.
+units.nameplate42={"Ned","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate42"); runTimers()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:upgrade","WHISPER","Ned-Realm"); assert(marked("nameplate42"))
+ns.toggleRequests(); local ned; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Ned" then ned=r end end
+click(ned, false); ns.refreshIncoming(); assert(not marked("nameplate42"), "clicked: marker gone"); ns.toggleRequests()
+-- Setting off: no marker.
+BuffDiggerDB.requestMarkers=false
+units.nameplate43={"Oli","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Oli-Realm"); assert(not marked("nameplate43"), "setting off: none")
+BuffDiggerDB.requestMarkers=true; CreateFrame=mk
 print("SMOKE OK")
