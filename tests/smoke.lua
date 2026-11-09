@@ -179,6 +179,13 @@ local b=#sent; ns.request("nameplate5"); print("REFRESH REQ", sent[#sent]); asse
 -- Anduin refreshes it: same aura, later end -> thanked.
 b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player"); runTimers()
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
+-- Recast 20 s after the last one (an upgrade I asked for right after it landed): thanked too.
+BuffDiggerDB.asked.Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}
+b=#sent; myAuras[1].expirationTime=myAuras[1].expirationTime+20; fire("UNIT_AURA","player"); runTimers()
+print("recast 20 s later:", sent[#sent]); assert(#sent>b and sent[#sent]:find("WHISPER Anduin"), "a quick recast I asked for should be thanked")
+-- Another quick recast, that request already thanked: nothing (a recast alone never thanks).
+b=#sent; myAuras[1].expirationTime=myAuras[1].expirationTime+20; fire("UNIT_AURA","player"); runTimers()
+print("recast, nothing asked:", #sent-b); assert(#sent==b, "a recast nobody asked for must not thank")
 -- A peer sees a refresh request (kind accepted).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 -- Off in the game (ns.CASTING: nothing casts from an addon in Forever): no ACK, so the asker whispers.
