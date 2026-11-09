@@ -413,4 +413,6 @@ BuffDiggerDB.requestMarkers=false
 units.nameplate43={"Oli","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Oli-Realm"); assert(not marked("nameplate43"), "setting off: none")
 BuffDiggerDB.requestMarkers=true; CreateFrame=mk
+-- A spell with no target (Lightning Bolt with nothing selected): no error (seen in game 2026-11-09).
+fire("UNIT_SPELLCAST_SENT","player",nil,"guid",403)
 print("SMOKE OK")
