@@ -618,7 +618,7 @@ local function makeWindow(globalName, title, setting, secure, point)
 end
 
 -- entries: { { unit, text, icon, rank, upgrade, spell (secure windows; nil = shown greyed, not castable),
---   buffs = { { key, icon, rank, upgrade, alpha }, ... } (Get buffs: one icon per buff) }, ... }
+--   buffs = { { key, best, icon, rank, upgrade }, ... } (Get buffs: one icon per buff) }, ... }
 local function fill(w, entries, emptyMessage)
   w.entries = entries
   w.fill = function() fill(w, w.entries, emptyMessage) end
@@ -638,7 +638,7 @@ local function fill(w, entries, emptyMessage)
         if buff then
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
-          b.icon:SetAlpha(buff.alpha)
+          ns.styleBuff(b, buff.key, buff.best)
           b.rank:SetText(buff.rank)
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
         end
@@ -678,7 +678,7 @@ local function nearbyEntries()
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", alpha = ns.buffAlpha(k, key, top),
+          upgrade = k == key and kind == "upgrade", best = key,
         }
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]

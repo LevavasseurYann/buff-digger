@@ -557,11 +557,10 @@ end
 
 local function updateIcon(unit)
   local name, class, level = ns.identity(unit)
-  local key, kind, top
-  if name then key, kind, top = ns.bestBuff(name, class, level) end
+  local key = name and ns.bestBuff(name, class, level)
   local mode = BuffDiggerDB.plates
   if mode == "off" or not name then return end
-  -- "all": every buff they can give, I pick (the automatic choice stays the brightest).
+  -- "all": every buff they can give, I pick (my priorities left to right).
   -- "best": that choice only. "hint": a small Buff Digger icon saying "this one can buff you".
   local keys = mode == "all" and ns.offers(class, level) or { key }
   for i, k in ipairs(keys) do
@@ -572,23 +571,23 @@ local function updateIcon(unit)
     if mode == "hint" then
       button:SetSize(12, 12)
       button.icon:SetTexture("Interface\\AddOns\\BuffDigger\\Media\\icon")
+      ns.styleBuff(button)
       button.icon:SetAlpha(0.8)
     else
       button:SetSize(18, 18)
       button.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[k].id))
-      button.icon:SetAlpha(ns.buffAlpha(k, key, top))
+      ns.styleBuff(button, k, key)
     end
     button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
     button:Show()
   end
 end
 
--- Buff Digger's pick brightest (full when it's my top missing buff), other choices dimmed,
--- the ones I already have faint.
-function ns.buffAlpha(k, best, top)
-  if k == best then return top and 1 or 0.8 end
-  if not ns.haveBuff(k) then return 0.55 end
-  return 0.3
+-- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
+-- can't use (not when it's Buff Digger's pick: a refresh or a higher rank). Order says the rest.
+function ns.styleBuff(button, k, best)
+  button.icon:SetAlpha(1)
+  button.icon:SetDesaturated(k ~= nil and k ~= best and ns.haveBuff(k))
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2-alpha
+
+- **Clearer buff icons.** Every icon is fully visible now, in your priority order; buffs you already have are greyed out, like spells you can't use (Get buffs, and nameplates on *Every buff*).
+
 ## 0.4.1-alpha
 
 - **Pick the buff yourself.** Get buffs now shows every buff a player can give, side by side (a paladin: Might, Kings, Wisdom); click one to ask for that one, click the name for Buff Digger's pick. Hover an icon for the spell and rank. Same on nameplates with *Every buff*.
