@@ -25,11 +25,7 @@ local sendAddon = C_ChatInfo and C_ChatInfo.SendAddonMessage
 local sendChat = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then C_ChatInfo.RegisterAddonMessagePrefix(PREFIX) end
 
-local function shortName(full) return (full:match("^[^-]+")) end
-
-local function myRealm()
-  return (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName():gsub("[%s%-]", "")
-end
+local myRealm = ns.myRealm
 
 -- "Name-Realm", the form CHAT_MSG_ADDON uses for the sender: two players with the same name on
 -- different realms must never be mixed up (casting on the wrong one, or on myself).
@@ -132,7 +128,7 @@ function ns.refreshIncoming()
 end
 
 local function onRequest(full, key, kind)
-  local name = shortName(full)
+  local name = ns.chatName(full)
   local buff = BUFFS[key]
   if not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
   if lastFrom[full] and time() - lastFrom[full] < SENDER_GAP then return end
@@ -151,7 +147,7 @@ local function onRequest(full, key, kind)
 end
 
 local function onAck(full)
-  BuffDiggerDB.peers[shortName(full)] = time() -- next time, the request goes out silently
+  BuffDiggerDB.peers[ns.chatName(full)] = time() -- next time, the request goes out silently
 end
 
 -- ---------------------------------------------------------------- events
@@ -183,7 +179,7 @@ function ns.selfTest()
   local _, myClass = UnitClass("player")
   for key, buff in pairs(BUFFS) do
     if buff.class == myClass and IsPlayerSpell(buff.id) then
-      sendAddon(PREFIX, "REQ:" .. key .. ":new", "WHISPER", UnitName("player"))
+      sendAddon(PREFIX, "REQ:" .. key .. ":new", "WHISPER", (select(2, ns.unitName("player"))))
       BuffDiggerDB.requests = true -- the one time it opens by itself: the player asked to see it
       ns.applyWindows()
       return

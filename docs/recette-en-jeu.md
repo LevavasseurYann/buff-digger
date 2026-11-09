@@ -84,16 +84,19 @@ Pour chaque test : le sort part-il ? sur qui ? ta cible a-t-elle changé ?
 
 ## Noms à deux mots (Forever : prénom + nom, avec une espace)
 
-Le test sans le jeu vérifie que l'addon garde le nom entier partout ; ce qui suit dépend de Blizzard.
-Avec un joueur dont le nom a une espace (« Jean Dupont ») :
+Vu en jeu le 2026-11-09 : `UnitName` renvoie « Jean », « Dupont » (le nom de famille à la place
+du royaume). L'addon affiche et retient « Jean Dupont », envoie les MP à « Jean-Dupont », et garde le
+prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur à prénom + nom :
 
 | # | Test | Ce qu'on doit voir | Ligne `/bd` |
 |---|---|---|---|
-| 37 | Taper `/target Jean Dupont` dans le chat, puis clic sur son icône dans Give buffs | Il devient ma cible (pas un « Jean » voisin) ; le sort part sur lui | Cast a buff… |
+| 44 | Get buffs, Give buffs, Requests, info-bulles | Prénom **et** nom sur chaque ligne et dans les info-bulles (« Click: ask Jean Dupont… ») | — |
+| 37 | Taper `/target Jean Dupont` dans le chat, puis `/target Jean-Dupont` | Noter lequel le cible (aucun, l'un, les deux) : si oui, les clics viseront le nom entier au lieu du prénom seul (deux « Jean » voisins ne seraient plus confondus) | — |
+| 45 | Réglages > *Debug messages* coché, clic sur son icône dans Give buffs | Noter la ligne « Spell sent: … on X » : X = « Jean », « Jean-Dupont » ou « Jean Dupont » ? Puis il disparaît de Give buffs quelques secondes | Cast a buff… |
 | 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
 | 39 | Se faire buffer par lui après une demande | `/merci` vise bien lui, et le remerciement en MP lui arrive | Automatic /thank |
-| 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, un clic sur l'icône le buffe | — |
-| 41 | Voit-on des noms avec un tiret (« Jean-Pierre Dupont ») ? | Noter oui / non : l'addon coupe aujourd'hui le royaume au **premier** tiret | — |
+| 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, un clic sur l'icône le buffe ; l'étoile ★ Buff Digger apparaît après son nom dans Get buffs | — |
+| 41 | Voit-on des noms avec un tiret (« Jean-Pierre Dupont ») ? | Noter oui / non : l'addon lit tout tiret venu du chat comme l'espace entre prénom et nom | — |
 
 ## Deux Buff Digger (2 testeurs, hors groupe, monde ouvert) — #10
 

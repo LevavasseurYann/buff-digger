@@ -22,6 +22,14 @@ ns.debug = debug
 local function readable(v) return not isSecret(v) end
 -- A "secret" boolean breaks an `if`: only test what is readable.
 local function truthy(v) return readable(v) and v and true or false end
+-- "/target" and "/thank" get the first name only: "Raide" reached Raide Boule in game (2026-11-09).
+-- ponytail: "/target Raide Boule" never tried (recette 37); another "Raide" around could be picked.
+local function firstName(name) return (name:match("^%S+")) end
+ns.firstName = firstName
+
+function ns.myRealm()
+  return (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName():gsub("[%s%-]", "")
+end
 ns.readable, ns.truthy = readable, truthy
 local function show(v)
   if isSecret(v) then return "|cffff5555<secret>|r" end
@@ -221,7 +229,7 @@ local function thank(name, request)
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
     lastThank[name] = time()
-    local emote = function() DoEmote("THANK", name) end
+    local emote = function() DoEmote("THANK", firstName(name)) end
     if BuffDiggerDB.emoteNeedsClick then sendLater(name, emote) else emote() end
     record("thank", true, "/thank to " .. name)
   end
@@ -233,10 +241,10 @@ local function onBuffLanded(aura, info)
   local name, class, level, _
   if source then
     if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
-    name = UnitName(source)
+    name = ns.unitName(source)
     _, class = UnitClass(source)
     level = UnitLevel(source)
-    if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
+    if not (name and readable(class) and readable(level)) then record("source", false, "giver secret") return end
   end
   -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
   if name and info.key and BUFFS[info.key].class ~= class then
@@ -361,14 +369,32 @@ function ns.bestBuff(name, class, level)
   end
 end
 
+-- Forever: UnitName returns "Raide", "Boule": the last name sits where WoW puts the realm (seen in
+-- game 2026-11-09, on nameplates and on the target). A player's name is both, with a space; that is
+-- what windows show and what every list is keyed by. Whispers go to "Raide-Boule" (seen working).
+-- Returns the name and the whisper target, or nil when the game hides it.
+function ns.unitName(unit)
+  local name, last = UnitName(unit)
+  if not (readable(name) and readable(last)) or not name then return nil end
+  if last and last ~= "" then return name .. " " .. last, name .. "-" .. last end
+  return name, name
+end
+
+-- A name as chat, addon messages and spell targets give it ("Raide-Boule", or "Name-MyRealm") ->
+-- "Raide Boule", the form ns.unitName gives.
+function ns.chatName(s)
+  local plain = s:gsub("%-" .. ns.myRealm():gsub("%p", "%%%0") .. "$", "")
+  return (plain:gsub("%-", " "))
+end
+
 -- Readable identity of a unit, or nil.
 function ns.identity(unit)
-  local name, realm = UnitName(unit)
+  local name, target = ns.unitName(unit)
   local _, class = UnitClass(unit)
   local level = UnitLevel(unit)
-  local ok = readable(name) and readable(class) and readable(level)
-  record("identity", ok, show(name) .. " " .. show(class) .. " " .. show(level))
-  if ok then return name, class, level, realm end
+  local ok = name and readable(class) and readable(level)
+  record("identity", ok and true or false, show(name) .. " " .. show(class) .. " " .. show(level))
+  if ok then return name, class, level, target end
 end
 
 -- ---------------------------------------------------------------- asking
@@ -424,7 +450,7 @@ function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
   ns.flushThanks()
   if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
-  local name, class, level, realm = ns.identity(unit)
+  local name, class, level, target = ns.identity(unit)
   if not name then return end
   local key, kind
   if chosenKey then
@@ -443,7 +469,6 @@ function ns.request(unit, chosenKey)
   local text = ns.message(kind, key, BuffDiggerDB.language)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
-  local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
   local channel, silent = ns.deliver(name, target, key, text, useSay, kind, reask)
   BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
@@ -771,7 +796,7 @@ function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
 COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
 function COMMANDS.requests() if ns.toggleRequests then ns.toggleRequests() end end
-function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
+function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, select(2, ns.unitName("player"))) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
 function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
@@ -814,12 +839,9 @@ local clicking, sentDuringClick = false, nil
 -- The name for /target; nil when the game hides it. In game (2026-11-09) /targetexact did nothing,
 -- with or without the realm, while /target Name (no realm) targeted a player from another realm.
 -- ponytail: /target falls back to a partial match ("Mista" -> "Mistake") when the player is gone;
--- same with two players of the same name from different realms nearby. Check UnitName("target")
+-- same with two players of the same name from different realms nearby. Check ns.targetName("target")
 -- in PostClick if that ever bites.
-local function targetName(unit)
-  local name = UnitName(unit)
-  return readable(name) and name or nil
-end
+local function targetName(unit) return (ns.unitName(unit)) end
 ns.targetName = targetName
 
 -- `who`: the name to aim at, read when the window entry was built (nearbyEntries, giveEntries,
@@ -831,7 +853,7 @@ function ns.castMacro(unit, spell, who)
     macro = "/cast [@player] " .. spell -- /bd selftest
   elseif unit and spell then
     if who == nil then who = targetName(unit) end
-    if who then macro = ("/target %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell) end
+    if who then macro = ("/target %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(firstName(who), spell) end
   end
   return macro
 end
@@ -842,7 +864,7 @@ function ns.aimTarget(button, unit, who)
   if who == nil then who = unit and targetName(unit) end
   who = unit and who
   button:SetAttribute("*type1", who and "macro" or nil)
-  button:SetAttribute("macrotext", who and "/target " .. who or nil)
+  button:SetAttribute("macrotext", who and "/target " .. firstName(who) or nil)
 end
 
 function ns.aimCast(button, unit, spell, who)
@@ -931,7 +953,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   elseif event == "CHAT_MSG_WHISPER_INFORM" then
     record("whisper", true, "message sent to " .. show(a2))
   elseif event == "CHAT_MSG_SAY" then
-    if readable(a1) and readable(a2) and a2 == UnitName("player") then record("say", true) end
+    if readable(a1) and readable(a2) and ns.chatName(a2) == ns.unitName("player") then record("say", true) end
   elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
     if a1 == ADDON_NAME then
       debug("|cffff5555Blizzard blocked|r " .. tostring(a2)) -- also in the /bd report

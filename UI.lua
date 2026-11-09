@@ -87,7 +87,7 @@ function ns.openMenu(owner, unit)
         rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
       root:CreateButton(label, function()
         -- In a city, the nameplate token may now belong to someone else: check it is still them.
-        if not ns.truthy(UnitExists(unit)) or UnitName(unit) ~= name then
+        if not ns.truthy(UnitExists(unit)) or ns.unitName(unit) ~= name then
           ns.notice(L["%s is no longer around."]:format(name))
           return
         end
@@ -803,8 +803,8 @@ local justCast = {}
 
 function ns.castOn(unit)
   ns.flushThanks()
-  local name = unit and UnitName(unit)
-  if ns.readable(name) and name then justCast[name] = GetTime() end
+  local name = unit and ns.unitName(unit)
+  if name then justCast[ns.firstName(name)] = GetTime() end
   C_Timer.After(1, ns.refreshAll)
 end
 
@@ -812,7 +812,8 @@ local function giveEntries(myBuffs)
   local entries, myLevel = {}, UnitLevel("player")
   for _, unit in ipairs(ns.nearbyUnits()) do
     local name, class, level = ns.identity(unit)
-    if name and justCast[name] and GetTime() - justCast[name] < SKIP_AFTER_CAST then name = nil end
+    local cast = name and justCast[ns.firstName(name)]
+    if cast and GetTime() - cast < SKIP_AFTER_CAST then name = nil end
     local keys = name and buffsToGive(unit, class, myBuffs) or {}
     if #keys > 0 then
       -- Nameplates show players far beyond a buff's 30 yards: those are listed greyed, not
@@ -838,8 +839,10 @@ end
 
 -- I cast at someone (macro or by hand): skip them for a few seconds, the macro moves to the next one.
 function ns.onSpellSent(target)
-  -- nil for a spell with no target (an attack, a self buff); "Name-Realm" -> "Name", as in justCast
-  local name = type(target) == "string" and target:match("^[^-]+")
+  -- nil for a spell with no target (an attack, a self buff). Keyed by first name: whether the game
+  -- gives "Raide", "Raide-Boule" or "Raide Boule" here is not known yet (recette 45).
+  -- ponytail: two players sharing a first name are both skipped for SKIP_AFTER_CAST seconds.
+  local name = type(target) == "string" and ns.firstName(ns.chatName(target)) -- "" -> nil
   if not name then return end
   justCast[name] = GetTime()
   C_Timer.After(1, ns.refreshAll)

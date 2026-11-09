@@ -40,10 +40,12 @@ local myAuras={}
 C_UnitAuras={GetAuraDataByIndex=function(u,i) if u=="player" then return myAuras[i] end end,
   GetAuraDataBySpellName=function() return nil end}
 local units={player={"Yann","WARRIOR",21}, nameplate1={"Arthas","PALADIN",25}, nameplate2={"Jaina","MAGE",30}}
-UnitName=function(u) return units[u] and units[u][1] end
+-- Forever: "Jean Dupont" comes back as "Jean", "Dupont" (the last name where WoW puts the realm).
+local function split(n) if not n then return nil end local f, l = n:match("^(%S+) (.+)$") if f then return f, l end return n end
+UnitName=function(u) return split(units[u] and units[u][1]) end
 UnitClass=function(u) return "x", units[u] and units[u][2] end
 UnitLevel=function(u) return units[u] and units[u][3] end
-GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) return units[u][1], "Realm" end
+GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) local f, l = split(units[u][1]) return f, l or "Realm" end
 UnitIsPlayer=function(u) return units[u]~=nil end; UnitExists=UnitIsPlayer
 UnitIsUnit=function(a,b) return a==b end; UnitIsFriend=function() return true end
 C_NamePlate={GetNamePlates=function() return {} end,
@@ -452,6 +454,7 @@ fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Oli-Realm"); a
 BuffDiggerDB.requestMarkers=true; CreateFrame=mk
 -- A spell with no target (Lightning Bolt with nothing selected): no error (seen in game 2026-11-09).
 fire("UNIT_SPELLCAST_SENT","player",nil,"guid",403)
+fire("UNIT_SPELLCAST_SENT","player","","guid",403) -- an empty target must not break either
 print("=== Give buffs, a paladin: one icon per blessing they lack, in THEIR class's order")
 units.player={"Yann","PALADIN",40}; IsPlayerSpell=function(id) return id==19740 or id==20217 or id==19742 end
 units.nameplate60={"Garrosh","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate60"); runTimers()
@@ -479,26 +482,46 @@ ns.refreshWindow(); assert(not rowOf("nameplate60"), "unreadable: nothing")
 C_UnitAuras.GetAuraDataBySpellName=realAura2; BuffDiggerDB.give=false; ns.applyWindows(); fire("NAME_PLATE_UNIT_REMOVED","nameplate60"); units.nameplate60=nil
 
 print("=== Forever names: first name + last name, with a space")
+-- In game (2026-11-09) UnitName gives "Jean", "Dupont": the fake API does the same (split above).
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.asked={}
 units.nameplate50={"Jean Dupont","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate50"); runTimers()
--- Give buffs: the macro targets the whole name.
+-- Give buffs: the whole name on the line; the macro targets the first name (what worked in game).
 BuffDiggerDB.give=true; ns.applyWindows(); local gv=_G.BuffDiggerGive
 gv._OnMouseWheel(gv,-100); local jean; for _,r in ipairs(gv.rows) do if r._shown and r.unit=="nameplate50" then jean=r end end
-assert(jean, "Jean Dupont listed in Give buffs"); print("macro:", (jean.buffs[1]:GetAttribute("macrotext"):gsub("\n"," | ")))
-assert(jean.buffs[1]:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "whole name targeted")
--- A cast sent at "Jean Dupont-Realm" skips the whole name for a while.
-fire("UNIT_SPELLCAST_SENT","player","Jean Dupont-Realm","guid",1243); ns.refreshWindow()
+assert(jean, "Jean Dupont listed in Give buffs"); print("line:", jean.text._t, "| macro:", (jean.buffs[1]:GetAttribute("macrotext"):gsub("\n"," | ")))
+assert(jean.text._t:find("Jean Dupont", 1, true), "whole name shown in Give buffs")
+assert(jean.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "macro targets the first name")
+assert(jean.entry.who=="Jean Dupont", "aim frozen on the whole name")
+-- A cast sent at "Jean-Dupont" skips them for a while.
+fire("UNIT_SPELLCAST_SENT","player","Jean-Dupont","guid",1243); ns.refreshWindow()
 for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end
+-- Same if the game names the target "Jean" only (format not known yet, recette 45).
+NOW=NOW+60; ns.refreshWindow(); local back; for _,e in ipairs(_G.BuffDiggerGive.entries) do back = back or e.unit=="nameplate50" end
+assert(back, "listed again once the skip is over")
+fire("UNIT_SPELLCAST_SENT","player","Jean","guid",1243); ns.refreshWindow()
+for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "spell sent at \"Jean\": skipped too") end
 BuffDiggerDB.give=false; ns.applyWindows()
--- A request from "Jean Dupont-Realm": in sight, aimed at the whole name.
+-- A request from "Jean-Dupont": shown as "Jean Dupont", in sight, ACK back to "Jean-Dupont".
 BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
-fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean Dupont-Realm"); ns.refreshIncoming()
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean-Dupont"); ns.refreshIncoming()
 local rq; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Jean Dupont" then rq=r end end
-assert(rq and rq.unit=="nameplate50" and rq.buffs[1]:GetAttribute("macrotext"):find("^/target Jean Dupont\n"), "request from a two-word name")
-print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean Dupont-Realm: ACK")
+assert(rq and rq.unit=="nameplate50" and rq.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "request from a two-word name")
+print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean-Dupont: ACK")
+assert(ns.isPeer("Jean Dupont"), "known Buff Digger user by the whole name")
 BuffDiggerDB.requests=false; ns.applyWindows()
--- Asking them: the whisper goes to the whole name.
+-- Asking them: the whisper goes to "Marie-Curie" (what worked in game), the request is kept as "Marie Curie".
 units.player={"Yann","WARRIOR",21}; units.nameplate51={"Marie Curie","PALADIN",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate51")
+-- Get buffs shows her whole name.
+BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow(); local gt
+for _,e in ipairs(_G.BuffDiggerNearby.entries) do if e.unit=="nameplate51" then gt=e end end
+print("Get buffs line:", gt and gt.text); assert(gt and gt.text:find("Marie Curie", 1, true), "whole name shown in Get buffs")
+BuffDiggerDB.nearby=false; ns.applyWindows()
 BuffDiggerDB.asked={}; BuffDiggerDB.peers={}; b=#sent; ns.request("nameplate51"); print("ask:", sent[b+1], sent[b+2])
-assert(sent[b+1]:find("^ADDON>Marie Curie:") and sent[b+2]:find("^WHISPER Marie Curie:"), "silent request and whisper to the whole name")
+assert(sent[b+1]:find("^ADDON>Marie%-Curie:") and sent[b+2]:find("^WHISPER Marie%-Curie:"), "silent request and whisper to Marie-Curie")
+assert(BuffDiggerDB.asked["Marie Curie"], "request kept under the whole name")
+-- Marie buffs me: thanked by the whole name; the emote gets the first name (what worked in game).
+myAuras[#myAuras+1]={auraInstanceID=500,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate51",expirationTime=NOW+600,duration=600}
+b=#sent; fire("UNIT_AURA","player"); runTimers(); for i=b+1,#sent do print("thanks:", sent[i]) end
+local emote, whisper; for i=b+1,#sent do emote = emote or sent[i]=="EMOTE THANK Marie"; whisper = whisper or sent[i]:find("^WHISPER Marie%-Curie:") end
+assert(emote and whisper, "Marie Curie thanked: /thank Marie, whisper to Marie-Curie")
 print("SMOKE OK")
