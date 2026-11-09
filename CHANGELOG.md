@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **See who's asking.** When another Buff Digger user asks you for a buff, a big pulsing icon of that buff shows above their nameplate, so you spot them in the crowd. Only you see it, and it goes away once they have the buff, after 90 seconds, or when you close the Requests window. New option *Marker above players who request a buff* (on by default).
 - **Target from Get buffs.** Click a player's name to target them (to find them in the crowd, see their buffs, invite them); it no longer asks for a buff, the icons do. New option *Get buffs: target the player I ask*: clicking a buff icon also targets them.
 
 ## 0.4.2-beta

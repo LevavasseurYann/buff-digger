@@ -61,3 +61,4 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 |---|---|---|
 | 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
 | 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
+| 24 | A demande un buff à B (barres de nom alliées allumées chez B) | Chez B, au-dessus de la barre de nom de A : grande icône du buff demandé, avec une lueur qui pulse, bien distincte des petites icônes ; un seul marqueur même si A redemande ; il disparaît quand A a le buff, au bout de 90 s, ou quand B ferme la fenêtre Requests ; A s'éloigne puis revient (barre de nom qui disparaît puis réapparaît) = le marqueur suit, jamais sur un autre joueur ; caché en combat ; Réglages > *Marker above players who request a buff* décoché = aucun marqueur ; le marqueur ne gêne pas le clic sur la barre de nom |

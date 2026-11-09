@@ -86,6 +86,7 @@ local SECTIONS = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Pop up requests from Buff Digger users", soon = true },
+    { key = "requestMarkers", label = "Marker above players who request a buff", soon = true },
   }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },

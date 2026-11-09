@@ -85,7 +85,7 @@ local function buildWindow()
   window:SetScript("OnDragStart", window.StartMoving)
   window:SetScript("OnDragStop", window.StopMovingOrSizing)
   window:Hide()
-  window.CloseButton:HookScript("OnClick", function() wipe(incoming) end)
+  window.CloseButton:HookScript("OnClick", function() wipe(incoming) ns.refreshMarkers(incoming) end)
   local header = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   header:SetPoint("TOP", 0, -5)
   header:SetText(L["Buff Digger — Requests"])
@@ -142,6 +142,7 @@ function ns.refreshIncoming()
   for i = #incoming, 1, -1 do
     local req = incoming[i]
     local unit = unitOf(req.full)
+    req.unit = unit -- for the marker above their nameplate (#15)
     -- "Has it already" only closes a request for a buff they lacked: a higher-rank request
     -- is for a buff they already have. My own (/bd selftest) is never closed this way.
     local done = req.kind == "new" and unit and unit ~= "player"
@@ -168,6 +169,7 @@ function ns.refreshIncoming()
     end
     row:SetShown(req ~= nil)
   end
+  ns.refreshMarkers(incoming)
   local count = math.min(#incoming, MAX_ROWS)
   window:SetHeight(40 + math.max(count, 1) * ROW_HEIGHT)
   window:SetShown(count > 0)
