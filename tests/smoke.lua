@@ -181,6 +181,10 @@ k, kind = ns.bestBuff("Anduin","PRIEST",40); print("10 min buff, 290 s left ->",
 -- Unsolicited renewal: nobody asked -> no thanks.
 BuffDiggerDB.asked={}; local b2=#sent; myAuras[1].expirationTime=NOW+600; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
 print("unsolicited renewal sends:", #sent-b2); assert(#sent==b2)
+-- Food from another player (mage food, table): not a buff, no thanks.
+units.nameplate6={"Jaina","MAGE",40}; b2=#sent
+myAuras[#myAuras+1]={auraInstanceID=63,name="Food",spellId=433,sourceUnit="nameplate6"}; fire("UNIT_AURA","player"); runTimers()
+print("food sends:", #sent-b2); assert(#sent==b2, "eating must not thank")
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 
 print("=== next-player key")

@@ -251,7 +251,8 @@ local function onBuffLanded(aura, info, renewed)
   local asked, request = findRequest(name, info.key)
   if not name and asked then name = asked; info.giver = asked end
   -- A renewal nobody asked for (a raid buffer keeping buffs up) is not thanked again and again.
-  if name and (request or not renewed) then thank(name, request) end
+  -- Only buffs from Data.lua: eating a mage's food or sitting at a table is not a buff to thank.
+  if name and info.key and (request or not renewed) then thank(name, request) end
 end
 
 local function readMyBuffs()
