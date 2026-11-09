@@ -242,8 +242,8 @@ local last; for _,r in ipairs(gw.rows) do if r._shown then last=r end end
 print("last row:", last.unit, last:GetAttribute("type")); assert(last.unit=="nameplate1" and last:GetAttribute("type")==nil)
 assert(gw.rows[1]:GetAttribute("type")=="macro" and gw.rows[1].unit~="nameplate1")
 print("row 1 macro:", gw.rows[1]:GetAttribute("macrotext"))
--- Aimed by exact name (and realm), cast only on a friendly living target, previous target back.
-assert(gw.rows[1]:GetAttribute("macrotext"):find("^/targetexact [%a%-]+\n/cast %[help,nodead%] Mot de pouvoir : Robustesse\n/targetlasttarget$"))
+-- Aimed by name (no realm, /target), cast only on a friendly living target, previous target back.
+assert(gw.rows[1]:GetAttribute("macrotext"):find("^/target [^\n]+\n/cast %[help,nodead%] Mot de pouvoir : Robustesse\n/targetlasttarget$"))
 -- A click in the window does not hide that player (the list used to empty this way).
 local clicked=gw.rows[1].unit; click(gw.rows[1], false); ns.refreshWindow()
 local still=false; for _,r in ipairs(gw.rows) do if r._shown and r.unit==clicked then still=true end end
@@ -290,10 +290,10 @@ for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",true); f(pick,"L
 local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
 -- #14: the name targets them (any modifier), asks nothing; icons target only with targetOnAsk.
 print("name click:", row:GetAttribute("*type1"), row:GetAttribute("macrotext"))
-assert(row:GetAttribute("*type1")=="macro" and row:GetAttribute("macrotext")=="/targetexact "..who)
+assert(row:GetAttribute("*type1")=="macro" and row:GetAttribute("macrotext")=="/target "..who)
 b=#sent; for _,f in ipairs(row._hooks.PostClick) do f(row,"LeftButton",false) end; assert(#sent==b, "name click asks nothing")
 assert(pick:GetAttribute("*type1")==nil and pick:GetAttribute("macrotext")==nil, "icon: no target by default")
-BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/targetexact "..who, "icon targets with the option")
+BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/target "..who, "icon targets with the option")
 BuffDiggerDB.targetOnAsk=false; ns.refreshWindow(); assert(pick:GetAttribute("*type1")==nil)
 -- 15 paladins around: 10 rows, the wheel shows the rest.
 for i=10,24 do units["nameplate"..i]={"Pal"..i,"PALADIN",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate"..i) end; runTimers(); ns.refreshWindow()

@@ -800,14 +800,17 @@ local clicking, sentDuringClick = false, nil
 
 -- Aim a secure button at a player: a click casts `spell` on them. Seen in game (2026-11-08): with
 -- type=spell and unit=nameplateN the click sends nothing, no error. So it goes through a macro, the
--- classic buff-addon way: target them by exact name, cast, give the previous target back.
+-- classic buff-addon way: target them by name, cast, give the previous target back.
 -- [help,nodead]: if they left and the targeting failed, never buff whoever is targeted instead.
 -- ponytail: with no target before, the buffed player stays targeted (/targetlasttarget has nothing).
--- "Name" or "Name-Realm", what /targetexact wants; nil when the game hides it.
-local function fullName(unit)
-  local name, realm = UnitName(unit)
-  if not (readable(name) and readable(realm) and name) then return nil end
-  return (realm and realm ~= "") and (name .. "-" .. realm) or name
+-- The name for /target; nil when the game hides it. In game (2026-11-09) /targetexact did nothing,
+-- with or without the realm, while /target Name (no realm) targeted a player from another realm.
+-- ponytail: /target falls back to a partial match ("Mista" -> "Mistake") when the player is gone;
+-- same with two players of the same name from different realms nearby. Check UnitName("target")
+-- in PostClick if that ever bites.
+local function targetName(unit)
+  local name = UnitName(unit)
+  return readable(name) and name or nil
 end
 
 function ns.castMacro(unit, spell)
@@ -815,8 +818,8 @@ function ns.castMacro(unit, spell)
   if unit == "player" and spell then
     macro = "/cast [@player] " .. spell -- /bd selftest
   elseif unit and spell then
-    local who = fullName(unit)
-    if who then macro = ("/targetexact %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell) end
+    local who = targetName(unit)
+    if who then macro = ("/target %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell) end
   end
   return macro
 end
@@ -824,9 +827,9 @@ end
 -- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
 -- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
 function ns.aimTarget(button, unit)
-  local who = unit and fullName(unit)
+  local who = unit and targetName(unit)
   button:SetAttribute("*type1", who and "macro" or nil)
-  button:SetAttribute("macrotext", who and "/targetexact " .. who or nil)
+  button:SetAttribute("macrotext", who and "/target " .. who or nil)
 end
 
 function ns.aimCast(button, unit, spell)
