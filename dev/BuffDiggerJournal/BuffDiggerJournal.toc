@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Buff Digger Journal (recette)
+## Notes: Dev only, never packaged: logs what Buff Digger does during a play session, for the in-game test checklist.
+## Author: Yann
+## Dependencies: BuffDigger
+## SavedVariables: BuffDiggerJournalDB
+
+Journal.lua

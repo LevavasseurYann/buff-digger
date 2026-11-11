@@ -3,6 +3,7 @@ package-as: BuffDigger
 
 ignore:
   - docs
+  - dev
   - dist
   - README.md
   - tests

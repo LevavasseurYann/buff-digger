@@ -39,7 +39,13 @@ Buff Digger looks at the friendly players around you, their class and their leve
 
 **The Get buffs window**
 
-- Everyone around who can buff you, and with what. One click asks.
+- Everyone around who can buff you, and with what. Click a buff to ask for it, a name to target them.
+
+**For pallies, priests, mages and druids: Give buffs**
+
+- A window listing who around lacks *your* buff, picked for *their* class. Click a line, the buff goes out, your old target comes back if you had one.
+- One key, *Give my buff to the next player around*: press it again and again in Stormwind.
+- Asked by another Buff Digger user? No whisper: a sound, a count on the minimap button, a pulsing icon above their head, and one click in your **Requests** window buffs them.
 
 **Stays out of your way**
 
@@ -54,9 +60,9 @@ Buff Digger looks at the friendly players around you, their class and their leve
 2. Go somewhere busy. Icons show up next to people who can help.
 3. Optional: **Key Bindings > AddOns > Buff Digger** and bind *Ask the best buff around me*.
 
-Minimap button: left click = settings, right click = Get buffs.
+Minimap button: left click = settings, right click = Get buffs, Shift+right click = Give buffs, Ctrl+right click = Requests.
 
-**Commands:** `/bd best` (good for macros), `/bd ask` (your target), `/bd get`, `/bd config`, `/bd log` (buffs you received and what they really gave), `/bd` (diagnostic report, paste it with bug reports).
+**Commands:** `/bd best` (good for macros), `/bd ask` (your target), `/bd get`, `/bd give`, `/bd requests`, `/bd config`, `/bd log` (buffs you received and what they really gave), `/bd` (diagnostic report, paste it with bug reports).
 
 ---
 
@@ -71,8 +77,6 @@ Minimap button: left click = settings, right click = Get buffs.
 
 ## Coming next
 
-- **For pallies, priests, mages and druids: Give buffs.** A window listing who around lacks *your* buff, picked for *their* class, and one key to buff the next one. It's written, but Forever doesn't let an addon cast a spell yet, so it's switched off (greyed in the settings) until it works for real.
-- **Buff Digger to Buff Digger requests:** a small pop-up instead of a whisper when the player you ask also runs Buff Digger. Same wall, same wait.
 - Whatever you ask for in the comments.
 
 Happy digging!

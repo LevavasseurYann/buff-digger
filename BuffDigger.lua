@@ -4,10 +4,6 @@
 -- "Debug messages" is ticked in the settings; /bd always prints the full report.
 
 local ADDON_NAME, ns = ...
--- Casting a buff from Buff Digger (Give buffs, its next-player key, the Requests pop-up) does nothing
--- in Forever: no addon button sends a spell, nor a macro the addon rewrites (seen 2026-11-08, every
--- click setting and ActionButtonUseKeyDown 0/1 tried). Off and greyed "coming soon" until it works.
-ns.CASTING = false
 local isSecret = issecretvalue or function() return false end
 local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 local BUFFS, rankAt, L = ns.BUFFS, ns.rankAt, ns.L
@@ -26,6 +22,14 @@ ns.debug = debug
 local function readable(v) return not isSecret(v) end
 -- A "secret" boolean breaks an `if`: only test what is readable.
 local function truthy(v) return readable(v) and v and true or false end
+-- "/target" and "/thank" get the first name only: "Raide" reached Raide Boule in game (2026-11-09).
+-- ponytail: "/target Raide Boule" never tried (recette 37); another "Raide" around could be picked.
+local function firstName(name) return (name:match("^%S+")) end
+ns.firstName = firstName
+
+function ns.myRealm()
+  return (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName():gsub("[%s%-]", "")
+end
 ns.readable, ns.truthy = readable, truthy
 local function show(v)
   if isSecret(v) then return "|cffff5555<secret>|r" end
@@ -47,6 +51,11 @@ ns.DEFAULTS = {
   delay = 120,       -- seconds before asking the same player again (#6)
   refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
   acceptRequests = true, -- show silent requests from other Buff Digger users (#10)
+  requests = false,  -- "Requests" window (#13)
+  requestSound = true, -- a sound when a request arrives (#13)
+  targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
+  requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
+  gameMenu = true, -- buff request lines in the game's right-click menu on a player (#17)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -203,7 +212,7 @@ local function thank(name, request)
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
     lastThank[name] = time()
-    local emote = function() DoEmote("THANK", name) end
+    local emote = function() DoEmote("THANK", firstName(name)) end
     if BuffDiggerDB.emoteNeedsClick then sendLater(name, emote) else emote() end
     record("thank", true, "/thank to " .. name)
   end
@@ -215,10 +224,10 @@ local function onBuffLanded(aura, info)
   local name, class, level, _
   if source then
     if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
-    name = UnitName(source)
+    name = ns.unitName(source)
     _, class = UnitClass(source)
     level = UnitLevel(source)
-    if not (readable(name) and readable(class) and readable(level)) then record("source", false, "giver secret") return end
+    if not (name and readable(class) and readable(level)) then record("source", false, "giver secret") return end
   end
   -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
   if name and info.key and BUFFS[info.key].class ~= class then
@@ -261,7 +270,7 @@ local function readMyBuffs()
       -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
       -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
       local src = aura.sourceUnit
-      local caster = old and readable(src) and src and UnitName(src)
+      local caster = old and readable(src) and src and ns.unitName(src)
       local sameGiver = not (readable(caster) and caster and old.giver) or caster == old.giver
       local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
       -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
@@ -346,14 +355,32 @@ function ns.bestBuff(name, class, level)
   end
 end
 
+-- Forever: UnitName returns "Raide", "Boule": the last name sits where WoW puts the realm (seen in
+-- game 2026-11-09, on nameplates and on the target). A player's name is both, with a space; that is
+-- what windows show and what every list is keyed by. Whispers go to "Raide-Boule" (seen working).
+-- Returns the name and the whisper target, or nil when the game hides it.
+function ns.unitName(unit)
+  local name, last = UnitName(unit)
+  if not (readable(name) and readable(last)) or not name then return nil end
+  if last and last ~= "" then return name .. " " .. last, name .. "-" .. last end
+  return name, name
+end
+
+-- A name as chat, addon messages and spell targets give it ("Raide-Boule", or "Name-MyRealm") ->
+-- "Raide Boule", the form ns.unitName gives.
+function ns.chatName(s)
+  local plain = s:gsub("%-" .. ns.myRealm():gsub("%p", "%%%0") .. "$", "")
+  return (plain:gsub("%-", " "))
+end
+
 -- Readable identity of a unit, or nil.
 function ns.identity(unit)
-  local name, realm = UnitName(unit)
+  local name, target = ns.unitName(unit)
   local _, class = UnitClass(unit)
   local level = UnitLevel(unit)
-  local ok = readable(name) and readable(class) and readable(level)
-  record("identity", ok, show(name) .. " " .. show(class) .. " " .. show(level))
-  if ok then return name, class, level, realm end
+  local ok = name and readable(class) and readable(level)
+  record("identity", ok and true or false, show(name) .. " " .. show(class) .. " " .. show(level))
+  if ok then return name, class, level, target end
 end
 
 -- ---------------------------------------------------------------- asking
@@ -409,8 +436,10 @@ function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
   ns.flushThanks()
   if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
-  local name, class, level, realm = ns.identity(unit)
+  local name, class, level, target = ns.identity(unit)
   if not name then return end
+  -- A group member out of sight (another zone): a whisper would only bother them (#16).
+  if ns.outOfSight(unit) then notice(L["%s is too far away: nothing asked."]:format(name)) return end
   local key, kind
   if chosenKey then
     key, kind = chosenKey, kindFor(name, chosenKey, level)
@@ -418,18 +447,19 @@ function ns.request(unit, chosenKey)
     key, kind = ns.bestBuff(name, class, level)
   end
   if not key then notice(L["%s has nothing better for you right now."]:format(name)) return end
-  local ago = ns.askedAgo(name)
+  -- A silent request that brought nothing: this click re-asks them by whisper (#13).
+  local reask = ns.unanswered(name)
+  local ago = not reask and ns.askedAgo(name)
   if ago then
     notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
   local text = ns.message(kind, key, BuffDiggerDB.language)
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
-  local useSay = BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
-  local target = (realm and realm ~= "") and (name .. "-" .. realm) or name
+  local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
-  local channel = ns.deliver(name, target, key, text, useSay, kind)
-  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target }
+  local channel, silent = ns.deliver(name, target, key, text, useSay, kind, reask)
+  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -442,8 +472,10 @@ function ns.askBest()
   local prefs = ns.prefsFor(myClass)
   local KIND_ORDER = { new = 0, refresh = 1, replace = 2, upgrade = 3 }
   local bestUnit, bestScore
-  for _, unit in ipairs(ns.nearbyUnits()) do
-    local name, class, level = ns.identity(unit)
+  for _, unit in ipairs(ns.listUnits()) do
+    -- A member out of sight (another zone) is not "around me": the key never asks them.
+    local name, class, level
+    if not ns.isMember(unit) or truthy(UnitIsVisible(unit)) then name, class, level = ns.identity(unit) end
     local recent = name and ns.askedAgo(name)
     if name and not recent then
       local key, kind = ns.bestBuff(name, class, level)
@@ -463,7 +495,10 @@ end
 local getCVar = (C_CVar and C_CVar.GetCVar) or GetCVar
 local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
 
-function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" end
+-- In Forever the setting can read "off" while friendly players' plates show (seen 2026-11-09):
+-- a friendly player's plate in sight proves they are on.
+-- ponytail: with nobody around and that setting off, still says off; the real setting is recette 46.
+function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" or #ns.nearbyUnits() > 0 end
 
 function ns.turnOnFriendlyPlates()
   if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
@@ -485,6 +520,58 @@ function ns.nearbyUnits()
       and truthy(UnitIsFriend("player", unit)) then
       units[#units + 1] = unit
     end
+  end
+  return units
+end
+
+-- ---------------------------------------------------------------- group (#16)
+
+-- Out of sight: further than about 100 yards. Only group members can be listed that far; a
+-- nameplate is always in sight. Unreadable counts as in sight (the ask key is stricter: it skips).
+function ns.outOfSight(unit)
+  local v = UnitIsVisible(unit)
+  return readable(v) and not v
+end
+
+-- A group member's token: stable while the group stays the same, known out of nameplate range and
+-- in instances, where friendly nameplates are locked.
+function ns.isMember(unit) return (unit:match("^party%d") or unit:match("^raid%d")) ~= nil end
+
+-- The other members of my party, or of my whole raid.
+function ns.groupUnits()
+  local units = {}
+  if not (IsInGroup and IsInGroup()) then return units end
+  local raid = IsInRaid and IsInRaid()
+  local prefix, n = raid and "raid" or "party", raid and GetNumGroupMembers() or GetNumSubgroupMembers()
+  for i = 1, n do
+    local unit = prefix .. i
+    -- Offline and dead members exist too: nothing to give them or ask them.
+    if truthy(UnitExists(unit)) and truthy(UnitIsPlayer(unit)) and not truthy(UnitIsUnit(unit, "player"))
+      and truthy(UnitIsConnected(unit)) and not truthy(UnitIsDeadOrGhost(unit)) then
+      units[#units + 1] = unit
+    end
+  end
+  return units
+end
+
+-- Who the windows and the ask key look at: group members first, then everyone else's nameplate
+-- (a member's own nameplate is skipped: one line per player). UnitIsUnit(nameplate, party) did not
+-- match in Forever (a member listed twice, seen 2026-11-11): the name decides too.
+function ns.listUnits()
+  local units = ns.groupUnits()
+  local members, names = #units, {}
+  for i = 1, members do
+    local name = ns.unitName(units[i])
+    if name then names[name] = true end
+  end
+  for _, unit in ipairs(ns.nearbyUnits()) do
+    local member = names[ns.unitName(unit) or false] or false
+    if not member then
+      for i = 1, members do
+        if truthy(UnitIsUnit(unit, units[i])) then member = true break end
+      end
+    end
+    if not member then units[#units + 1] = unit end
   end
   return units
 end
@@ -572,6 +659,56 @@ local function updateIcon(unit)
     button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
     button:Show()
   end
+end
+
+-- Request markers (#15): a Buff Digger user asked me for a buff, so a big pulsing icon of that
+-- buff floats above their nameplate. Visual only, seen by me alone (not a raid marker).
+-- Follows the incoming requests of Comm.lua, which calls ns.refreshMarkers whenever they change.
+local markers = {} -- nameplate -> our marker frame, one per player
+
+local function markerFor(unit)
+  local plate = C_NamePlate.GetNamePlateForUnit(unit, issecure())
+  if not plate or (plate.IsForbidden and plate:IsForbidden()) then return end
+  local m = markers[plate]
+  if not m then
+    m = CreateFrame("Frame", nil, plate) -- no mouse: never steals a click from the plate
+    m:SetSize(32, 32)
+    m:SetPoint("BOTTOM", plate, "TOP", 0, 2)
+    m.icon = m:CreateTexture(nil, "ARTWORK")
+    m.icon:SetAllPoints()
+    m.glow = m:CreateTexture(nil, "OVERLAY")
+    m.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    m.glow:SetBlendMode("ADD")
+    m.glow:SetSize(58, 58)
+    m.glow:SetPoint("CENTER")
+    m.pulse = m.glow:CreateAnimationGroup()
+    local fade = m.pulse:CreateAnimation("Alpha")
+    fade:SetFromAlpha(1)
+    fade:SetToAlpha(0.2)
+    fade:SetDuration(0.8)
+    m.pulse:SetLooping("BOUNCE")
+    markers[plate] = m
+  end
+  return m
+end
+
+-- requests: { key, unit } (unit = their nameplate token, nil when out of sight).
+function ns.refreshMarkers(requests)
+  local kept = {}
+  if BuffDiggerDB.requestMarkers and not InCombatLockdown() then
+    for _, req in ipairs(requests) do
+      local m = req.unit and BUFFS[req.key] and markerFor(req.unit)
+      if m then
+        kept[m] = true
+        m.unit = req.unit
+        m.icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[req.key].id))
+        m:Show()
+        if not m.pulse:IsPlaying() then m.pulse:Play() end -- hiding a frame stops its animations
+      end
+    end
+  end
+  -- Only the unwanted ones are hidden: hiding a kept one would restart its pulse every refresh.
+  for _, m in pairs(markers) do if not kept[m] then m:Hide() m.unit = nil end end
 end
 
 -- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
@@ -698,17 +835,15 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
 }
-if ns.CASTING then _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"] end
+_G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
 function COMMANDS.get() if ns.toggleWindow then ns.toggleWindow() end end
 COMMANDS.nearby = COMMANDS.get -- its name before 0.4.0
 function COMMANDS.give() if ns.toggleGive then ns.toggleGive() end end
-function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, UnitName("player")) end
+function COMMANDS.requests() if ns.toggleRequests then ns.toggleRequests() end end
+function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, select(2, ns.unitName("player"))) end
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
-function COMMANDS.selftest()
-  if not ns.CASTING then notice(L["Give buffs: coming soon."]) return end
-  if ns.selfTest then ns.selfTest() end
-end -- see the Requests window alone
+function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
 
 SLASH_BUFFDIGGER1 = "/bd"
@@ -737,49 +872,64 @@ frame:RegisterEvent("UI_ERROR_MESSAGE")
 
 -- Secure cast buttons (Give buffs, next-player key, Requests): did a click really send a spell?
 -- Only a cast sent DURING the click counts (between PreClick and PostClick), so a spell cast by
--- hand right after a failed click is never taken for a success. With "Debug messages", every
--- click prints what the button held and what came of it.
+-- hand right after a failed click is never taken for a success.
 local clicking, sentDuringClick = false, nil
 
--- Aim a secure button at a player: a click casts `spell` on them. Seen in game (2026-11-08): with
--- type=spell and unit=nameplateN the click sends nothing, no error. So it goes through a macro, the
--- classic buff-addon way: target them by exact name, cast, give the previous target back.
+-- Aim a secure button at a player: a click casts `spell` on them, through a macro, the classic
+-- buff-addon way: target them by name, cast, give the previous target back. Proven in game
+-- (2026-11-09). Casting without a macro (type=spell + unit) is untested since the AnyUp fix:
+-- docs/recette-en-jeu.md, tests 31-35.
 -- [help,nodead]: if they left and the targeting failed, never buff whoever is targeted instead.
 -- ponytail: with no target before, the buffed player stays targeted (/targetlasttarget has nothing).
-function ns.castMacro(unit, spell)
+-- The name for /target; nil when the game hides it. In game (2026-11-09) /targetexact did nothing,
+-- with or without the realm, while /target Name (no realm) targeted a player from another realm.
+-- ponytail: /target falls back to a partial match ("Mista" -> "Mistake") when the player is gone;
+-- same with two players of the same name from different realms nearby. Check ns.targetName("target")
+-- in PostClick if that ever bites.
+local function targetName(unit) return (ns.unitName(unit)) end
+ns.targetName = targetName
+
+-- `who`: the name to aim at, read when the window entry was built (nearbyEntries, giveEntries,
+-- refreshIncoming);
+-- false = frozen as unreadable, aim at nobody.
+function ns.castMacro(unit, spell, who)
   local macro
   if unit == "player" and spell then
     macro = "/cast [@player] " .. spell -- /bd selftest
   elseif unit and spell then
-    local name, realm = UnitName(unit)
-    if readable(name) and readable(realm) and name then
-      local who = (realm and realm ~= "") and (name .. "-" .. realm) or name
-      macro = ("/targetexact %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(who, spell)
-    end
+    if who == nil then who = targetName(unit) end
+    if who then macro = ("/target %s\n/cast [help,nodead] %s\n/targetlasttarget"):format(firstName(who), spell) end
   end
   return macro
 end
 
-function ns.aimCast(button, unit, spell)
-  local macro = ns.castMacro(unit, spell)
+-- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
+-- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
+function ns.aimTarget(button, unit, who)
+  if who == nil then who = unit and targetName(unit) end
+  who = unit and who
+  button:SetAttribute("*type1", who and "macro" or nil)
+  button:SetAttribute("macrotext", who and "/target " .. firstName(who) or nil)
+end
+
+function ns.aimCast(button, unit, spell, who)
+  local macro = ns.castMacro(unit, spell, who)
   button:SetAttribute("type", macro and "macro" or nil)
   button:SetAttribute("macrotext", macro)
 end
 
--- Clicks a secure button listens to: exactly what Blizzard's own action buttons register in the
--- 1.60.1 client. With "AnyUp", "AnyDown" and cast-on-key-down on (ActionButtonUseKeyDown=1), a
--- mouse click ran no action at all, no error (seen in game 2026-11-08; same report on Firekeeper).
-function ns.secureClicks(button) button:RegisterForClicks("AnyUp", "LeftButtonDown", "RightButtonDown") end
+-- Clicks a secure button listens to: release only, and act on release whatever the player's
+-- ActionButtonUseKeyDown. Registering down clicks too (with ActionButtonUseKeyDown=1) left Get
+-- buffs dead; a test button with exactly this setup ran its macro (seen in game 2026-11-09).
+function ns.secureClicks(button)
+  button:SetAttribute("useOnKeyDown", false)
+  button:RegisterForClicks("AnyUp")
+end
 
 function ns.watchClick(button)
   button:HookScript("PreClick", function() clicking = true end)
-  button:HookScript("PostClick", function(self, mouse, down)
+  button:HookScript("PostClick", function()
     clicking = false
-    if down then return end -- registered for down and up: report once, on release
-    local macro = self:GetAttribute("macrotext")
-    debug(("Click %s: type=%s macro=%s keydown=%s -> %s"):format(tostring(mouse),
-      tostring(self:GetAttribute("type")), macro and macro:gsub("\n", " | ") or "nil",
-      tostring(getCVar("ActionButtonUseKeyDown")), sentDuringClick or "|cffff5555nothing sent|r"))
     if sentDuringClick then record("cast", true, sentDuringClick) end
     sentDuringClick = nil
   end)
@@ -800,6 +950,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.buffs = BuffDiggerDB.buffs or {}
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
+    BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
@@ -814,12 +965,18 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     ready = false
     readMyBuffs()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
-    if a1 and not ns.friendlyPlatesOn() then
-      say(L["Friendly nameplates are off, so icons and windows can't see anyone. Type /bd nameplates to turn them on."])
+    -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
+    if a1 then
+      C_Timer.After(10, function()
+        if not ns.friendlyPlatesOn() then
+          say(L["Friendly nameplates are off, so icons and windows can't see anyone. Type /bd nameplates to turn them on."])
+        end
+      end)
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
     -- Hiding frames that hold protected buttons is still allowed during this very event.
     hideIcons(nil)
+    ns.refreshMarkers({}) -- plates change hands in combat while nothing refreshes
     if ns.onCombat then ns.onCombat(true) end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if ns.onCombat then ns.onCombat(false) end
@@ -829,6 +986,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_REMOVED" then
     shownPlates[a1] = nil
+    for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
     readMyBuffs() -- buffs received in combat are still recorded and thanked
@@ -837,7 +995,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- a2 = target name, a4 = spell ID
     local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)
     if clicking and spell then sentDuringClick = spell .. " -> " .. show(a2) end
-    if spell and readable(a2) and ns.CASTING then ns.onSpellSent(a2) end
+    if spell and readable(a2) then ns.onSpellSent(a2) end
     debug("Spell sent: " .. show(spell) .. " on " .. show(a2) .. (clicking and " (during a click)" or ""))
   elseif event == "UI_ERROR_MESSAGE" then
     debug("Game error: " .. show(a2))
@@ -846,7 +1004,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   elseif event == "CHAT_MSG_WHISPER_INFORM" then
     record("whisper", true, "message sent to " .. show(a2))
   elseif event == "CHAT_MSG_SAY" then
-    if readable(a1) and readable(a2) and a2 == UnitName("player") then record("say", true) end
+    if readable(a1) and readable(a2) and ns.chatName(a2) == ns.unitName("player") then record("say", true) end
   elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
     if a1 == ADDON_NAME then
       debug("|cffff5555Blizzard blocked|r " .. tostring(a2)) -- also in the /bd report
