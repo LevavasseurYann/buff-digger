@@ -753,11 +753,16 @@ BINDING_NAME_BUFFDIGGER_BEST = L["Ask the best buff around me"]
 BINDING_NAME_BUFFDIGGER_TARGET = L["Ask my target for a buff"]
 BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Get buffs window"]
 BINDING_NAME_BUFFDIGGER_GIVE = L["Show / hide the Give buffs window"]
+BINDING_NAME_BUFFDIGGER_THANK = L["Thank the last player who buffed me"]
 BuffDigger = {
   askBest = function() record("key", true) ns.askBest() end,
   request = function(unit) record("key", true) ns.request(unit) end,
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
+  thankLast = function()
+    local last = ns.toThank()[1]
+    if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
+  end,
 }
 if ns.CASTING then _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"] end
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end

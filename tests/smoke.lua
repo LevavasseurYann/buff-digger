@@ -427,5 +427,10 @@ b=#sent; tw.rows[1]._OnClick(tw.rows[1], "LeftButton"); assert(sent[#sent]=="EMO
 runTimers(); b=#sent; tw.rows[1]._OnClick(tw.rows[1], "RightButton"); runTimers(); assert(#sent==b and not tw._shown, "forgotten, window hidden")
 units.nameplate37={"Broll","DRUID",40}; myAuras[8]=aura(307,"spell467",467,"nameplate37"); fire("UNIT_AURA","player"); assert(tw._shown)
 for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.toThank()==0 and not tw._shown, "close forgets everyone")
+-- Key "Thank the last player who buffed me": the newest line; nobody left -> nothing sent.
+units.nameplate38={"Naralex","DRUID",40}; myAuras[9]=aura(308,"spell467",467,"nameplate38"); fire("UNIT_AURA","player")
+units.nameplate39={"Keeper","DRUID",40}; myAuras[10]=aura(309,"spell467",467,"nameplate39"); fire("UNIT_AURA","player")
+BuffDigger.thankLast(); assert(sent[#sent]=="EMOTE THANK Keeper" and ns.toThank()[1].name=="Naralex")
+BuffDigger.thankLast(); runTimers(); b=#sent; BuffDigger.thankLast(); runTimers(); assert(#sent==b and #ns.toThank()==0)
 BuffDiggerDB.thankByHand=false
 print("SMOKE OK")
