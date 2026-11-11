@@ -438,6 +438,8 @@ function ns.request(unit, chosenKey)
   if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
   local name, class, level, target = ns.identity(unit)
   if not name then return end
+  -- A group member out of sight (another zone): a whisper would only bother them (#16).
+  if ns.outOfSight(unit) then notice(L["%s is too far away: nothing asked."]:format(name)) return end
   local key, kind
   if chosenKey then
     key, kind = chosenKey, kindFor(name, chosenKey, level)
@@ -523,6 +525,13 @@ function ns.nearbyUnits()
 end
 
 -- ---------------------------------------------------------------- group (#16)
+
+-- Out of sight: further than about 100 yards. Only group members can be listed that far; a
+-- nameplate is always in sight. Unreadable counts as in sight (the ask key is stricter: it skips).
+function ns.outOfSight(unit)
+  local v = UnitIsVisible(unit)
+  return readable(v) and not v
+end
 
 -- A group member's token: stable while the group stays the same, known out of nameplate range and
 -- in instances, where friendly nameplates are locked.
@@ -934,6 +943,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.buffs = BuffDiggerDB.buffs or {}
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
+    BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)

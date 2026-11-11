@@ -599,6 +599,35 @@ local function makeWindow(globalName, title, setting, cast, point)
     row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
     row.text:SetPoint("RIGHT", -2, 0)
     row.text:SetJustifyH("LEFT")
+    -- Section header (#16): a thin gold line under the title, fading out to the right.
+    row.line = row:CreateTexture(nil, "ARTWORK")
+    row.line:SetHeight(1)
+    row.line:SetPoint("BOTTOMLEFT", 2, 1)
+    row.line:SetPoint("BOTTOMRIGHT", -2, 1)
+    row.line:SetColorTexture(1, 0.82, 0, 0.8) -- gold, plain if the gradient isn't there
+    if row.line.SetGradient and CreateColor then
+      row.line:SetGradient("HORIZONTAL", CreateColor(1, 0.82, 0, 0.8), CreateColor(1, 0.82, 0, 0))
+    end
+    -- The Group header folds, like a quest log header: [-] shows the members, [+] hides them.
+    -- A plain button over the (unclickable) secure row: nothing secure to set, the click re-fills.
+    row.fold = CreateFrame("Button", nil, row)
+    row.fold:SetAllPoints()
+    row.fold:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    row.fold.icon = row.fold:CreateTexture(nil, "ARTWORK")
+    row.fold.icon:SetSize(14, 14)
+    row.fold.icon:SetPoint("LEFT", 2, 0)
+    row.fold:SetScript("OnClick", function()
+      if InCombatLockdown() then return end
+      BuffDiggerDB.hideGroup[setting] = not BuffDiggerDB.hideGroup[setting] or nil
+      w.fill()
+      if GameTooltip:IsOwned(row.fold) then row.fold:GetScript("OnEnter")(row.fold) end -- Hide <-> Show
+    end)
+    row.fold:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine(BuffDiggerDB.hideGroup[setting] and L["Show your group"] or L["Hide your group"])
+      GameTooltip:Show()
+    end)
+    row.fold:SetScript("OnLeave", function() GameTooltip:Hide() end)
     -- The token may have gone to someone else since the list was built (cursor on it): then
     -- the menu or the request would reach whoever holds it now, not the player shown.
     local function gone()
@@ -648,6 +677,7 @@ local function makeWindow(globalName, title, setting, cast, point)
   -- above or below, and a click on one scrolls too. fill() re-aims every row (out of combat).
   w.offset = 0
   w.cast = cast
+  w.setting = setting
   local function scroll(delta)
     if InCombatLockdown() or not w.entries then return end
     w.offset = math.max(0, math.min(w.offset - delta, #w.entries - visibleRows(w)))
@@ -677,24 +707,25 @@ end
 --   not castable) }, ... } }, ... }
 -- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
 -- then "Around" and everyone else. Out of a group, the list as it is.
-local function withHeaders(entries)
+-- Folded (hideGroup): the header stays, with its count, the members don't.
+local function withHeaders(entries, hideGroup)
   local members = 0
   for _, e in ipairs(entries) do if e.group then members = members + 1 end end
   if members == 0 then return entries end
-  local out, around = { { header = true, text = L["Group (%d)"]:format(members), buffs = {} } }, false
+  local out, around = { { header = true, fold = true, text = L["Group (%d)"]:format(members), buffs = {} } }, false
   for _, e in ipairs(entries) do
     if not e.group and not around then
       around = true
       out[#out + 1] = { header = true, text = L["Around"], buffs = {} }
     end
-    out[#out + 1] = e
+    if not (e.group and hideGroup) then out[#out + 1] = e end
   end
   return out
 end
 
 local function fill(w, entries, emptyMessage)
   w.fill = function() fill(w, entries, emptyMessage) end
-  entries = withHeaders(entries)
+  entries = withHeaders(entries, BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
   -- Icon column as wide as the most icons on any line of this list (not just the visible ones:
   -- scrolling must not move the names), icons against the name: names stay lined up, and no empty
@@ -710,6 +741,12 @@ local function fill(w, entries, emptyMessage)
       row.entry = e
       row.text:SetText(e.text)
       row:EnableMouse(not e.header) -- a header: no click, no highlight
+      row.line:SetShown(e.header == true)
+      row.fold:SetShown(e.fold == true)
+      if e.fold then
+        row.fold.icon:SetTexture(BuffDiggerDB.hideGroup[w.setting] and "Interface\\Buttons\\UI-PlusButton-Up"
+          or "Interface\\Buttons\\UI-MinusButton-Up")
+      end
       if e.header then row.text:SetTextColor(1, 0.82, 0) -- gold, like the settings' section titles
       else
         local c = e.grey and 0.5 or 1
@@ -717,7 +754,8 @@ local function fill(w, entries, emptyMessage)
       end
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
       ns.aimTarget(row, e.unit, e.who)
-      row.text:SetPoint("LEFT", 2 + slots * 22 + 4, 0)
+      -- Headers start at the left edge, after the [+]/[-] box (both, so they line up).
+      row.text:SetPoint("LEFT", e.header and 20 or 2 + slots * 22 + 4, 0)
       local first = slots - #e.buffs -- empty slots on the left
       for j, b in ipairs(row.buffs) do
         b:SetPoint("LEFT", 2 + (first + j - 1) * 22, 0)
@@ -764,6 +802,8 @@ local function nearbyEntries()
     local key, kind, top
     if #offers > 0 then key, kind, top = ns.bestBuff(name, class, level) end
     if #offers > 0 and (key or not BuffDiggerDB.nearbyUseful) then
+      -- A member at the other end of the world: listed, greyed, never asked (ns.request says so).
+      local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
       local buffs = {}
       for j = 1, math.min(#offers, MAX_BUFFS) do
@@ -777,9 +817,11 @@ local function nearbyEntries()
         or kind == "refresh" and L[" (running out)"] or ""
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
+      if far then extra = L[" (too far)"] end
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit),
-        order = (ns.isMember(unit) and -3 or 0) + (key and (top and 0 or 1) or 2),
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), grey = far,
+        -- Members in sight, then members too far, then everyone else.
+        order = (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
         text = ("%s%s %d%s"):format(classColored(name, class),
           ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra),
       }

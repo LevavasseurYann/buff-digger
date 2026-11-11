@@ -577,6 +577,19 @@ for _,u in ipairs(ns.listUnits()) do assert(u~="party3", "offline member skipped
 OFFLINE.party3=nil; local realVis=UnitIsVisible; UnitIsVisible=function(u) return u~="party3" and realVis(u) end
 assert(ns.tooFar(19740,"party3") and not ns.tooFar(19740,"party2"), "member out of sight: too far")
 BuffDiggerDB.asked={}; ns.askBest(); assert(not BuffDiggerDB.asked.Tirion, "the key never asks a member out of sight")
+-- Get buffs: the far member says so, greyed, after the members in sight; a click asks nothing.
+BuffDiggerDB.nearby=true; ns.applyWindows(); local fe=_G.BuffDiggerNearby.entries; local tir, tirAt, lastNear
+for i,x in ipairs(fe) do if x.unit=="party3" then tir, tirAt = x, i elseif x.group then lastNear = i end end
+print("far member:", tir and tir.text); assert(tir and tir.grey and tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member greyed, after")
+local b=#sent; ns.request("party3"); assert(#sent==b and not BuffDiggerDB.asked.Tirion, "no whisper to a member out of sight")
+-- [-] on the Group header folds the members away; the header stays, with its count.
+local nwr=_G.BuffDiggerNearby.rows; assert(nwr[1].entry.fold and nwr[1].fold._shown and nwr[1].line._shown, "Group header: [-] and line")
+assert(not nwr[2].fold._shown and not nwr[2].line._shown, "a member's row: no [-], no line")
+nwr[1].fold._OnClick(nwr[1].fold); fe=_G.BuffDiggerNearby.entries
+assert(BuffDiggerDB.hideGroup.nearby, "the click folds")
+assert(fe[1].header and fe[1].fold and fe[1].text=="Group (3)", "folded: header kept")
+for _,x in ipairs(fe) do assert(not x.group, "folded: no member listed") end
+BuffDiggerDB.hideGroup.nearby=nil; BuffDiggerDB.nearby=false; ns.applyWindows()
 UnitIsVisible=realVis; units.party3=nil; GetNumSubgroupMembers=function() return 2 end
 -- The ask key looks at members too (in a dungeon, the only players it can see).
 BuffDiggerDB.asked={}; local b=#sent; ns.askBest(); print("ask key:", sent[b+1]); assert(BuffDiggerDB.asked.Uther or BuffDiggerDB.asked.Anduin, "the key asks a member")
