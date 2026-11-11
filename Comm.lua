@@ -82,10 +82,11 @@ end
 -- The unit of a player around me (by "Name-Realm"), or nil if out of sight.
 -- ponytail: nameplate tokens can pass to another player between two refreshes; refreshes follow
 -- every NAME_PLATE_UNIT_* event, so the window is short. Check the name in PostClick if it bites.
-local function unitOf(full)
+-- `units`: where to look (nameplates for the marker, group members too for the window).
+local function unitOf(full, units)
   local myName, realm = UnitFullName("player")
   if full == fullName(myName, realm) then return "player" end -- /bd selftest
-  for _, unit in ipairs(ns.nearbyUnits()) do
+  for _, unit in ipairs(units) do
     local n, r = UnitName(unit)
     if ns.readable(n) and ns.readable(r) and fullName(n, r) == full then return unit end
   end
@@ -93,10 +94,11 @@ end
 
 function ns.refreshIncoming()
   -- Drop expired requests and the ones already fulfilled.
+  local listed, plates = ns.listUnits(), ns.nearbyUnits()
   for i = #incoming, 1, -1 do
     local req = incoming[i]
-    local unit = unitOf(req.full)
-    req.unit = unit -- for the marker above their nameplate (#15)
+    local unit = unitOf(req.full, listed)
+    req.unit = unitOf(req.full, plates) -- for the marker above their nameplate (#15)
     -- "Has it already" only closes a request for a buff they lacked: a higher-rank request
     -- is for a buff they already have. My own (/bd selftest) is never closed this way.
     local done = req.kind == "new" and unit and unit ~= "player"
@@ -111,19 +113,27 @@ function ns.refreshIncoming()
   -- Secure rows: never in combat, never under the cursor (a re-fill between press and release
   -- would cast on someone else), and only when the player opened it.
   if not w or InCombatLockdown() or not w:IsShown() or w:IsMouseOver() then return end
-  local entries, far = {}, {}
+  local parts = { {}, {}, {}, {} } -- group in range, group too far, others in sight, others out of sight
   local myLevel = UnitLevel("player")
   for _, req in ipairs(incoming) do
     local buff = BUFFS[req.key]
-    local unit = unitOf(req.full)
+    local unit = unitOf(req.full, listed)
+    local member = unit and ns.isMember(unit)
+    local far = member and ns.tooFar(buff.id, unit)
+    local castable = unit and not far
     -- The requested buff is the line's icon (its name in the tooltip), like Give buffs.
-    local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req, grey = not unit,
+    local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req, grey = not castable,
+      group = member,
       buffs = { { key = req.key, icon = C_Spell.GetSpellTexture(buff.id), rank = ns.rankAt(buff, myLevel),
-        spell = unit and C_Spell.GetSpellName(buff.id) or nil } },
-      text = unit and req.name or L["%s (out of sight)"]:format(req.name) }
-    tinsert(unit and entries or far, e) -- like Give buffs: castable first, greyed after
+        spell = castable and C_Spell.GetSpellName(buff.id) or nil } },
+      text = far and req.name .. L[" (too far)"] or unit and req.name or L["%s (out of sight)"]:format(req.name) }
+    -- Group members first, even far away (#16); like Give buffs: castable first, greyed after.
+    tinsert(parts[(member and 0 or 2) + (castable and 1 or 2)], e)
   end
-  for _, e in ipairs(far) do entries[#entries + 1] = e end
+  local entries = {}
+  for _, part in ipairs(parts) do
+    for _, e in ipairs(part) do entries[#entries + 1] = e end
+  end
   ns.fillRequests(entries)
 end
 

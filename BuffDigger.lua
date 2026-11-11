@@ -55,6 +55,7 @@ ns.DEFAULTS = {
   requestSound = true, -- a sound when a request arrives (#13)
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
   requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
+  gameMenu = true, -- "Ask X for:" lines in the game's right-click menu on a player (#17)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -484,8 +485,10 @@ function ns.askBest()
   local prefs = ns.prefsFor(myClass)
   local KIND_ORDER = { new = 0, refresh = 1, replace = 2, upgrade = 3 }
   local bestUnit, bestScore
-  for _, unit in ipairs(ns.nearbyUnits()) do
-    local name, class, level = ns.identity(unit)
+  for _, unit in ipairs(ns.listUnits()) do
+    -- A member out of sight (another zone) is not "around me": the key never asks them.
+    local name, class, level
+    if not ns.isMember(unit) or truthy(UnitIsVisible(unit)) then name, class, level = ns.identity(unit) end
     local recent = name and ns.askedAgo(name)
     if name and not recent then
       local key, kind = ns.bestBuff(name, class, level)
@@ -530,6 +533,44 @@ function ns.nearbyUnits()
       and truthy(UnitIsFriend("player", unit)) then
       units[#units + 1] = unit
     end
+  end
+  return units
+end
+
+-- ---------------------------------------------------------------- group (#16)
+
+-- A group member's token: stable while the group stays the same, known out of nameplate range and
+-- in instances, where friendly nameplates are locked.
+function ns.isMember(unit) return (unit:match("^party%d") or unit:match("^raid%d")) ~= nil end
+
+-- The other members of my party, or of my whole raid.
+function ns.groupUnits()
+  local units = {}
+  if not (IsInGroup and IsInGroup()) then return units end
+  local raid = IsInRaid and IsInRaid()
+  local prefix, n = raid and "raid" or "party", raid and GetNumGroupMembers() or GetNumSubgroupMembers()
+  for i = 1, n do
+    local unit = prefix .. i
+    -- Offline and dead members exist too: nothing to give them or ask them.
+    if truthy(UnitExists(unit)) and truthy(UnitIsPlayer(unit)) and not truthy(UnitIsUnit(unit, "player"))
+      and truthy(UnitIsConnected(unit)) and not truthy(UnitIsDeadOrGhost(unit)) then
+      units[#units + 1] = unit
+    end
+  end
+  return units
+end
+
+-- Who the windows and the ask key look at: group members first, then everyone else's nameplate
+-- (a member's own nameplate is skipped: one line per player).
+function ns.listUnits()
+  local units = ns.groupUnits()
+  local members = #units
+  for _, unit in ipairs(ns.nearbyUnits()) do
+    local member = false
+    for i = 1, members do
+      if truthy(UnitIsUnit(unit, units[i])) then member = true break end
+    end
+    if not member then units[#units + 1] = unit end
   end
   return units
 end

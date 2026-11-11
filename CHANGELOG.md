@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Your group first.** In a party or a raid, Get buffs, Give buffs and Requests list your group under a *Group* header, then everyone else under *Around*. Members show up even without their nameplate (far away, or in a dungeon where friendly nameplates are locked); a member out of range is greyed with *(too far)* in Give buffs and Requests. The *Ask the best buff around me* key looks at your group too. Out of a group, nothing changes.
+- **Ask from the game's own menu.** Right click a player's portrait (target, party or raid frame): *Ask X for:* lists the buffs they can give you, one click asks, like the Get buffs menu. Option *Buff requests in the game's right-click menu* (on by default).
+
 - **Give buffs is on.** Pallies, priests, mages and druids: the Give buffs window (Shift+right click on the minimap button) lists who around lacks your buffs, laid out like Get buffs: one icon per buff they lack, in the order their class wants them. Click an icon to cast it on them (you get your previous target back), click the name to target them, hover an icon for the spell, its rank and who it is for. Requests look the same: the requested buff's icon, click it to cast. The *Give my buff to the next player around* key works too (it casts when you release the key). Buff Digger users who ask you get one click in your Requests window instead of a whisper. Its settings are no longer greyed out as "coming soon". In a busy city, Give buffs and Requests scroll with the mouse wheel, like Get buffs.
 - **Friendly nameplates: no more false "off".** The settings and the login line no longer claim friendly nameplates are off while friendly players' plates are showing.
 - **Full names in the windows.** Get buffs, Give buffs, Requests and their tooltips show a player's first and last name ("Raide Boule"), not just the first name.

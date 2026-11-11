@@ -73,6 +73,22 @@ end
 
 -- Right click on an icon or a Get buffs line: every buff that player can probably give,
 -- my priorities first. Choosing one asks for it, whatever the automatic choice would be.
+local function addOffers(root, unit, name, level, offers)
+  root:CreateTitle(L["Ask %s for:"]:format(name))
+  for _, key in ipairs(offers) do
+    local label = ("|T%s:0|t %s |cff9d9d9d" .. L["Rank %d"] .. "|r%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
+      rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
+    root:CreateButton(label, function()
+      -- In a city, the nameplate token may now belong to someone else: check it is still them.
+      if not ns.truthy(UnitExists(unit)) or ns.unitName(unit) ~= name then
+        ns.notice(L["%s is no longer around."]:format(name))
+        return
+      end
+      ns.request(unit, key)
+    end)
+  end
+end
+
 function ns.openMenu(owner, unit)
   if InCombatLockdown() or not unit then return end
   if not (MenuUtil and MenuUtil.CreateContextMenu) then ns.notice(L["The game's menu is not available."]) return end
@@ -80,21 +96,27 @@ function ns.openMenu(owner, unit)
   if not name then return end
   local offers = ns.offers(class, level)
   if #offers == 0 then ns.notice(L["%s has nothing better for you right now."]:format(name)) return end
-  MenuUtil.CreateContextMenu(owner, function(_, root)
-    root:CreateTitle(L["Ask %s for:"]:format(name))
-    for _, key in ipairs(offers) do
-      local label = ("|T%s:0|t %s |cff9d9d9d" .. L["Rank %d"] .. "|r%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
-        rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
-      root:CreateButton(label, function()
-        -- In a city, the nameplate token may now belong to someone else: check it is still them.
-        if not ns.truthy(UnitExists(unit)) or ns.unitName(unit) ~= name then
-          ns.notice(L["%s is no longer around."]:format(name))
-          return
-        end
-        ns.request(unit, key)
-      end)
-    end
-  end)
+  MenuUtil.CreateContextMenu(owner, function(_, root) addOffers(root, unit, name, level, offers) end)
+end
+
+-- The game's own right-click menu on a player (target, party and raid frames) gets the same lines
+-- at its bottom (#17). Blizzard's lines are left alone; nothing is added for a name clicked in chat
+-- (no unit: class and level unknown). The setting is read each time the menu opens.
+local function extendGameMenu()
+  if not (Menu and Menu.ModifyMenu) then return end
+  for _, tag in ipairs({ "MENU_UNIT_PLAYER", "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_RAID" }) do
+    Menu.ModifyMenu(tag, function(_, root, data)
+      local unit = data and data.unit
+      if not (BuffDiggerDB.gameMenu and unit) or InCombatLockdown() then return end
+      if not ns.truthy(UnitIsPlayer(unit)) or ns.truthy(UnitIsUnit(unit, "player"))
+        or not ns.truthy(UnitIsFriend("player", unit)) then return end
+      local name, class, level = ns.identity(unit)
+      local offers = name and ns.offers(class, level) or {}
+      if #offers == 0 then return end
+      root:CreateDivider()
+      addOffers(root, unit, name, level, offers)
+    end)
+  end
 end
 
 -- ---------------------------------------------------------------- settings window
@@ -117,6 +139,7 @@ local SECTIONS = {
     { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
     { key = "requestSound", label = "Sound when a request arrives" },
     { key = "requestMarkers", label = "Marker above players who request a buff" },
+    { key = "gameMenu", label = "Buff requests in the game's right-click menu" },
   }, delay = true, language = true },
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when someone buffs me" },
@@ -652,9 +675,27 @@ end
 --   entries, by then the nameplate token may be someone else's; false = unreadable), text, grey,
 --   buffs = { { key, icon, rank, upgrade, best, his (Get buffs), spell (cast windows; nil = greyed,
 --   not castable) }, ... } }, ... }
+-- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
+-- then "Around" and everyone else. Out of a group, the list as it is.
+local function withHeaders(entries)
+  local members = 0
+  for _, e in ipairs(entries) do if e.group then members = members + 1 end end
+  if members == 0 then return entries end
+  local out, around = { { header = true, text = L["Group (%d)"]:format(members), buffs = {} } }, false
+  for _, e in ipairs(entries) do
+    if not e.group and not around then
+      around = true
+      out[#out + 1] = { header = true, text = L["Around"], buffs = {} }
+    end
+    out[#out + 1] = e
+  end
+  return out
+end
+
 local function fill(w, entries, emptyMessage)
+  w.fill = function() fill(w, entries, emptyMessage) end
+  entries = withHeaders(entries)
   w.entries = entries
-  w.fill = function() fill(w, w.entries, emptyMessage) end
   local shown = visibleRows(w)
   w.offset = math.max(0, math.min(w.offset, #entries - shown))
   for i, row in ipairs(w.rows) do
@@ -663,8 +704,12 @@ local function fill(w, entries, emptyMessage)
       row.unit = e.unit
       row.entry = e
       row.text:SetText(e.text)
-      local c = e.grey and 0.5 or 1
-      row.text:SetTextColor(c, c, c)
+      row:EnableMouse(not e.header) -- a header: no click, no highlight
+      if e.header then row.text:SetTextColor(1, 0.82, 0) -- gold, like the settings' section titles
+      else
+        local c = e.grey and 0.5 or 1
+        row.text:SetTextColor(c, c, c)
+      end
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
       ns.aimTarget(row, e.unit, e.who)
       for j, b in ipairs(row.buffs) do
@@ -705,7 +750,7 @@ local nearby, give, giveNext, requests
 -- running out — ns.bestBuff gave no key).
 local function nearbyEntries()
   local entries = {}
-  for _, unit in ipairs(ns.nearbyUnits()) do
+  for _, unit in ipairs(ns.listUnits()) do
     local name, class, level = ns.identity(unit)
     local offers = name and ns.offers(class, level) or {}
     local key, kind, top
@@ -725,13 +770,14 @@ local function nearbyEntries()
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, order = key and (top and 0 or 1) or 2,
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit),
+        order = (ns.isMember(unit) and -3 or 0) + (key and (top and 0 or 1) or 2),
         text = ("%s%s %d%s"):format(classColored(name, class),
           ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra),
       }
     end
   end
-  -- table.sort is not stable: keep the nameplate order within each group.
+  -- Group members first (#16); table.sort is not stable: keep the list order within each rank.
   for i, e in ipairs(entries) do e.i = i end
   table.sort(entries, function(a, b) if a.order ~= b.order then return a.order < b.order end return a.i < b.i end)
   return entries
@@ -808,32 +854,45 @@ function ns.castOn(unit)
   C_Timer.After(1, ns.refreshAll)
 end
 
+-- Out of reach of my spell. The game can't tell (nil): a nameplate in sight counts as in range; a
+-- group member, who can be anywhere, only while in sight.
+function ns.tooFar(spellId, unit)
+  local r = C_Spell.IsSpellInRange and C_Spell.IsSpellInRange(spellId, unit)
+  if r == nil and ns.isMember(unit) then return not ns.truthy(UnitIsVisible(unit)) end
+  return ns.readable(r) and r == false
+end
+
 local function giveEntries(myBuffs)
   local entries, myLevel = {}, UnitLevel("player")
-  for _, unit in ipairs(ns.nearbyUnits()) do
+  for _, unit in ipairs(ns.listUnits()) do
     local name, class, level = ns.identity(unit)
     local cast = name and justCast[ns.firstName(name)]
     if cast and GetTime() - cast < SKIP_AFTER_CAST then name = nil end
     local keys = name and buffsToGive(unit, class, myBuffs) or {}
     if #keys > 0 then
-      -- Nameplates show players far beyond a buff's 30 yards: those are listed greyed, not
-      -- clickable, after the ones in range. nil (the game can't tell) counts as in range.
-      local r = C_Spell.IsSpellInRange and C_Spell.IsSpellInRange(BUFFS[keys[1]].id, unit)
-      local far = ns.readable(r) and r == false
+      -- Nameplates (and group members, anywhere) can be far beyond a buff's 30 yards: those are
+      -- listed greyed, not clickable, after the ones in range.
+      local far = ns.tooFar(BUFFS[keys[1]].id, unit)
       local buffs = {}
       for j, k in ipairs(keys) do
         buffs[j] = { key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], myLevel),
           spell = not far and C_Spell.GetSpellName(BUFFS[k].id) or nil }
       end
       entries[#entries + 1] = {
-        unit = unit, who = name, far = far, grey = far, buffs = buffs,
+        unit = unit, who = name, far = far, grey = far, buffs = buffs, group = ns.isMember(unit),
         text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
       }
     end
   end
+  -- Group members first (#16), in range before too far within each part.
   local sorted = {}
-  for _, e in ipairs(entries) do if not e.far then sorted[#sorted + 1] = e end end
-  for _, e in ipairs(entries) do if e.far then sorted[#sorted + 1] = e end end
+  for _, group in ipairs({ true, false }) do
+    for _, far in ipairs({ false, true }) do
+      for _, e in ipairs(entries) do
+        if e.group == group and e.far == far then sorted[#sorted + 1] = e end
+      end
+    end
+  end
   return sorted
 end
 
@@ -873,8 +932,11 @@ function ns.refreshWindow()
       fill(give, entries, L["Everyone around has your buffs.\n(Friendly nameplates on?)"])
     end
   end
-  -- Their first buff (in their class's order), if they are in range; far ones come last.
-  local first = entries[1] and entries[1].buffs[1].spell and entries[1]
+  -- The first line in range (group members first), their first buff in their class's order.
+  local first
+  for _, e in ipairs(entries) do
+    if e.buffs[1].spell then first = e break end
+  end
   giveNext.unit = first and first.unit
   ns.aimCast(giveNext, first and first.unit, first and first.buffs[1].spell)
 end
@@ -920,6 +982,7 @@ function ns.onCombat(inCombat)
 end
 
 function ns.buildUI()
+  extendGameMenu()
   buildSettings()
   buildMinimapButton()
   nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Get buffs"], "nearby", false, { "LEFT", 40, 60 })

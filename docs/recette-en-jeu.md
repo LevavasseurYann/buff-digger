@@ -110,3 +110,13 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 26 | Chez B : décocher *Sound when a request arrives* | Une demande arrive sans son |
 | 27 | A et B en instance (donjon) : A clique sur l'icône de B | MP direct, comme avant (Blizzard bloque les messages d'addon en instance) |
 | 28 | A demande un buff à B (barres de nom alliées allumées chez B) | Chez B, au-dessus de la barre de nom de A : grande icône du buff demandé, avec une lueur qui pulse, bien distincte des petites icônes ; un seul marqueur même si A redemande ; il disparaît quand A a le buff, au bout de 90 s, ou quand B clique sur la demande (rang supérieur ou rafraîchissement) ; A s'éloigne puis revient (barre de nom qui disparaît puis réapparaît) = le marqueur suit, jamais sur un autre joueur ; caché en combat ; Réglages > *Marker above players who request a buff* décoché = aucun marqueur ; le marqueur ne gêne pas le clic sur la barre de nom |
+
+## Groupe et menu du jeu (#16, #17)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 47 | En groupe, en monde ouvert : Get buffs, Give buffs | En-tête « Group (n) » puis les membres, puis « Around » et les autres ; un membre n'apparaît qu'une fois (pas aussi dans Around) ; hors groupe, pas d'en-tête |
+| 48 | Membre de groupe loin (hors des barres de nom) | Toujours listé ; dans Give buffs : grisé « (too far) », en fin de partie Group ; la touche *Give my buff…* le saute |
+| 49 | En donjon (barres de nom alliées verrouillées) | Les membres apparaissent dans Get buffs et Give buffs ; un clic sur une icône de Give buffs buffe le bon membre ; si la partie Group reste vide, noter ce que dit `/bd` (identité lisible ?) |
+| 50 | En raid | Tout le raid dans Group (seuls ceux qui ont quelque chose à donner ou recevoir) |
+| 51 | Clic droit sur le portrait d'un paladin ciblé, puis sur un membre dans le cadre de groupe | En bas du menu : « Ask X for: » et ses bénédictions ; un clic envoie la demande ; aucune ligne sur soi-même ni sur un guerrier ; Réglages > *Buff requests in the game's right-click menu* décoché : plus rien, sans /reload ; aucune erreur « action bloquée » après usage, puis *Set Focus* et (chef de raid) promouvoir / exclure depuis ce même menu : marchent toujours, sans « action bloquée » |

@@ -47,11 +47,12 @@ UnitClass=function(u) return "x", units[u] and units[u][2] end
 UnitLevel=function(u) return units[u] and units[u][3] end
 GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) local f, l = split(units[u][1]) return f, l or "Realm" end
 UnitIsPlayer=function(u) return units[u]~=nil end; UnitExists=UnitIsPlayer
-UnitIsUnit=function(a,b) return a==b end; UnitIsFriend=function() return true end
+UnitIsUnit=function(a,b) return a==b end; UnitIsVisible=UnitIsPlayer; UnitIsConnected=function(u) return units[u]~=nil and not OFFLINE[u] end; OFFLINE={}; UnitIsDeadOrGhost=function() return false end; UnitIsFriend=function() return true end
 C_NamePlate={GetNamePlates=function() return {} end,
   GetNamePlateForUnit=function() return {} end}
 C_ChatInfo={SendChatMessage=function(m,c,_,t) sent[#sent+1]=c.." "..tostring(t)..": "..m end, RegisterAddonMessagePrefix=function() end, SendAddonMessage=function(p,m,c,t) sent[#sent+1]="ADDON>"..t..": "..m end}
 TooltipDataProcessor=nil
+MENUS={}; Menu={ModifyMenu=function(tag,f) MENUS[tag]=f end} -- the game's right-click menus (#17)
 local ns={}
 for _,f in ipairs{"Locales","Data","BuffDigger","UI","Comm"} do assert(loadfile(DIR..f..".lua"))("BuffDigger", ns) end
 local function fire(ev,...) for _,f in ipairs(events) do if f._OnEvent then f._OnEvent(f,ev,...) end end end
@@ -530,4 +531,60 @@ myAuras[#myAuras+1]={auraInstanceID=500,name="Bénédiction de puissance",spellI
 b=#sent; fire("UNIT_AURA","player"); runTimers(); for i=b+1,#sent do print("thanks:", sent[i]) end
 local emote, whisper; for i=b+1,#sent do emote = emote or sent[i]=="EMOTE THANK Marie"; whisper = whisper or sent[i]:find("^WHISPER Marie%-Curie:") end
 assert(emote and whisper, "Marie Curie thanked: /thank Marie, whisper to Marie-Curie")
+print("=== Group (#16): members first under a header, even without a nameplate")
+units.player={"Yann","WARRIOR",21}; BuffDiggerDB.asked={}; BuffDiggerDB.nearbyUseful=false
+units.party1={"Uther","PALADIN",40}                                          -- no nameplate: far away, or in an instance
+units.party2={"Anduin","PRIEST",40}; units.nameplate70=units.party2; fire("NAME_PLATE_UNIT_ADDED","nameplate70") -- a member's own plate
+IsInGroup=function() return true end; IsInRaid=function() return false end; GetNumSubgroupMembers=function() return 2 end
+local realIsUnit=UnitIsUnit; UnitIsUnit=function(a,b) return a==b or (a=="nameplate70" and b=="party2") end
+local listed=ns.listUnits(); assert(listed[1]=="party1" and listed[2]=="party2", "members first")
+for _,u in ipairs(listed) do assert(u~="nameplate70", "a member's plate is not listed twice") end
+BuffDiggerDB.nearby=true; ns.applyWindows(); local nw=_G.BuffDiggerNearby
+local e=nw.entries; print("Get buffs:", e[1].text, e[2].who, e[3].who, e[4].text)
+assert(e[1].header and e[1].text=="Group (2)" and e[2].group and e[3].group and e[4].header and e[4].text=="Around", "Group (2), members, then Around")
+nw._OnMouseWheel(nw,100); ns.refreshWindow(); local hr=nw.rows[1]
+assert(hr.text._t=="Group (2)" and not hr.buffs[1]._shown and hr:GetAttribute("macrotext")==nil, "header row: no icon, no click")
+BuffDiggerDB.nearby=false; ns.applyWindows()
+-- An offline member: nowhere. One out of sight: listed, but greyed in Give buffs and never asked by the key.
+units.party3={"Tirion","PALADIN",40}; OFFLINE.party3=true; GetNumSubgroupMembers=function() return 3 end
+for _,u in ipairs(ns.listUnits()) do assert(u~="party3", "offline member skipped") end
+OFFLINE.party3=nil; local realVis=UnitIsVisible; UnitIsVisible=function(u) return u~="party3" and realVis(u) end
+assert(ns.tooFar(19740,"party3") and not ns.tooFar(19740,"party2"), "member out of sight: too far")
+BuffDiggerDB.asked={}; ns.askBest(); assert(not BuffDiggerDB.asked.Tirion, "the key never asks a member out of sight")
+UnitIsVisible=realVis; units.party3=nil; GetNumSubgroupMembers=function() return 2 end
+-- The ask key looks at members too (in a dungeon, the only players it can see).
+BuffDiggerDB.asked={}; local b=#sent; ns.askBest(); print("ask key:", sent[b+1]); assert(BuffDiggerDB.asked.Uther or BuffDiggerDB.asked.Anduin, "the key asks a member")
+-- Give buffs, as a paladin: a far member stays in Group (greyed), the key aims at the first one in range.
+units.player={"Yann","PALADIN",40}; IsPlayerSpell=function(id) return id==19740 or id==20217 end
+units.party1={"Garrosh","WARRIOR",40}; C_UnitAuras.GetAuraDataBySpellName=function() return false end
+C_Spell.IsSpellInRange=function(_, u) return u ~= "party1" end; BOUND="F"
+BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow(); local ge=_G.BuffDiggerGive.entries
+print("Give buffs:", ge[1].text, ge[2].text, ge[3].text, ge[4].text)
+assert(ge[1].header and ge[2].unit=="party2" and ge[3].unit=="party1" and ge[3].grey and ge[4].header, "far member last in Group, greyed")
+assert(_G.BuffDiggerGiveNext.unit and _G.BuffDiggerGiveNext.unit~="party1", "the key skips the far member")
+C_Spell.IsSpellInRange=nil; BOUND=nil; BuffDiggerDB.give=false; ns.applyWindows()
+-- Requests: a member's request comes first, even after another one.
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.acceptRequests=true
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Marie-Curie")
+fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Garrosh-Realm")
+BuffDiggerDB.requests=true; ns.applyWindows(); local re=_G.BuffDiggerRequests.entries
+print("Requests:", re[1].text, re[2].text, re[3].text, re[4].text)
+assert(re[1].header and re[2].request.name=="Garrosh" and re[2].unit=="party1" and re[3].header, "member's request first")
+BuffDiggerDB.requests=false; ns.applyWindows()
+IsInGroup=nil; UnitIsUnit=realIsUnit; units.party1=nil; units.party2=nil
+
+print("=== The game's right-click menu (#17)")
+units.player={"Yann","WARRIOR",21}; units.target={"Arthas","PALADIN",25}
+local function menu(tag, unit)
+  local lines={}; local root={CreateDivider=function() end, CreateTitle=function(_,t) lines[#lines+1]=t end,
+    CreateButton=function(_,t,f) lines[#lines+1]=t; lines.click=lines.click or f end}
+  MENUS[tag](nil, root, {unit=unit}); return lines
+end
+local m=menu("MENU_UNIT_PLAYER","target"); print("menu:", m[1], m[2]); assert(m[1]=="Ask Arthas for:" and #m==4, "title + 3 blessings")
+BuffDiggerDB.asked={}; b=#sent; m.click(); assert(BuffDiggerDB.asked.Arthas, "a line asks for that buff")
+assert(#menu("MENU_UNIT_PLAYER","player")==0, "nothing on myself")
+assert(#menu("MENU_UNIT_PLAYER",nil)==0, "nothing without a unit (name in chat)")
+units.target={"Garrosh","WARRIOR",40}; assert(#menu("MENU_UNIT_PARTY","target")==0, "nothing when they can't buff")
+units.target={"Arthas","PALADIN",25}; BuffDiggerDB.gameMenu=false; assert(#menu("MENU_UNIT_RAID_PLAYER","target")==0, "setting off: nothing")
+BuffDiggerDB.gameMenu=true; units.target=nil
 print("SMOKE OK")
