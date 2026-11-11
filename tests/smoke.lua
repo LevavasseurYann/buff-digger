@@ -715,4 +715,44 @@ myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); 
 ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
 units.nameplate41={"Sunwalker","DRUID",40}; myAuras[12]=aura(312,"spell467",467,"nameplate41"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
 BuffDiggerDB.thankByHand=false; assert(#ns.thanksWaiting()==0, "option off: list emptied")
+print("=== custom phrases (#20)")
+BuffDiggerDB.language="en"
+local errs=ns.setCustom("new", "Oi, {spell} please, 100% sure\n\n  |cffff0000Red {spell}|r  \nno spell here\n{spell} and {spell}\n" .. ("x"):rep(230) .. " {spell}")
+for _,e in ipairs(errs) do print("refused:", e) end
+assert(#errs==4 and errs[1]:find("^Line 3: no |") and errs[2]:find("^Line 4: ") and errs[3]:find("^Line 5: ") and errs[4]:find("^Line 6: too long"))
+assert(#BuffDiggerDB.custom.new==1 and BuffDiggerDB.custom.new[1]=="Oi, {spell} please, 100% sure", "trimmed, | refused")
+local got={}; for i=1,4 do local m=ns.message("new","fortitude","en"); got[m]=true; assert(not m:find("{spell}") and m:find("|Hspell:1243"), m) end
+local k=0; for m in pairs(got) do k=k+1; print("custom:", m) end; assert(k==1)
+-- Saving the same text again (opening the window) keeps the list: no fresh bag.
+local list=BuffDiggerDB.custom.new; ns.setCustom("new", BuffDiggerDB.customText.new); assert(BuffDiggerDB.custom.new==list)
+for m in pairs(got) do if m:find("Oi") then assert(m:find("100%% sure$"), "% kept") end end
+-- Another case keeps the built-in phrases; thanks without {spell}; 21 lines -> one refused.
+assert(not ns.message("upgrade","fortitude","en"):find("Oi"))
+errs=ns.setCustom("thanks", "Merci l'ami !\nThanks for {spell}"); assert(#errs==1 and ns.thanks("en")=="Merci l'ami !")
+local many={}; for i=1,21 do many[i]="Line "..i.." {spell}" end
+errs=ns.setCustom("refresh", table.concat(many,"\n")); assert(#errs==1 and #BuffDiggerDB.custom.refresh==20)
+-- Emptying the box: back to the built-in phrases.
+ns.setCustom("new", ""); ns.setCustom("thanks", "  \n"); ns.setCustom("refresh", "")
+assert(not ns.message("new","fortitude","en"):find("Oi") and ns.thanks("en")~="Merci l'ami !")
+-- The Phrases window: shows what I typed, saves as I type, shows refused lines, previews locally.
+local pw=_G.BuffDiggerPhrases; local typed="Hey, {spell}?"
+pw.edit.GetText=function() return typed end; pw.edit.SetText=function(_, t) typed=t end
+pw.errors.SetText=function(self, t) self.t=t end
+pw:Show(); pw._OnShow(pw); assert(pw.kind=="new" and typed=="" and pw.errors.t=="")
+typed="Hey, {spell}?\nno spell"; pw.edit._OnTextChanged(pw.edit, true)
+print("phrases errors:", pw.errors.t); assert(pw.errors.t:find("Line 2") and BuffDiggerDB.custom.new[1]=="Hey, {spell}?")
+typed=("x\n"):rep(6); pw.edit._OnTextChanged(pw.edit, true); assert(select(2, pw.errors.t:gsub("\n", ""))==3 and pw.errors.t:find("%+3 more$"), "3 errors shown, then +N")
+typed="Hey, {spell}?\nno spell"; pw.edit._OnTextChanged(pw.edit, true)
+pw.tabs[5]._OnClick(pw.tabs[5]); assert(pw.kind=="thanks" and typed:match("^%s*$"))
+pw.tabs[1]._OnClick(pw.tabs[1]); assert(typed=="Hey, {spell}?\nno spell", "the box comes back as typed")
+local said; local realSay=ns.say; ns.say=function(t) said=t end
+pw.preview._OnClick(pw.preview); print("preview:", said); assert(said:find("^Hey, .*Hspell:1243.*%?$"), "preview, nothing sent")
+ns.say=realSay
+-- Status line says what's sent; "Start from Buff Digger's" fills an empty box with ours, {spell} in.
+pw.status.SetText=function(self, t) self.t=t end
+pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("your phrases %(1%)"))
+typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box empty"))
+pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==10, typed)
+pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
+ns.setCustom("new", ""); ns.setCustom("thanks", "")
 print("SMOKE OK")

@@ -1026,6 +1026,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
     BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
+    BuffDiggerDB.custom = BuffDiggerDB.custom or {} -- my own phrases (#20)
+    BuffDiggerDB.customText = BuffDiggerDB.customText or {}
     BuffDiggerDB.asked = BuffDiggerDB.asked or {}
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
