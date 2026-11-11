@@ -105,7 +105,7 @@ local SECTIONS = {
   } },
 }
 
-local settings, prefRows, refreshPrefs
+local settings, prefRows, refreshPrefs, phrases
 
 -- My class's priority list, copied from the defaults the first time it is edited (#5).
 local function myPrefs(create)
@@ -270,6 +270,13 @@ local function buildOptions()
     if section.language then
       choiceRow(LEFT_X, y - 4, "Write to players in", "language", ns.LANGUAGES)
       y = y - 28
+      text(settings, "GameFontHighlight", LEFT_X + 4, y - 8, COL_W - 120, L["My own phrases"])
+      local edit = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+      edit:SetSize(104, 22)
+      edit:SetPoint("TOPLEFT", LEFT_X + COL_W - 104, y - 4)
+      edit:SetText(L["Edit..."])
+      edit:SetScript("OnClick", function() phrases:SetShown(not phrases:IsShown()) end)
+      y = y - 28
     end
     if section.delay then
       cycleRow(LEFT_X, y - 4, "Wait before asking again", "delay", DELAYS) -- #6
@@ -360,6 +367,85 @@ refreshPrefs = function()
   end
 end
 
+-- ---------------------------------------------------------------- my own phrases (#20)
+-- One box per case, one phrase per line, saved as typed (ns.setCustom); refused lines in red.
+
+local PHRASE_KINDS = { { "new", "New buff" }, { "replace", "Swap blessing" }, { "upgrade", "Higher rank" },
+  { "refresh", "Running out" }, { "thanks", "Thank-you" } }
+
+local function buildPhrases()
+  local w = CreateFrame("Frame", "BuffDiggerPhrases", UIParent, "BasicFrameTemplateWithInset")
+  w:SetSize(2 * PAD + 5 * 88, 320)
+  w:SetPoint("CENTER", 0, 40)
+  w:SetFrameStrata("DIALOG") -- above the settings
+  w:SetMovable(true)
+  w:EnableMouse(true)
+  w:RegisterForDrag("LeftButton")
+  w:SetScript("OnDragStart", w.StartMoving)
+  w:SetScript("OnDragStop", w.StopMovingOrSizing)
+  w:Hide()
+  tinsert(UISpecialFrames, "BuffDiggerPhrases") -- Escape closes it
+  local title = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  title:SetPoint("TOP", 0, -5)
+  title:SetText(L["Buff Digger — My own phrases"])
+  local width = 5 * 88 - 4
+  text(w, "GameFontDisableSmall", PAD, -30, width,
+    L["One phrase per line, 20 at most. {spell} is the spell link (not in thank-yous). Empty: Buff Digger's own phrases."])
+
+  local box = CreateFrame("ScrollFrame", nil, w, "UIPanelScrollFrameTemplate")
+  box:SetPoint("TOPLEFT", PAD, -86)
+  box:SetSize(width - 24, 150)
+  local edit = CreateFrame("EditBox", nil, box)
+  edit:SetMultiLine(true)
+  edit:SetAutoFocus(false)
+  edit:SetFontObject(ChatFontNormal)
+  edit:SetWidth(width - 24)
+  edit:SetScript("OnEscapePressed", edit.ClearFocus)
+  box:SetScrollChild(edit)
+  box:EnableMouse(true)
+  box:SetScript("OnMouseDown", function() edit:SetFocus() end)
+  w.edit = edit
+  w.errors = text(w, "GameFontRedSmall", PAD, -244, width, "")
+
+  local function check()
+    local errors = ns.setCustom(w.kind, edit:GetText() or "", BuffDiggerDB.language)
+    w.errors:SetText(table.concat(errors, "\n"))
+  end
+  edit:SetScript("OnTextChanged", function(_, typed) if typed then check() end end)
+
+  w.tabs = {}
+  local function show(kind)
+    w.kind = kind
+    for _, t in ipairs(w.tabs) do t:SetEnabled(t.kind ~= kind) end
+    local list = BuffDiggerDB.custom[kind]
+    edit:SetText(BuffDiggerDB.customText[kind] or (list and table.concat(list, "\n")) or "")
+    check() -- the language may have changed: lengths are checked again
+  end
+  for i, k in ipairs(PHRASE_KINDS) do
+    local t = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
+    t:SetSize(84, 22)
+    t:SetPoint("TOPLEFT", PAD + (i - 1) * 88, -58)
+    t:SetText(L[k[2]])
+    t.kind = k[1]
+    t:SetScript("OnClick", function() show(k[1]) end)
+    w.tabs[i] = t
+  end
+  w:SetScript("OnShow", function() show(w.kind or "new") end)
+
+  -- Preview: a phrase drawn for this case, printed for me only.
+  local preview = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
+  preview:SetSize(104, 22)
+  preview:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+  preview:SetText(L["Preview"])
+  preview:SetScript("OnClick", function()
+    local lang = BuffDiggerDB.language
+    ns.say(w.kind == "thanks" and ns.thanks(lang)
+      or ns.message(w.kind, w.kind == "replace" and "kings" or "fortitude", lang))
+  end)
+  w.preview = preview
+  phrases = w
+end
+
 local HOW_TO = {
   "Click a buff icon to ask for that buff, a name in Get buffs for the best one. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
   "Right-click: every buff that player can give.",
@@ -384,6 +470,7 @@ local function buildSettings()
   title:SetPoint("TOP", 0, -5)
   title:SetText("Buff Digger")
 
+  buildPhrases()
   local bottom = math.min(buildOptions(), buildPrefs()) - GAP
   local width = RIGHT_X + COL_W + PAD
   text(settings, "GameFontNormal", LEFT_X, bottom, width - 2 * PAD, L["How to use"])

@@ -394,4 +394,17 @@ errs=ns.setCustom("refresh", table.concat(many,"\n"), "en"); assert(#errs==1 and
 -- Emptying the box: back to the built-in phrases.
 ns.setCustom("new", "", "en"); ns.setCustom("thanks", "  \n", "en"); ns.setCustom("refresh", "", "en")
 assert(not ns.message("new","fortitude","en"):find("Oi") and ns.thanks("en")~="Merci l'ami !")
+-- The Phrases window: shows what I typed, saves as I type, shows refused lines, previews locally.
+local pw=_G.BuffDiggerPhrases; local typed="Hey, {spell}?"
+pw.edit.GetText=function() return typed end; pw.edit.SetText=function(_, t) typed=t end
+pw.errors.SetText=function(self, t) self.t=t end
+pw:Show(); pw._OnShow(pw); assert(pw.kind=="new" and typed=="" and pw.errors.t=="")
+typed="Hey, {spell}?\nno spell"; pw.edit._OnTextChanged(pw.edit, true)
+print("phrases errors:", pw.errors.t); assert(pw.errors.t:find("Line 2") and BuffDiggerDB.custom.new[1]=="Hey, {spell}?")
+pw.tabs[5]._OnClick(pw.tabs[5]); assert(pw.kind=="thanks" and typed:match("^%s*$"))
+pw.tabs[1]._OnClick(pw.tabs[1]); assert(typed=="Hey, {spell}?\nno spell", "the box comes back as typed")
+local said; local realSay=ns.say; ns.say=function(t) said=t end
+pw.preview._OnClick(pw.preview); print("preview:", said); assert(said:find("^Hey, .*Hspell:1243.*%?$"), "preview, nothing sent")
+ns.say=realSay
+ns.setCustom("new", "", "en")
 print("SMOKE OK")
