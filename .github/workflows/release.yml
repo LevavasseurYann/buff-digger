@@ -14,11 +14,15 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      CF_API_KEY: ${{ secrets.CURSEFORGE }} # the repo secret is named CURSEFORGE
-      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history: the packager writes the changelog from it
+      - uses: astral-sh/setup-uv@v6
+      # Same command as locally; a failing test publishes nothing. No token in this step's env.
+      - name: Smoke test
+        run: uv run --no-project -q --with "lupa>=2,<3" python -I tests/run_smoke.py
       - uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CURSEFORGE }} # the repo secret is named CURSEFORGE
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

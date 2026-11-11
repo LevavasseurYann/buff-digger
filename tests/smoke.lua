@@ -48,7 +48,11 @@ C_NamePlate={GetNamePlates=function() return {} end,
 C_ChatInfo={SendChatMessage=function(m,c,_,t) sent[#sent+1]=c.." "..tostring(t)..": "..m end, RegisterAddonMessagePrefix=function() end, SendAddonMessage=function(p,m,c,t) sent[#sent+1]="ADDON>"..t..": "..m end}
 TooltipDataProcessor=nil
 local ns={}
-for _,f in ipairs{"Locales","Data","BuffDigger","UI","Comm"} do assert(loadfile(DIR..f..".lua"))("BuffDigger", ns) end
+-- The addon may only create its own globals: a forgotten `local` fails here instead of leaking.
+local addonEnv = setmetatable({}, {__index=_G, __newindex=function(_,k,v)
+  if not (k:match("^BuffDigger") or k:match("^SLASH_BUFFDIGGER") or k:match("^BINDING_")) then error("addon sets global "..k, 2) end
+  _G[k]=v end})
+for _,f in ipairs{"Locales","Data","BuffDigger","UI","Comm"} do assert(setfenv(loadfile(DIR..f..".lua"), addonEnv))("BuffDigger", ns) end
 local function fire(ev,...) for _,f in ipairs(events) do if f._OnEvent then f._OnEvent(f,ev,...) end end end
 fire("ADDON_LOADED","BuffDigger"); fire("PLAYER_LOGIN"); fire("PLAYER_ENTERING_WORLD", true); fire("NAME_PLATE_UNIT_ADDED","nameplate1"); fire("NAME_PLATE_UNIT_ADDED","nameplate2"); print("nearby:", #ns.nearbyUnits())
 -- 1. Warrior lacks everything: paladin 25 should offer Might (top pick), mage nothing.
