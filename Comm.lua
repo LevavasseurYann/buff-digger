@@ -122,12 +122,12 @@ function ns.refreshIncoming()
     local far = member and ns.tooFar(buff.id, unit)
     local castable = unit and not far
     -- The requested buff is the line's icon (its name in the tooltip), like Give buffs.
-    local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req, grey = not castable,
+    local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req,
       group = member,
       buffs = { { key = req.key, icon = C_Spell.GetSpellTexture(buff.id), rank = ns.rankAt(buff, myLevel),
         spell = castable and C_Spell.GetSpellName(buff.id) or nil } },
       text = far and req.name .. L[" (too far)"] or unit and req.name or L["%s (out of sight)"]:format(req.name) }
-    -- Group members first, even far away (#16); like Give buffs: castable first, greyed after.
+    -- Group members first, even far away (#16); like Give buffs: castable first, red icons after.
     tinsert(parts[(member and 0 or 2) + (castable and 1 or 2)], e)
   end
   local entries = {}

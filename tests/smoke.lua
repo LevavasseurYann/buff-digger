@@ -16,6 +16,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetCenter" then return function() return 0,0 end end
   if k=="SetScript" then return function(s,e,f) s["_"..e]=f end end
   if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
+  if k=="SetVertexColor" then return function(s,r) rawset(s,"_red",r<1) end end
   if k=="SetText" then return function(s,t) rawset(s,"_t",t) end end
   if k=="GetParent" then return function(s) return rawget(s,"_parent") end end
   if k=="GetAttribute" then return function(s,a) return rawget(s,"_a_"..a) end end
@@ -294,7 +295,7 @@ click(nb, true); print("cast during the click -> confirmed:", BuffDiggerDB.confi
 local rc, rn, hit = ns.castOn, ns.notice, false; ns.castOn=function() hit=true end; ns.notice=function() hit=true end
 for _,f in ipairs(nb._hooks.PostClick) do f(nb,"LeftButton",true) end; ns.castOn, ns.notice = rc, rn; assert(not hit, "key press: nothing")
 
--- In the window: a far player is listed last, greyed, and his row casts nothing.
+-- In the window: a far player is listed last, red icons, and his row casts nothing.
 local gw=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows()
 C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate1" end
 NOW=NOW+60 -- the casts on Arthas above skip him for 10 s
@@ -498,11 +499,13 @@ assert(gr.buffs[2]:GetAttribute("macrotext"):find("/cast %[help,nodead%] Bénéd
 local tip={}; local realAdd=GameTooltip.AddLine; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
 units.nameplate60={"Intrus","WARRIOR",40}; gr.buffs[2]._OnEnter(gr.buffs[2]); GameTooltip.AddLine=realAdd; units.nameplate60={"Garrosh","WARRIOR",40}
 assert(tip[#tip]=="Click: cast it.", "tooltip: no name, the line shows it")
--- Too far: icons grey, tooltip says so, nothing cast.
+-- Too far: icons red, tooltip says so, nothing cast.
 C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate60" end; ns.refreshWindow(); gr=rowOf("nameplate60")
 assert(gr.buffs[1]:GetAttribute("type")==nil and gr.buffs[2]:GetAttribute("type")==nil, "too far: no cast")
+assert(gr.buffs[1].icon._red and gr.buffs[2].icon._red, "too far: red icons")
 tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end; gr.buffs[1]._OnEnter(gr.buffs[1]); GameTooltip.AddLine=realAdd
 assert(tip[#tip]=="Too far", "too far: the tooltip says so"); C_Spell.IsSpellInRange=nil
+ns.refreshWindow(); assert(not rowOf("nameplate60").buffs[1].icon._red, "back in range: not red")
 -- My blessing already on them: a paladin keeps one per target, offer nothing.
 C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate60" and name=="Bénédiction de puissance" then return {sourceUnit="player"} end end
 ns.refreshWindow(); assert(not rowOf("nameplate60"), "my blessing on them: nothing")
@@ -580,7 +583,9 @@ BuffDiggerDB.asked={}; ns.askBest(); assert(not BuffDiggerDB.asked.Tirion, "the 
 -- Get buffs: the far member says so, greyed, after the members in sight; a click asks nothing.
 BuffDiggerDB.nearby=true; ns.applyWindows(); local fe=_G.BuffDiggerNearby.entries; local tir, tirAt, lastNear
 for i,x in ipairs(fe) do if x.unit=="party3" then tir, tirAt = x, i elseif x.group then lastNear = i end end
-print("far member:", tir and tir.text); assert(tir and tir.grey and tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member greyed, after")
+print("far member:", tir and tir.text); assert(tir and tir.far and tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member flagged, after")
+for _,r in ipairs(_G.BuffDiggerNearby.rows) do if r._shown and r.entry.buffs[1] then
+  assert(r.buffs[1].icon._red == (r.entry.unit=="party3"), "red icons for the far member only") end end
 local b=#sent; ns.request("party3"); assert(#sent==b and not BuffDiggerDB.asked.Tirion, "no whisper to a member out of sight")
 -- [-] on the Group header folds the members away; the header stays, with its count.
 local nwr=_G.BuffDiggerNearby.rows; assert(nwr[1].entry.fold and nwr[1].fold._shown and nwr[1].line._shown, "Group header: [-] and line")
@@ -603,7 +608,7 @@ units.party1={"Garrosh","WARRIOR",40}; C_UnitAuras.GetAuraDataBySpellName=functi
 C_Spell.IsSpellInRange=function(_, u) return u ~= "party1" end; BOUND="F"
 BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow(); local ge=_G.BuffDiggerGive.entries
 print("Give buffs:", ge[1].text, ge[2].text, ge[3].text, ge[4].text)
-assert(ge[1].header and ge[2].unit=="party2" and ge[3].unit=="party1" and ge[3].grey and ge[4].header, "far member last in Group, greyed")
+assert(ge[1].header and ge[2].unit=="party2" and ge[3].unit=="party1" and ge[3].far and ge[4].header, "far member last in Group, flagged far")
 assert(_G.BuffDiggerGiveNext.unit and _G.BuffDiggerGiveNext.unit~="party1", "the key skips the far member")
 C_Spell.IsSpellInRange=nil; BOUND=nil; BuffDiggerDB.give=false; ns.applyWindows()
 -- Requests: a member's request comes first, even after another one.

@@ -702,8 +702,8 @@ local function makeWindow(globalName, title, setting, cast, point)
 end
 
 -- entries: { { unit, who (their name, read with the text: scrolling re-fills from these cached
---   entries, by then the nameplate token may be someone else's; false = unreadable), text, grey,
---   buffs = { { key, icon, rank, upgrade, best, his (Get buffs), spell (cast windows; nil = greyed,
+--   entries, by then the nameplate token may be someone else's; false = unreadable), text, far (Get buffs: red icons),
+--   buffs = { { key, icon, rank, upgrade, best, his (Get buffs), spell (cast windows; nil = red,
 --   not castable) }, ... } }, ... }
 -- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
 -- then "Around" and everyone else. Out of a group, the list as it is.
@@ -750,10 +750,7 @@ local function fill(w, list, emptyMessage)
           or "Interface\\Buttons\\UI-MinusButton-Up")
       end
       if e.header then row.text:SetTextColor(1, 0.82, 0) -- gold, like the settings' section titles
-      else
-        local c = e.grey and 0.5 or 1
-        row.text:SetTextColor(c, c, c)
-      end
+      else row.text:SetTextColor(1, 1, 1) end -- the name keeps its class colour; far = red icons
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
       ns.aimTarget(row, e.unit, e.who)
       -- Headers start at the left edge, after the [+]/[-] box (both, so they line up).
@@ -769,13 +766,15 @@ local function fill(w, list, emptyMessage)
           -- Green: higher than the one I have, like an upgrade in a loot tooltip.
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
           if w.cast then
-            ns.styleBuff(b) -- no gold frame, full colour...
-            b.icon:SetDesaturated(buff.spell == nil) -- ...grey when it can't be cast (too far)
+            ns.styleBuff(b) -- no gold frame, full colour
             ns.aimCast(b, e.unit, buff.spell, e.who)
           else
             ns.styleBuff(b, buff.key, buff.best, buff.his)
             ns.aimTarget(b, BuffDiggerDB.targetOnAsk and e.unit, e.who)
           end
+          -- Too far: red, like an action bar button out of range (grey already says "you have it").
+          if (w.cast and buff.spell == nil) or (not w.cast and e.far) then b.icon:SetVertexColor(0.8, 0.1, 0.1)
+          else b.icon:SetVertexColor(1, 1, 1) end
         end
         b:SetShown(buff ~= nil)
       end
@@ -804,7 +803,7 @@ local function nearbyEntries()
     local key, kind, top
     if #offers > 0 then key, kind, top = ns.bestBuff(name, class, level) end
     if #offers > 0 and (key or not BuffDiggerDB.nearbyUseful) then
-      -- A member at the other end of the world: listed, greyed, never asked (ns.request says so).
+      -- A member at the other end of the world: listed, red icons, never asked (ns.request says so).
       local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
       local buffs = {}
@@ -821,7 +820,7 @@ local function nearbyEntries()
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       if far then extra = L[" (too far)"] end
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), grey = far,
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
         -- Members in sight, then members too far, then everyone else.
         order = (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
         text = ("%s%s %d%s"):format(classColored(name, class),
@@ -923,7 +922,7 @@ local function giveEntries(myBuffs)
     local keys = name and buffsToGive(unit, class, myBuffs) or {}
     if #keys > 0 then
       -- Nameplates (and group members, anywhere) can be far beyond a buff's 30 yards: those are
-      -- listed greyed, not clickable, after the ones in range.
+      -- listed with red icons, not clickable, after the ones in range.
       local far = ns.tooFar(BUFFS[keys[1]].id, unit)
       local buffs = {}
       for j, k in ipairs(keys) do
@@ -931,7 +930,7 @@ local function giveEntries(myBuffs)
           spell = not far and C_Spell.GetSpellName(BUFFS[k].id) or nil }
       end
       entries[#entries + 1] = {
-        unit = unit, who = name, far = far, grey = far, buffs = buffs, group = ns.isMember(unit),
+        unit = unit, who = name, far = far, buffs = buffs, group = ns.isMember(unit),
         text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
       }
     end
