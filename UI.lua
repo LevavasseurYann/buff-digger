@@ -674,7 +674,7 @@ end
 local nearby, give, giveNext, thanksWindow
 
 -- ---------------------------------------------------------------- Thanks window (#21)
--- "Let me click Thank": who just buffed me, one line each (ns.toThank keeps at most 5). Shown only
+-- "Let me click Thank": who just buffed me, one line each (ns.thanksWaiting keeps at most 5). Shown only
 -- while someone waits; click = thank them, right click = forget them, close = forget everyone.
 -- Nothing secure here, so it also works in combat.
 
@@ -728,7 +728,7 @@ end
 
 function ns.refreshThanks()
   if not thanksWindow then return end
-  local list = ns.toThank()
+  local list = ns.thanksWaiting()
   for i, row in ipairs(thanksWindow.rows) do
     local e = list[i]
     if e then
