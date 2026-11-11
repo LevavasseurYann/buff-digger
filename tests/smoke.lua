@@ -83,6 +83,18 @@ for _, lang in ipairs(ns.LANGUAGES) do
   for _, kind in ipairs({ "new", "replace", "upgrade", "refresh" }) do
     for _, m in ipairs(ns.MESSAGES[lang[1]][kind]) do assert(select(2, m:gsub("%%s", "")) == 1, m) end
   end
+  -- A request never thanks: the thank-you comes after the buff (ns.THANKS).
+  for part, list in pairs(ns.MESSAGES[lang[1]]) do
+    assert(#list > 0, lang[1] .. "." .. part)
+    for _, m in ipairs(list) do
+      if part == "hello" or part == "bye" then assert(not m:find("%%"), m) end
+      for _, w in ipairs({ "[Tt]hank", "[Mm]erci", "[Dd]ank", "[Gg]racias", "[Gg]razie", "[Vv]aleu",
+        "[Oo]brigad", "Спасибо", "спасибо", "[Бб]лагодар", "[Dd]zięk", "appreciated", "[Cc]heers", "Ty!" }) do
+        assert(not m:find(w), lang[1] .. " request thanks: " .. m)
+      end
+    end
+  end
+  local t = ns.THANKS[lang[1]]; assert(#t.thanks > 0 and #t.bye > 0, lang[1] .. " thanks")
   print(lang[1], (ns.message("new", "might", lang[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1]))
 end
 assert(ns.message("new", "might", "xx") and ns.thanks(nil))

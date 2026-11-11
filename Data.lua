@@ -93,240 +93,289 @@ ns.PREFERENCES = {
 -- a French client on an English-speaking realm must still write in English. The spell name comes from
 -- the game when the client speaks the chosen language, from `en` above otherwise (a French client only
 -- knows French names, and an English one cannot write German names).
--- Several phrasings per case, picked at random (never the same twice in a row) so asking around
--- does not read like a bot. %s is the spell link.
+--
+-- A request is built from three parts: hello .. ask .. bye (hello ends with a space, bye starts with
+-- one; "" means "none"). Each part is drawn from a shuffled bag: every line comes out once before any
+-- comes back, so a dozen asks in a row never read like a bot. %s (only in the asks) is the spell link.
+-- No "thanks" in a request: the thank-you comes on its own once the buff lands (ns.THANKS).
 ns.MESSAGES = {
   fr = {
     -- The spell goes in brackets or after a colon: French needs ta/ton/tes depending on the spell.
+    hello = { "Salut ! ", "Hello ! ", "Coucou ! ", "Yo ! ", "Bonjour ! ", "Hey ! ", "Salut toi ! ", "" },
+    bye = { "", "", " :)", " :D", " Bonne aventure !", " Bon jeu !", " Bonne route !" },
     new = {
-      "Salut ! Tu pourrais me buff stp ? (%s) Merci :)",
-      "Hello ! Un petit buff en passant ? %s Merci d'avance !",
-      "Coucou, je peux te gratter un buff ? (%s) Merci :D",
-      "Salut ! Si t'as deux secondes : %s stp. Merci beaucoup !",
-      "Yo ! Tu me ferais l'honneur d'un buff ? %s Merci !",
-      "Bonjour ! Je ne dirais pas non à %s :) Merci !",
-      "Salut, possible d'avoir %s stp ? Bonne aventure à toi !",
+      "Tu pourrais me buff stp ? (%s)",
+      "Un petit buff en passant ? %s",
+      "Je peux te gratter un buff ? (%s)",
+      "Si t'as deux secondes : %s stp.",
+      "Tu me ferais l'honneur d'un buff ? %s",
+      "Je ne dirais pas non à un buff : %s",
+      "Possible d'avoir un buff stp ? (%s)",
+      "Un buff pour un voyageur fatigué ? (%s)",
+      "Tu me lancerais un buff stp ? %s",
+      "Ça te dit de me buff ? (%s)",
     },
     replace = {
-      "Salut ! Tu pourrais changer ta bénédiction stp ? (%s plutôt) Merci :)",
-      "Hello ! Merci pour la béné ! Tu pourrais me mettre %s à la place ? Ça m'aide plus :)",
-      "Coucou, petite requête : tu pourrais échanger ta bénédiction contre %s ? Merci !",
-      "Salut ! Ta béné est top, mais %s m'irait encore mieux, si ça te va :)",
+      "Tu pourrais changer ma bénédiction stp ? (%s plutôt)",
+      "Tu pourrais me mettre une autre béné ? (%s)",
+      "Petite requête : tu pourrais échanger ma bénédiction contre celle-ci ? %s",
+      "Ta béné est top, mais celle-ci m'irait encore mieux : %s",
+      "Possible de changer de béné ? Celle-ci m'aide plus : %s",
     },
     upgrade = {
-      "Salut ! Tu pourrais me rebuff stp ? (%s, le tien est d'un rang plus haut) Merci :)",
-      "Hello ! Ton buff est plus costaud que le mien (%s), tu pourrais me le remettre ? Merci !",
-      "Coucou ! Un buff de ton rang, ce serait le luxe : %s :) Merci !",
-      "Salut, le mien est de rang bas : tu pourrais me remettre %s ? Merci d'avance !",
+      "Tu pourrais me rebuff stp ? (%s, le tien est d'un rang plus haut)",
+      "Ton buff est plus costaud que le mien (%s), tu pourrais me le remettre ?",
+      "Un buff de ton rang, ce serait le luxe : %s",
+      "Le mien est de rang bas : tu pourrais me remettre le tien ? (%s)",
+      "Ton rang est plus haut que le mien, un rebuff stp ? (%s)",
     },
     refresh = {
-      "Salut ! Mon buff s'arrête bientôt, tu pourrais me le remettre ? (%s) Merci :)",
-      "Hello ! %s va tomber sur moi, un petit rebuff stp ? Merci !",
-      "Coucou, possible de me rafraîchir %s avant qu'il expire ? Merci d'avance !",
-      "Salut ! Plus que quelques minutes de %s, tu me le remets stp ? Merci :)",
+      "Mon buff s'arrête bientôt, tu pourrais me le remettre ? (%s)",
+      "%s va tomber sur moi, un petit rebuff stp ?",
+      "Possible de me rafraîchir ce buff avant qu'il expire ? (%s)",
+      "Plus que quelques minutes de buff, tu me le remets stp ? (%s)",
+      "Mon buff est presque fini, un petit rebuff ? %s",
     },
   },
   en = {
+    hello = { "Hi! ", "Hey! ", "Hello! ", "Hey there! ", "Heya! ", "Greetings! ", "Hi there! ", "Yo! ", "" },
+    bye = { "", "", " :)", " :D", " Have a good one!", " Good luck out there!", " Safe travels!" },
     new = {
-      "Hi! Could I get %s please? Thanks :)",
-      "Hey there! Mind sparing me %s? Much appreciated!",
-      "Hello! Any chance of %s? Thank you!",
-      "Hi! Would you be so kind as to toss me %s? Thanks a lot!",
-      "Hey! If you've got a sec, %s would be amazing. Thanks!",
-      "Greetings, friend! %s for a weary traveler? Thanks :)",
-      "Hi! I'd love %s if you don't mind. Have a good one!",
+      "Could I get %s please?",
+      "Mind sparing me %s?",
+      "Any chance of %s?",
+      "Would you be so kind as to toss me %s?",
+      "If you've got a sec, %s would be amazing.",
+      "%s for a weary traveler?",
+      "I'd love %s if you don't mind.",
+      "Mind hooking me up with %s?",
+      "Could you throw %s my way?",
+      "Would you mind casting %s on me?",
     },
     replace = {
-      "Hi! Could you swap my blessing for %s please? Thanks :)",
-      "Hey! Thanks for the blessing! Could you make it %s instead? It helps me more :)",
-      "Hello! Small request: would you mind switching my blessing to %s? Thank you!",
-      "Hi! Your blessing is great, but %s would suit me even better, if that's ok :)",
+      "Could you swap my blessing for %s please?",
+      "Would you mind switching my blessing to %s?",
+      "Your blessing is great, but %s would suit me even better.",
+      "Could you make my blessing %s instead?",
+      "Any chance of %s instead of this blessing? It helps me more.",
     },
     upgrade = {
-      "Hi! Could I get your %s please? Yours is a higher rank. Thanks :)",
-      "Hey! Your %s is stronger than mine, would you mind refreshing it? Thanks!",
-      "Hello! Your rank of %s would be a real treat :) Thank you!",
-      "Hi! Mine's a low rank, could I get your %s? Thanks in advance!",
+      "Could I get your %s please? Yours is a higher rank.",
+      "Your %s is stronger than mine, would you mind recasting it?",
+      "Your rank of %s would be a real treat.",
+      "Mine's a low rank, could I get your %s?",
+      "Mind overwriting my %s? Yours is a higher rank.",
     },
     refresh = {
-      "Hi! My %s is about to wear off, could you refresh it? Thanks :)",
-      "Hey! Mind topping up my %s before it drops? Much appreciated!",
-      "Hello! Only a few minutes left on my %s, could I get a fresh one? Thank you!",
-      "Hi! Could you refresh my %s please? It's running out. Thanks!",
+      "My %s is about to wear off, could you refresh it?",
+      "Mind topping up my %s before it drops?",
+      "Only a few minutes left on my %s, could I get a fresh one?",
+      "Could you refresh my %s please? It's running out.",
+      "My %s is fading, a quick recast?",
     },
   },
   de = {
     -- Like French: the spell goes in brackets or after a colon, no article to agree with.
+    hello = { "Hallo! ", "Hey! ", "Hi! ", "Grüß dich! ", "Moin! ", "Servus! ", "" },
+    bye = { "", "", " :)", " Viel Erfolg noch!", " Gute Reise!" },
     new = {
-      "Hallo! Hättest du einen Buff für mich? (%s) Danke :)",
-      "Hey! Wenn du kurz Zeit hast: %s bitte. Vielen Dank!",
-      "Hi! Könnte ich einen Buff bekommen? %s Danke dir!",
-      "Grüß dich! Ein kleiner Buff für einen müden Reisenden? (%s) Danke :)",
-      "Hallo! Über %s würde ich mich sehr freuen. Danke!",
+      "Hättest du einen Buff für mich? (%s)",
+      "Wenn du kurz Zeit hast: %s bitte.",
+      "Könnte ich einen Buff bekommen? %s",
+      "Ein kleiner Buff für einen müden Reisenden? (%s)",
+      "Über einen Buff würde ich mich sehr freuen: %s",
+      "Magst du mich kurz buffen? (%s)",
     },
     replace = {
-      "Hallo! Könntest du meinen Segen tauschen? (lieber %s) Danke :)",
-      "Hey, danke für den Segen! Könntest du mir stattdessen %s geben? Das hilft mir mehr :)",
-      "Hi! Kleine Bitte: könntest du meinen Segen gegen %s tauschen? Danke!",
+      "Könntest du meinen Segen tauschen? (lieber %s)",
+      "Kleine Bitte: könntest du meinen Segen gegen %s tauschen?",
+      "Ein anderer Segen wäre mir lieber: %s",
+      "Könntest du meinen Segen ersetzen? Das hilft mir mehr: %s",
     },
     upgrade = {
-      "Hallo! Dein Buff ist einen Rang höher als meiner: %s bitte? Danke :)",
-      "Hey! Dein Buff ist stärker als meiner (%s), magst du nachbuffen? Danke!",
-      "Hi! Meiner hat nur einen niedrigen Rang. Nochmal buffen? (%s) Danke im Voraus!",
+      "Dein Buff ist einen Rang höher als meiner: %s bitte?",
+      "Dein Buff ist stärker als meiner (%s), magst du nachbuffen?",
+      "Meiner hat nur einen niedrigen Rang. Nochmal buffen? (%s)",
+      "Deiner ist stärker, einmal überbuffen bitte? (%s)",
     },
     refresh = {
-      "Hallo! Mein Buff läuft gleich aus, könntest du nachbuffen? (%s) Danke :)",
-      "Hey! %s läuft bei mir bald ab, einmal erneuern bitte? Danke!",
-      "Hi! Nur noch ein paar Minuten %s übrig, kurz nachbuffen bitte? Danke!",
+      "Mein Buff läuft gleich aus, könntest du nachbuffen? (%s)",
+      "%s läuft bei mir bald ab, einmal erneuern bitte?",
+      "Nur noch ein paar Minuten %s übrig, kurz nachbuffen bitte?",
+      "Mein Buff ist fast weg, einmal auffrischen? (%s)",
     },
   },
   es = {
+    hello = { "¡Hola! ", "¡Buenas! ", "¡Hey! ", "¡Saludos! ", "" },
+    bye = { "", "", " :)", " ¡Buena suerte!", " ¡Buen viaje!" },
     new = {
-      "¡Hola! ¿Me podrías dar un buff? (%s) ¡Gracias! :)",
-      "¡Buenas! Si tienes un segundo: %s, por favor. ¡Muchas gracias!",
-      "¡Hola! ¿Un buff de paso? %s ¡Gracias de antemano!",
-      "¡Saludos! ¿Un buff para un viajero cansado? (%s) ¡Gracias!",
+      "¿Me podrías dar un buff? (%s)",
+      "Si tienes un segundo: %s, por favor.",
+      "¿Un buff de paso? %s",
+      "¿Un buff para un viajero cansado? (%s)",
+      "¿Me echas un buff, por favor? %s",
     },
     replace = {
-      "¡Hola! ¿Podrías cambiar mi bendición? (mejor %s) ¡Gracias! :)",
-      "¡Gracias por la bendición! ¿Me podrías poner %s en su lugar? Me ayuda más :)",
-      "¡Buenas! Pequeño favor: ¿cambiarías mi bendición por %s? ¡Gracias!",
+      "¿Podrías cambiar mi bendición? (mejor %s)",
+      "¿Me podrías poner %s en lugar de mi bendición? Me ayuda más.",
+      "Pequeño favor: ¿cambiarías mi bendición por %s?",
     },
     upgrade = {
-      "¡Hola! ¿Me podrías volver a bufear? (%s, el tuyo es de rango más alto) ¡Gracias! :)",
-      "¡Buenas! Tu buff es más fuerte que el mío (%s), ¿me lo renuevas? ¡Gracias!",
-      "¡Hola! El mío es de rango bajo, ¿me pones el tuyo? (%s) ¡Gracias de antemano!",
+      "¿Me podrías volver a bufear? (%s, el tuyo es de rango más alto)",
+      "Tu buff es más fuerte que el mío (%s), ¿me lo renuevas?",
+      "El mío es de rango bajo, ¿me pones el tuyo? (%s)",
     },
     refresh = {
-      "¡Hola! Mi buff se acaba pronto, ¿me lo renuevas? (%s) ¡Gracias! :)",
-      "¡Buenas! %s se me va a acabar, ¿un rebuff, por favor? ¡Gracias!",
-      "¡Hola! Me quedan pocos minutos de %s, ¿me renuevas el buff? ¡Gracias!",
+      "Mi buff se acaba pronto, ¿me lo renuevas? (%s)",
+      "%s se me va a acabar, ¿un rebuff, por favor?",
+      "Me quedan pocos minutos de %s, ¿me renuevas el buff?",
     },
   },
   it = {
+    hello = { "Ciao! ", "Ehi! ", "Salve! ", "Ciao a te! ", "" },
+    bye = { "", "", " :)", " Buona avventura!", " Buon gioco!" },
     new = {
-      "Ciao! Mi faresti un buff? (%s) Grazie :)",
-      "Ehi! Se hai un attimo: %s, per favore. Grazie mille!",
-      "Ciao! Un buff al volo? %s Grazie in anticipo!",
-      "Salve, amico! Un buff per un viaggiatore stanco? (%s) Grazie!",
+      "Mi faresti un buff? (%s)",
+      "Se hai un attimo: %s, per favore.",
+      "Un buff al volo? %s",
+      "Un buff per un viaggiatore stanco? (%s)",
+      "Mi lanceresti un buff, per favore? %s",
     },
     replace = {
-      "Ciao! Potresti cambiare la mia benedizione? (meglio %s) Grazie :)",
-      "Grazie per la benedizione! Potresti mettermi %s al suo posto? Mi aiuta di più :)",
-      "Ehi, piccola richiesta: cambieresti la mia benedizione con %s? Grazie!",
+      "Potresti cambiare la mia benedizione? (meglio %s)",
+      "Potresti mettermi %s al posto della mia benedizione? Mi aiuta di più.",
+      "Piccola richiesta: cambieresti la mia benedizione con %s?",
     },
     upgrade = {
-      "Ciao! Mi rifaresti il buff? (%s, il tuo è di rango più alto) Grazie :)",
-      "Ehi! Il tuo buff è più forte del mio (%s), me lo rinnovi? Grazie!",
-      "Ciao! Il mio è di rango basso, mi daresti il tuo? (%s) Grazie in anticipo!",
+      "Mi rifaresti il buff? (%s, il tuo è di rango più alto)",
+      "Il tuo buff è più forte del mio (%s), me lo rinnovi?",
+      "Il mio è di rango basso, mi daresti il tuo? (%s)",
     },
     refresh = {
-      "Ciao! Il mio buff sta per scadere, me lo rinnovi? (%s) Grazie :)",
-      "Ehi! %s sta per finire, un rebuff per favore? Grazie!",
-      "Ciao! Mi restano pochi minuti di %s, mi rinnovi il buff? Grazie!",
+      "Il mio buff sta per scadere, me lo rinnovi? (%s)",
+      "%s sta per finire, un rebuff per favore?",
+      "Mi restano pochi minuti di %s, mi rinnovi il buff?",
     },
   },
   pt = { -- Brazilian: WoW's only Portuguese client is ptBR
+    hello = { "Oi! ", "E aí! ", "Olá! ", "Saudações! ", "" },
+    bye = { "", "", " :)", " Boa aventura!", " Bom jogo!" },
     new = {
-      "Oi! Você poderia me dar um buff? (%s) Valeu :)",
-      "E aí! Se tiver um segundinho: %s, por favor. Muito obrigado!",
-      "Oi! Um buff de passagem? %s Valeu desde já!",
-      "Saudações! Um buff para um viajante cansado? (%s) Obrigado!",
+      "Você poderia me dar um buff? (%s)",
+      "Se tiver um segundinho: %s, por favor.",
+      "Um buff de passagem? %s",
+      "Um buff para um viajante cansado? (%s)",
+      "Me dá um buff, por favor? %s",
     },
     replace = {
-      "Oi! Você poderia trocar minha bênção? (prefiro %s) Valeu :)",
-      "Valeu pela bênção! Poderia me dar %s no lugar? Me ajuda mais :)",
-      "E aí, um pedidinho: troca minha bênção por %s? Valeu!",
+      "Você poderia trocar minha bênção? (prefiro %s)",
+      "Poderia me dar %s no lugar da minha bênção? Me ajuda mais.",
+      "Um pedidinho: troca minha bênção por %s?",
     },
     upgrade = {
-      "Oi! Poderia me dar o buff de novo? (%s, o seu é de rank mais alto) Valeu :)",
-      "E aí! Seu buff é mais forte que o meu (%s), pode renovar? Valeu!",
-      "Oi! O meu é de rank baixo, me dá o seu? (%s) Valeu desde já!",
+      "Poderia me dar o buff de novo? (%s, o seu é de rank mais alto)",
+      "Seu buff é mais forte que o meu (%s), pode renovar?",
+      "O meu é de rank baixo, me dá o seu? (%s)",
     },
     refresh = {
-      "Oi! Meu buff está quase acabando, pode renovar? (%s) Valeu :)",
-      "E aí! %s está acabando, um rebuff por favor? Valeu!",
-      "Oi! Faltam poucos minutos de %s, renova o buff pra mim? Valeu!",
+      "Meu buff está quase acabando, pode renovar? (%s)",
+      "%s está acabando, um rebuff por favor?",
+      "Faltam poucos minutos de %s, renova o buff pra mim?",
     },
   },
   ru = {
+    hello = { "Привет! ", "Здравствуй! ", "Хай! ", "Приветствую! ", "" },
+    bye = { "", "", " :)", " Удачи!", " Хорошей игры!" },
     new = {
-      "Привет! Можно баф, пожалуйста? (%s) Спасибо :)",
-      "Привет! Если есть секунда: %s, пожалуйста. Большое спасибо!",
-      "Здравствуй! Не кинешь баф? %s Заранее спасибо!",
-      "Приветствую, друг! Баф для уставшего путника? (%s) Спасибо!",
+      "Можно баф, пожалуйста? (%s)",
+      "Если есть секунда: %s, пожалуйста.",
+      "Не кинешь баф? %s",
+      "Баф для уставшего путника? (%s)",
+      "Бафнешь, пожалуйста? %s",
     },
     replace = {
-      "Привет! Можешь поменять мне благословение? (лучше %s) Спасибо :)",
-      "Спасибо за благословение! Можно вместо него %s? Мне так полезнее :)",
-      "Привет, маленькая просьба: поменяешь благословение на %s? Спасибо!",
+      "Можешь поменять мне благословение? (лучше %s)",
+      "Можно вместо моего благословения %s? Мне так полезнее.",
+      "Маленькая просьба: поменяешь благословение на %s?",
     },
     upgrade = {
-      "Привет! Перебафнешь, пожалуйста? (%s, у тебя ранг выше) Спасибо :)",
-      "Привет! Твой баф сильнее моего (%s), обновишь? Спасибо!",
-      "Привет! У меня низкий ранг, можно твой? (%s) Заранее спасибо!",
+      "Перебафнешь, пожалуйста? (%s, у тебя ранг выше)",
+      "Твой баф сильнее моего (%s), обновишь?",
+      "У меня низкий ранг, можно твой? (%s)",
     },
     refresh = {
-      "Привет! Мой баф скоро спадёт, обновишь? (%s) Спасибо :)",
-      "Привет! %s скоро закончится, перебафнешь, пожалуйста? Спасибо!",
-      "Привет! %s осталось всего пару минут, обновишь? Спасибо!",
+      "Мой баф скоро спадёт, обновишь? (%s)",
+      "%s скоро закончится, перебафнешь, пожалуйста?",
+      "Осталось всего пару минут %s, обновишь?",
     },
   },
   pl = {
+    hello = { "Cześć! ", "Hej! ", "Witaj! ", "Siema! ", "" },
+    bye = { "", "", " :)", " Powodzenia!", " Miłej gry!" },
     new = {
-      "Cześć! Dasz mi buffa? (%s) Dzięki :)",
-      "Hej! Jeśli masz chwilkę: %s, proszę. Wielkie dzięki!",
-      "Cześć! Buff w przelocie? %s Z góry dzięki!",
-      "Witaj, przyjacielu! Buff dla zmęczonego wędrowca? (%s) Dzięki!",
+      "Dasz mi buffa? (%s)",
+      "Jeśli masz chwilkę: %s, proszę.",
+      "Buff w przelocie? %s",
+      "Buff dla zmęczonego wędrowca? (%s)",
+      "Zbuffujesz mnie, proszę? %s",
     },
     replace = {
-      "Cześć! Możesz zmienić moje błogosławieństwo? (wolę %s) Dzięki :)",
-      "Dzięki za błogosławieństwo! Możesz dać mi zamiast niego %s? Bardziej mi pomoże :)",
-      "Hej, mała prośba: zamienisz moje błogosławieństwo na %s? Dzięki!",
+      "Możesz zmienić moje błogosławieństwo? (wolę %s)",
+      "Możesz dać mi %s zamiast mojego błogosławieństwa? Bardziej mi pomoże.",
+      "Mała prośba: zamienisz moje błogosławieństwo na %s?",
     },
     upgrade = {
-      "Cześć! Zbuffujesz mnie jeszcze raz? (%s, twój ma wyższą rangę) Dzięki :)",
-      "Hej! Twój buff jest mocniejszy niż mój (%s), odnowisz? Dzięki!",
-      "Cześć! Mój ma niską rangę, dasz mi swój? (%s) Z góry dzięki!",
+      "Zbuffujesz mnie jeszcze raz? (%s, twój ma wyższą rangę)",
+      "Twój buff jest mocniejszy niż mój (%s), odnowisz?",
+      "Mój ma niską rangę, dasz mi swój? (%s)",
     },
     refresh = {
-      "Cześć! Mój buff zaraz spadnie, odnowisz? (%s) Dzięki :)",
-      "Hej! %s zaraz mi się skończy, rebuff proszę? Dzięki!",
-      "Cześć! Kończy mi się %s, odnowisz buffa? Dzięki!",
+      "Mój buff zaraz spadnie, odnowisz? (%s)",
+      "%s zaraz mi się skończy, rebuff proszę?",
+      "Kończy mi się %s, odnowisz buffa?",
     },
   },
 }
 
--- Sent in the same channel as the request, once the buff lands.
+-- Sent in the same channel as the request, once the buff lands: one of `thanks`, then one of `bye`
+-- (same shuffled bags as requests).
 ns.THANKS = {
   fr = {
-    "Merci beaucoup ! :)",
-    "Merci, t'es au top !",
-    "Super, merci ! Bon jeu à toi !",
-    "Merci ! Que la Lumière te garde :)",
-    "Génial, merci beaucoup !",
-    "Merci pour le buff, bonne aventure !",
+    thanks = { "Merci !", "Merci beaucoup !", "Super, merci !", "Génial, merci !", "Merci pour le buff !",
+      "Top, merci !", "Parfait, merci !", "Merci bien !" },
+    bye = { "", " :)", " :D", " T'es au top !", " Bon jeu à toi !", " Bonne aventure !",
+      " Que la Lumière te garde !", " Bonne route !" },
   },
   en = {
-    "Thanks a lot! :)",
-    "Thank you, you're the best!",
-    "Cheers, much appreciated!",
-    "Thanks! Have a great one!",
-    "Awesome, thank you!",
-    "Thanks for the buff, good luck out there!",
+    thanks = { "Thanks!", "Thank you!", "Thanks a lot!", "Cheers!", "Much appreciated!", "Ty!",
+      "Awesome, thanks!", "Thanks for the buff!", "Perfect, thank you!" },
+    bye = { "", " :)", " :D", " You're the best!", " Have a great one!", " Good luck out there!",
+      " Safe travels!" },
   },
-  de = { "Vielen Dank! :)", "Danke, du bist super!", "Danke schön, noch ein schönes Spiel!",
-    "Danke für den Buff, viel Erfolg!", "Super, vielen Dank!" },
-  es = { "¡Muchas gracias! :)", "¡Gracias, eres un crack!", "¡Genial, gracias!",
-    "¡Gracias por el buff, buena suerte!", "¡Gracias! ¡Buena aventura!" },
-  it = { "Grazie mille! :)", "Grazie, sei un grande!", "Fantastico, grazie!",
-    "Grazie per il buff, buona avventura!", "Grazie! Buon gioco!" },
-  pt = { "Muito obrigado! :)", "Valeu, você é demais!", "Show, valeu!",
-    "Obrigado pelo buff, boa sorte!", "Obrigado! Boa aventura!" },
-  ru = { "Большое спасибо! :)", "Спасибо огромное!", "Отлично, спасибо!",
-    "Спасибо за баф, удачи!", "Спасибо! Хорошей игры!" },
-  pl = { "Wielkie dzięki! :)", "Dzięki, jesteś super!", "Super, dzięki!",
-    "Dzięki za buffa, powodzenia!", "Dzięki! Miłej gry!" },
+  de = {
+    thanks = { "Danke!", "Vielen Dank!", "Danke schön!", "Super, danke!", "Danke für den Buff!" },
+    bye = { "", " :)", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!" },
+  },
+  es = {
+    thanks = { "¡Gracias!", "¡Muchas gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
+    bye = { "", " :)", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!" },
+  },
+  it = {
+    thanks = { "Grazie!", "Grazie mille!", "Fantastico, grazie!", "Grazie per il buff!" },
+    bye = { "", " :)", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
+  },
+  pt = {
+    thanks = { "Valeu!", "Muito obrigado!", "Show, valeu!", "Obrigado pelo buff!" },
+    bye = { "", " :)", " Você é demais!", " Boa sorte!", " Boa aventura!" },
+  },
+  ru = {
+    thanks = { "Спасибо!", "Большое спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
+    bye = { "", " :)", " Удачи!", " Хорошей игры!" },
+  },
+  pl = {
+    thanks = { "Dzięki!", "Wielkie dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
+    bye = { "", " :)", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
+  },
 }
 
 -- Languages offered in the settings, in menu order, each under its own name.
@@ -335,13 +384,25 @@ ns.LANGUAGES = {
   { "it", "Italiano" }, { "pt", "Português" }, { "pl", "Polski" }, { "ru", "Русский" },
 }
 
-local lastPick = {}
+-- Shuffle bag: each line of `list` comes out once, in random order, before the bag refills. The last
+-- line of one round never opens the next, so nothing comes out twice in a row.
+local bags, lastPick = {}, {}
 
 local function pick(list)
-  local i = math.random(#list)
-  if #list > 1 and list[i] == lastPick[list] then i = i % #list + 1 end
-  lastPick[list] = list[i]
-  return list[i]
+  local bag = bags[list]
+  if not bag or #bag == 0 then
+    bag = {}
+    for i = 1, #list do bag[i] = list[i] end
+    for i = #bag, 2, -1 do
+      local j = math.random(i)
+      bag[i], bag[j] = bag[j], bag[i]
+    end
+    if #bag > 1 and bag[#bag] == lastPick[list] then bag[1], bag[#bag] = bag[#bag], bag[1] end
+    bags[list] = bag
+  end
+  local line = table.remove(bag)
+  lastPick[list] = line
+  return line
 end
 
 -- The spell goes in as a clickable link: the reader gets the tooltip in their own language.
@@ -358,12 +419,14 @@ end
 
 -- lang: a key of ns.MESSAGES; anything else (an old or unknown setting) writes English.
 function ns.thanks(lang)
-  return pick(ns.THANKS[lang] or ns.THANKS.en)
+  local t = ns.THANKS[lang] or ns.THANKS.en
+  return pick(t.thanks) .. pick(t.bye)
 end
 
 function ns.message(kind, key, lang)
   if not ns.MESSAGES[lang] then lang = "en" end
-  return pick(ns.MESSAGES[lang][kind]):format(spellText(ns.BUFFS[key], lang))
+  local m = ns.MESSAGES[lang]
+  return pick(m.hello) .. pick(m[kind]):format(spellText(ns.BUFFS[key], lang)) .. pick(m.bye)
 end
 
 -- Highest rank a player of this level can (probably) have; 0 if none yet.
