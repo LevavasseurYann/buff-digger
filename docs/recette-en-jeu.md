@@ -8,6 +8,10 @@ classe) et **ce qu'on doit voir**. Résultat à reporter dans l'issue #1 (une li
 **Avant de commencer** : `/console scriptErrors 1` (pour voir les erreurs Lua), barres de nom
 alliées allumées (`/bd nameplates`), monde ouvert ou capitale (pas d'instance).
 
+**Le journal de recette** (`dev/BuffDiggerJournal`, voir README § Développer) note ce qui se passe
+pendant la partie. Une fois le jeu fermé, Claude lit `SavedVariables/BuffDiggerJournal.lua` et remplit
+les tests qui ne demandent pas de regarder l'écran.
+
 **L'aide-mémoire, c'est `/bd`** : chaque pari affiche `YES` / `NO` / `not seen yet`, et le premier
 `YES` reste noté avec sa date (« confirmed 2026-11-08 ») d'une session à l'autre. Un testeur peut
 jouer normalement puis coller `/bd` : la plupart des lignes se remplissent toutes seules.

@@ -50,5 +50,15 @@ A="/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/BuffD
 mkdir -p "$A/Media" && cp *.lua *.toc Bindings.xml "$A/" && cp Media/* "$A/Media/"
 ```
 
+Journal de recette (pour le développeur seulement, jamais dans le zip publié : `dev/` est exclu par
+`.pkgmeta`) : l'addon `BuffDiggerJournal` note pendant la partie les clics dans les fenêtres, les sorts
+lancés et sur qui, les demandes, les remerciements, les actions bloquées, les erreurs Lua et ce que
+l'addon voit du groupe. Il écrit dans `WTF/Account/…/SavedVariables/BuffDiggerJournal.lua` à la
+fermeture du jeu (ou au `/reload`). `/bdj` compte les lignes, `/bdj clear` repart de zéro.
+
+```sh
+cp -r dev/BuffDiggerJournal "/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/"
+```
+
 Publier : pousser un tag `vX.Y.Z` (`-alpha` / `-beta` pour ces types) ; `.github/workflows/release.yml`
 envoie le zip sur CurseForge et dans les GitHub Releases.
