@@ -481,6 +481,17 @@ function ns.message(kind, key, lang)
   return pick(m.hello) .. pick(m[kind]):format(spellText(ns.BUFFS[key], lang)) .. pick(m.bye)
 end
 
+-- Our own lines for one case, written the way the Phrases box takes them ({spell}, no hello/bye):
+-- a starting point for the player.
+function ns.builtIn(kind, lang)
+  if kind == "thanks" then return (ns.THANKS[lang] or ns.THANKS.en).thanks end
+  local lines = {}
+  for i, line in ipairs((ns.MESSAGES[lang] or ns.MESSAGES.en)[kind]) do
+    lines[i] = line:gsub("%%s", "{spell}"):gsub("%%%%", "%%")
+  end
+  return lines
+end
+
 -- Highest rank a player of this level can (probably) have; 0 if none yet.
 function ns.rankAt(buff, level)
   local rank = 0

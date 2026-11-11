@@ -370,12 +370,19 @@ end
 -- ---------------------------------------------------------------- my own phrases (#20)
 -- One box per case, one phrase per line, saved as typed (ns.setCustom); refused lines in red.
 
-local PHRASE_KINDS = { { "new", "New buff" }, { "replace", "Swap blessing" }, { "upgrade", "Higher rank" },
-  { "refresh", "Running out" }, { "thanks", "Thank-you" } }
+-- Tab label and when Buff Digger uses that case.
+local PHRASE_KINDS = {
+  { "new", "Missing buff", "Asking for a buff you don't have." },
+  { "replace", "Swap blessing", "Asking a paladin to swap your blessing for a better one." },
+  { "upgrade", "Better rank", "Asking for a higher rank of a buff you already have." },
+  { "refresh", "Running out", "Asking for a buff you have that's about to wear off." },
+  { "thanks", "Thank-you", "Thanking someone who just buffed you." },
+}
 
 local function buildPhrases()
   local w = CreateFrame("Frame", "BuffDiggerPhrases", UIParent, "BasicFrameTemplateWithInset")
-  w:SetSize(2 * PAD + 5 * 88, 320)
+  local width = 5 * 88 - 4
+  w:SetSize(2 * PAD + width, 376) -- room for 4 error lines above the buttons
   w:SetPoint("CENTER", 0, 40)
   w:SetFrameStrata("DIALOG") -- above the settings
   w:SetMovable(true)
@@ -388,18 +395,23 @@ local function buildPhrases()
   local title = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   title:SetPoint("TOP", 0, -5)
   title:SetText(L["Buff Digger — My own phrases"])
-  local width = 5 * 88 - 4
-  text(w, "GameFontDisableSmall", PAD, -30, width,
-    L["One phrase per line, 20 at most. {spell} is the spell link (not in thank-yous). Empty: Buff Digger's own phrases."])
+  text(w, "GameFontHighlightSmall", PAD, -30, width,
+    L["Write what you want to say, one phrase per line: Buff Digger picks one at random. {spell} becomes the buff's link."])
+
+  w.when = text(w, "GameFontNormal", PAD, -86, width, "")
 
   local box = CreateFrame("ScrollFrame", nil, w, "UIPanelScrollFrameTemplate")
-  box:SetPoint("TOPLEFT", PAD, -86)
-  box:SetSize(width - 24, 150)
+  box:SetPoint("TOPLEFT", PAD + 4, -108)
+  box:SetSize(width - 28, 140)
+  local bg = box:CreateTexture(nil, "BACKGROUND") -- the box shows where to type
+  bg:SetPoint("TOPLEFT", -4, 4)
+  bg:SetPoint("BOTTOMRIGHT", 4, -4)
+  bg:SetColorTexture(0, 0, 0, 0.6)
   local edit = CreateFrame("EditBox", nil, box)
   edit:SetMultiLine(true)
   edit:SetAutoFocus(false)
   edit:SetFontObject(ChatFontNormal)
-  edit:SetWidth(width - 24)
+  edit:SetWidth(width - 28)
   edit:SetScript("OnEscapePressed", edit.ClearFocus)
   -- Keep the cursor in sight while typing past the bottom (Blizzard's helpers, if Forever has them).
   if ScrollingEdit_OnCursorChanged and ScrollingEdit_OnUpdate then
@@ -410,21 +422,36 @@ local function buildPhrases()
   box:EnableMouse(true)
   box:SetScript("OnMouseDown", function() edit:SetFocus() end)
   w.edit = edit
-  w.errors = text(w, "GameFontRedSmall", PAD, -244, width, "")
+  w.status = text(w, "GameFontHighlightSmall", PAD, -258, width, "")
+  w.errors = text(w, "GameFontRedSmall", PAD, -274, width, "")
+
+  -- Copy ours into an empty box, to edit them rather than start from nothing.
+  local copy = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
+  copy:SetSize(190, 22)
+  copy:SetPoint("BOTTOMLEFT", PAD, PAD)
+  copy:SetText(L["Start from Buff Digger's"])
+  w.copy = copy
 
   local function check()
     local errors = ns.setCustom(w.kind, edit:GetText() or "")
-    local more = #errors - 3 -- room for 3 lines above Preview
+    local more = #errors - 3 -- room for 3 lines above the buttons
     for i = #errors, 4, -1 do errors[i] = nil end
     if more > 0 then errors[4] = L["+%d more"]:format(more) end
     w.errors:SetText(table.concat(errors, "\n"))
+    local n = #BuffDiggerDB.custom[w.kind]
+    w.status:SetText(n > 0 and ("|cff33ff33" .. L["Sending your phrases (%d)."]:format(n) .. "|r")
+      or L["Box empty: Buff Digger's own phrases are sent."])
+    copy:SetEnabled(not (edit:GetText() or ""):find("%S"))
   end
   edit:SetScript("OnTextChanged", function(_, typed) if typed then check() end end)
 
   w.tabs = {}
   local function show(kind)
     w.kind = kind
-    for _, t in ipairs(w.tabs) do t:SetEnabled(t.kind ~= kind) end
+    for i, t in ipairs(w.tabs) do
+      if t.kind == kind then t:LockHighlight() else t:UnlockHighlight() end
+      if t.kind == kind then w.when:SetText(L[PHRASE_KINDS[i][3]]) end
+    end
     local list = BuffDiggerDB.custom[kind]
     edit:SetText(BuffDiggerDB.customText[kind] or (list and table.concat(list, "\n")) or "")
     check() -- the language may have changed: lengths are checked again
@@ -439,12 +466,17 @@ local function buildPhrases()
     w.tabs[i] = t
   end
   w:SetScript("OnShow", function() show(w.kind or "new") end)
+  copy:SetScript("OnClick", function()
+    edit:SetText(table.concat(ns.builtIn(w.kind, BuffDiggerDB.language), "\n"))
+    check()
+    edit:SetFocus()
+  end)
 
   -- Preview: a phrase drawn for this case, printed for me only.
   local preview = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
-  preview:SetSize(104, 22)
+  preview:SetSize(150, 22)
   preview:SetPoint("BOTTOMRIGHT", -PAD, PAD)
-  preview:SetText(L["Preview"])
+  preview:SetText(L["Try one (only you see it)"])
   preview:SetScript("OnClick", function()
     local lang = BuffDiggerDB.language
     ns.say(w.kind == "thanks" and ns.thanks(lang)

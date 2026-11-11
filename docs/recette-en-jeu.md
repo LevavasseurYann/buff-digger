@@ -70,8 +70,10 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 61 | Réglages > *My own phrases > Edit...* ; dans *New buff*, écrire `Salut, un {spell} stp ?` puis *Preview* | La phrase s'affiche dans **mon** chat avec un lien cliquable (tooltip au survol) ; rien n'est envoyé |
+| 61 | Réglages > *My own phrases > Edit...* ; dans *Missing buff*, écrire `Salut, un {spell} stp ?` puis *Try one (only you see it)* | La phrase s'affiche dans **mon** chat avec un lien cliquable (tooltip au survol) ; rien n'est envoyé |
 | 62 | Demander un buff en MP, puis Maj+clic (en /dire) | Ma phrase part dans les deux cas, lien cliquable ; le receveur voit le tooltip |
 | 63 | Taper 15 lignes dans la boîte | Le curseur reste visible en bas (la boîte défile toute seule), la molette défile ; clic dans la zone vide = la boîte prend le focus ; Échap une fois = quitte la saisie, deux fois = ferme la fenêtre |
 | 64 | Taper `100% sûr {spell}`, puis `|cffff0000rouge {spell}`, puis une ligne de 250 caractères | La première part telle quelle, sans erreur Lua ; les deux autres sont refusées en rouge avec la raison (noter si un `|` tapé s'affiche doublé `||`) |
-| 65 | Vider la boîte *New buff* ; `/reload` avec des phrases dans *Thank-you* | Retour aux phrases de Buff Digger ; après `/reload`, les phrases sont toujours là |
+| 65 | Vider la boîte *Missing buff* ; `/reload` avec des phrases dans *Thank-you* | Retour aux phrases de Buff Digger ; après `/reload`, les phrases sont toujours là |
+| 66 | Ouvrir *Edit...* et lire la fenêtre sans aide | Chaque onglet se comprend (la ligne jaune dit quand il sert), l'onglet choisi est en surbrillance (pas grisé), la boîte de saisie se voit, la ligne d'état dit si ce sont mes phrases ou celles de Buff Digger qui partent |
+| 67 | Onglet vide > *Start from Buff Digger's* | La boîte se remplit des phrases de Buff Digger avec `{spell}`, modifiables ; le bouton se grise dès que la boîte n'est plus vide |

@@ -410,5 +410,11 @@ pw.tabs[1]._OnClick(pw.tabs[1]); assert(typed=="Hey, {spell}?\nno spell", "the b
 local said; local realSay=ns.say; ns.say=function(t) said=t end
 pw.preview._OnClick(pw.preview); print("preview:", said); assert(said:find("^Hey, .*Hspell:1243.*%?$"), "preview, nothing sent")
 ns.say=realSay
-ns.setCustom("new", "")
+-- Status line says what's sent; "Start from Buff Digger's" fills an empty box with ours, {spell} in.
+pw.status.SetText=function(self, t) self.t=t end
+pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("your phrases %(1%)"))
+typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box empty"))
+pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==10, typed)
+pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
+ns.setCustom("new", ""); ns.setCustom("thanks", "")
 print("SMOKE OK")
