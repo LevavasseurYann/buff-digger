@@ -37,18 +37,18 @@ local function spellLines(owner, key, level)
   end
 end
 
--- Hovering an icon of Give buffs or Requests: the spell, the rank I give, for whom. `who`: the
--- name the click casts on (the line's frozen name, not the token's current one); nil = can't cast.
+-- Hovering an icon of Give buffs or Requests: the spell, the rank I give, what a click does. No
+-- name: it is on the line already. `who`: nil = can't cast (too far).
 function ns.castTooltip(owner, key, who)
   if not key or InCombatLockdown() then return end
   spellLines(owner, key, UnitLevel("player"))
-  if who then GameTooltip:AddLine(L["Click: cast it on %s."]:format(who), 0.4, 0.8, 1, true)
+  if who then GameTooltip:AddLine(L["Click: cast it."], 0.4, 0.8, 1, true)
   else GameTooltip:AddLine(L["Too far"], 0.6, 0.6, 0.6) end
   GameTooltip:Show()
 end
 
 -- Hovering a buff icon (nameplate or Get buffs): the spell, the rank they can probably give me,
--- what a click does.
+-- what a click does. No name: it is on the line (or above the nameplate) already.
 function ns.buffTooltip(owner, unit, key)
   if not (key and unit) or InCombatLockdown() then return end
   local name, _, level = ns.identity(unit)
@@ -58,14 +58,14 @@ function ns.buffTooltip(owner, unit, key)
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
   if his == key then
-    GameTooltip:AddLine(L["%s gave you this one."]:format(name), 1, 0.82, 0)
+    GameTooltip:AddLine(L["They gave you this one."], 1, 0.82, 0)
   else
     if ns.haveBuff(key) then GameTooltip:AddLine(L["You have it already."], 0.6, 0.6, 0.6) end
     if his and buff.class == "PALADIN" then
-      GameTooltip:AddLine(L["Replaces the %s that %s gave you."]:format("|cffffd100" .. spellName(his) .. "|r", name), 1, 0.5, 0.25, true)
+      GameTooltip:AddLine(L["Replaces the %s they gave you."]:format("|cffffd100" .. spellName(his) .. "|r"), 1, 0.5, 0.25, true)
     end
   end
-  GameTooltip:AddLine(L["Click: ask %s for it. Right click: other buffs."]:format(name), 0.4, 0.8, 1, true)
+  GameTooltip:AddLine(L["Click: ask for it. Right click: other buffs."], 0.4, 0.8, 1, true)
   GameTooltip:Show()
 end
 
@@ -74,7 +74,7 @@ end
 -- Right click on an icon or a Get buffs line: every buff that player can probably give,
 -- my priorities first. Choosing one asks for it, whatever the automatic choice would be.
 local function addOffers(root, unit, name, level, offers)
-  root:CreateTitle(L["Ask %s for:"]:format(name))
+  root:CreateTitle("Buff Digger") -- their name is on the line or the portrait already
   for _, key in ipairs(offers) do
     local label = ("|T%s:0|t %s |cff9d9d9d" .. L["Rank %d"] .. "|r%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
       rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")

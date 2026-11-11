@@ -55,7 +55,7 @@ ns.DEFAULTS = {
   requestSound = true, -- a sound when a request arrives (#13)
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
   requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
-  gameMenu = true, -- "Ask X for:" lines in the game's right-click menu on a player (#17)
+  gameMenu = true, -- buff request lines in the game's right-click menu on a player (#17)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)

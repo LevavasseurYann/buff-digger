@@ -74,10 +74,10 @@ ns.styleBuff(fb,"might","might","kings"); assert(not fb.his._shown, "another ble
 ns.styleBuff(fb,"kings","might","kings"); ns.styleBuff(fb); assert(not fb.his._shown, "hint mode (no buff): frame gone")
 local tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
 ns.buffTooltip(fb,"nameplate1","might"); print("tooltip:", table.concat(tip," / "))
-assert(table.concat(tip,"\n"):find("Replaces the .- that Arthas gave you"), "warns it replaces his blessing")
+assert(table.concat(tip,"\n"):find("Replaces the .- they gave you"), "warns it replaces his blessing")
 units.nameplate9={"Turalyon","PALADIN",25}; tip={}; ns.buffTooltip(fb,"nameplate9","might")
 assert(not table.concat(tip,"\n"):find("Replaces"), "another paladin replaces nothing")
-tip={}; ns.buffTooltip(fb,"nameplate1","kings"); assert(table.concat(tip,"\n"):find("Arthas gave you this one"))
+tip={}; ns.buffTooltip(fb,"nameplate1","kings"); assert(table.concat(tip,"\n"):find("They gave you this one"))
 GameTooltip.AddLine=nil
 -- 3. Anti-nag: asking him again right away is refused.
 ns.request("nameplate1")
@@ -281,7 +281,7 @@ assert(not rawget(r1.text,"_t"):find("Robustesse") and r1.buffs[1]._shown, "icon
 assert(r1:GetAttribute("*type1")=="macro" and r1:GetAttribute("macrotext")=="/target "..UnitName(r1.unit), "name click targets")
 local tip={}; local realAdd=GameTooltip.AddLine; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
 r1.buffs[1]._OnEnter(r1.buffs[1]); GameTooltip.AddLine=realAdd; print("give tooltip:", table.concat(tip," / "))
-assert(tip[1]=="Mot de pouvoir : Robustesse" and tip[#tip]==("Click: cast it on %s."):format(UnitName(r1.unit)), "tooltip: spell, rank, for whom")
+assert(tip[1]=="Mot de pouvoir : Robustesse" and tip[#tip]=="Click: cast it.", "tooltip: spell, rank, what a click does")
 assert(gw.rows[1].buffs[1]:GetAttribute("type")=="macro" and gw.rows[1].unit~="nameplate1")
 print("row 1 macro:", gw.rows[1].buffs[1]:GetAttribute("macrotext"))
 -- Aimed by name (no realm, /target), cast only on a friendly living target, previous target back.
@@ -471,7 +471,7 @@ assert(gr.buffs[1].key=="might" and gr.buffs[2].key=="kings" and not gr.buffs[3]
 assert(gr.buffs[2]:GetAttribute("macrotext"):find("/cast %[help,nodead%] Bénédiction des rois\n"), "2nd icon casts Kings")
 local tip={}; local realAdd=GameTooltip.AddLine; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
 units.nameplate60={"Intrus","WARRIOR",40}; gr.buffs[2]._OnEnter(gr.buffs[2]); GameTooltip.AddLine=realAdd; units.nameplate60={"Garrosh","WARRIOR",40}
-assert(tip[#tip]=="Click: cast it on Garrosh.", "tooltip names who the click casts on, not the token's new owner")
+assert(tip[#tip]=="Click: cast it.", "tooltip: no name, the line shows it")
 -- Too far: icons grey, tooltip says so, nothing cast.
 C_Spell.IsSpellInRange=function(_, u) return u ~= "nameplate60" end; ns.refreshWindow(); gr=rowOf("nameplate60")
 assert(gr.buffs[1]:GetAttribute("type")==nil and gr.buffs[2]:GetAttribute("type")==nil, "too far: no cast")
@@ -580,7 +580,7 @@ local function menu(tag, unit)
     CreateButton=function(_,t,f) lines[#lines+1]=t; lines.click=lines.click or f end}
   MENUS[tag](nil, root, {unit=unit}); return lines
 end
-local m=menu("MENU_UNIT_PLAYER","target"); print("menu:", m[1], m[2]); assert(m[1]=="Ask Arthas for:" and #m==4, "title + 3 blessings")
+local m=menu("MENU_UNIT_PLAYER","target"); print("menu:", m[1], m[2]); assert(m[1]=="Buff Digger" and #m==4, "title + 3 blessings")
 BuffDiggerDB.asked={}; b=#sent; m.click(); assert(BuffDiggerDB.asked.Arthas, "a line asks for that buff")
 assert(#menu("MENU_UNIT_PLAYER","player")==0, "nothing on myself")
 assert(#menu("MENU_UNIT_PLAYER",nil)==0, "nothing without a unit (name in chat)")
