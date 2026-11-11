@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.3-beta
+## Unreleased
 
 - **Give buffs is on.** Pallies, priests, mages and druids: the Give buffs window (Shift+right click on the minimap button) lists who around lacks your buffs, laid out like Get buffs: one icon per buff they lack, in the order their class wants them. Click an icon to cast it on them (you get your previous target back), click the name to target them, hover an icon for the spell, its rank and who it is for. Requests look the same: the requested buff's icon, click it to cast. The *Give my buff to the next player around* key works too (it casts when you release the key). Buff Digger users who ask you get one click in your Requests window instead of a whisper. Its settings are no longer greyed out as "coming soon". In a busy city, Give buffs and Requests scroll with the mouse wheel, like Get buffs.
 - **Friendly nameplates: no more false "off".** The settings and the login line no longer claim friendly nameplates are off while friendly players' plates are showing.
@@ -10,6 +10,9 @@
 - **No more surprise whispers to Buff Digger users.** Asking another Buff Digger user sends only the silent request. If no buff comes after 30 s, Get buffs says *no answer* on their line: click one of their buffs to whisper them. In instances, and to players without the addon, the whisper goes out right away as before.
 - **See who's asking.** When another Buff Digger user asks you for a buff, a big pulsing icon of that buff shows above their nameplate, so you spot them in the crowd. Only you see it, and it goes away once they have the buff, after 90 seconds, or when you click their request. New option *Marker above players who request a buff* (on by default).
 - **Target from Get buffs.** Click a player's name to target them (to find them in the crowd, see their buffs, invite them); it no longer asks for a buff, the icons do. New option *Get buffs: target the player I ask*: clicking a buff icon also targets them.
+
+## 0.4.3-beta
+
 - **See which blessing a paladin gave you.** A paladin can keep only one blessing on you: ask for another and it replaces the first. The blessing a paladin put on you now has a gold frame, in Get buffs and on nameplates, and hovering their other blessings says which one it would replace.
 - **Hide who has nothing for you.** New option *Get buffs: only those with something better*: players with nothing you want leave the Get buffs list: no buff from your priority list that you lack, no higher rank, nothing running out. A mage disappears for a warrior, a paladin whose blessings you all have too, so a busy city only shows who can actually help. Off by default.
 
