@@ -184,29 +184,11 @@ function ns.flushThanks()
   end
 end
 
--- Did I ask this player for this very buff in the last 10 minutes? Giver unknown: only when exactly ONE
--- open request is for this very buff — with two candidates, guessing could thank the wrong one.
--- Once the buff has landed, every other open request for it is closed: nobody else gets thanked.
+-- My open request to this player for this very buff (asked less than 10 minutes ago, not thanked yet).
+-- Nothing else is ever thanked: another buff, a buff nobody asked for, a giver the game doesn't name.
 local function findRequest(name, key)
-  local function fresh(e) return type(e) == "table" and not e.thanked and time() - e.at < 600 end
-  local result, resultEntry, matches = name, nil, 0
-  local theirs = name and BuffDiggerDB.asked[name]
-  if fresh(theirs) and key and theirs.key == key then resultEntry = theirs end -- that buff, not another
-  for n, e in pairs(BuffDiggerDB.asked) do
-    if fresh(e) and key and e.key == key and e ~= resultEntry then
-      matches = matches + 1
-      if not name then result, resultEntry = n, e end
-      if name then e.thanked = true end -- someone else gave it: close their request
-    end
-  end
-  if not name and matches ~= 1 then
-    -- Ambiguous: close them all, thank nobody.
-    for _, e in pairs(BuffDiggerDB.asked) do
-      if fresh(e) and key and e.key == key then e.thanked = true end
-    end
-    return nil
-  end
-  return result, resultEntry
+  local e = name and key and BuffDiggerDB.asked[name]
+  if type(e) == "table" and not e.thanked and e.key == key and time() - e.at < 600 then return e end
 end
 
 -- One /thank per player per THANK_GAP seconds: a druid casting Mark then Thorns, or a paladin
@@ -216,8 +198,8 @@ local lastThank = {}
 
 local function thank(name, request)
   -- A thank-you in the same channel as the request, if there was one.
-  if request then request.thanked = true end -- answered: Get buffs stops offering a re-ask (#13)
-  if request and BuffDiggerDB.thankMessage then
+  request.thanked = true -- answered: one thank-you per request
+  if BuffDiggerDB.thankMessage then
     local text = ns.thanks(BuffDiggerDB.language)
     if request.channel == "SAY" then
       sendLater(name, function() send(name .. " : " .. text, "SAY") end)
@@ -265,12 +247,10 @@ local function onBuffLanded(aura, info)
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
   end
 
-  -- Giver unknown: if I just asked someone for this very buff, it was most likely them.
-  local asked, request = findRequest(name, info.key)
-  if not name and asked then name = asked; info.giver = asked end
-  -- Only the buff I asked this player for is thanked: not a buff nobody asked for, a renewal, food,
-  -- a table or any other interaction.
-  if name and request then thank(name, request) end
+  -- Only the buff I asked this player for, from this very player, is thanked. Giver unknown (no unit
+  -- token, stale token): no guessing, nobody is thanked — guessing thanked people who gave nothing.
+  local request = findRequest(name, info.key)
+  if request then thank(name, request) end
 end
 
 local function readMyBuffs()
@@ -287,7 +267,12 @@ local function readMyBuffs()
       local info = byInstance[id]
       local expires, duration = auraExpires(aura)
       local old = not info and had[buffKeyOf(aura.name) or false]
-      local same = old and old.expires and expires and math.abs(old.expires - expires) < 2
+      -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
+      -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
+      local src = aura.sourceUnit
+      local caster = old and readable(src) and src and ns.unitName(src)
+      local sameGiver = not (readable(caster) and caster and old.giver) or caster == old.giver
+      local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
       -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
       -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
       local renewed = info and info.expires and expires and expires > info.expires + 5

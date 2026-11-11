@@ -123,14 +123,15 @@ ns.request("nameplate4"); print("REQ", sent[#sent])
 myAuras[1]={auraInstanceID=20,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate4"}
 fire("UNIT_AURA","player"); print("T0 emote first:", sent[#sent]); assert(sent[#sent]:find("EMOTE"))
 runTimers(); print("T1 thank-you after the delay:", sent[#sent]); assert(sent[#sent]:find("WHISPER Uther"))
--- unknown giver, asked in /say: thanks wait for next click
+-- Asked in /say, giver known: the emote now, the /say thank-you waits for the next click
 SHIFT=true; units.nameplate5={"Anduin","PRIEST",40}; ns.request("nameplate5"); SHIFT=false
-myAuras[2]={auraInstanceID=21,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil}
-local n=#sent; fire("UNIT_AURA","player"); print("emote now:", sent[#sent]); ns.flushThanks(); print("after click:", sent[#sent])
--- Ambiguous unknown giver: two open Fortitude requests -> nobody thanked
-BuffDiggerDB.asked = { A = {at=time(), key="fortitude", channel="WHISPER"}, B = {at=time(), key="fortitude", channel="WHISPER"} }
-local before=#sent; myAuras[3]={auraInstanceID=30,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil}; fire("UNIT_AURA","player")
-print("ambiguous sent:", #sent-before)
+myAuras[2]={auraInstanceID=21,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit="nameplate5"}
+local n=#sent; fire("UNIT_AURA","player"); print("emote now:", sent[#sent]); assert(sent[#sent]:find("EMOTE THANK Anduin"))
+ns.flushThanks(); print("after click:", sent[#sent]); assert(sent[#sent]:find("SAY"))
+-- Unknown giver, one open Fortitude request: nobody thanked (no guessing)
+BuffDiggerDB.asked = { A = {at=time(), key="fortitude", channel="WHISPER"} }
+local before=#sent; myAuras[3]={auraInstanceID=30,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil}; fire("UNIT_AURA","player"); runTimers()
+print("unknown giver sent:", #sent-before); assert(#sent==before, "unknown giver must not thank")
 -- Same giver twice within 60s: one emote only
 myAuras[4]={auraInstanceID=31,name="Marque du fauve",spellId=1126,sourceUnit="nameplate4"}; before=#sent; fire("UNIT_AURA","player")
 print("second buff from Uther sent:", #sent-before)
@@ -233,10 +234,35 @@ fire("UNIT_AURA","player"); runTimers(); print("re-indexed aura sends:", #sent-b
 BuffDiggerDB.asked={Jaina={at=time(), key="intellect", channel="WHISPER", target="Jaina"}}
 myAuras[1].sourceUnit="nameplate6"; myAuras[1].auraInstanceID=100; myAuras[1].expirationTime=NOW+3000; fire("UNIT_AURA","player"); runTimers()
 print("mage giving Fortitude sends:", #sent-b2); assert(#sent==b2, "wrong-class giver must not thank")
--- Same stale token, but I did ask a priest for Fortitude: the buff is theirs, they get the thanks.
+-- Same stale token, but I did ask a priest for Fortitude: the giver is unknown, so no guessing.
 BuffDiggerDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}
 myAuras[1].auraInstanceID=101; myAuras[1].expirationTime=NOW+3500; fire("UNIT_AURA","player"); runTimers()
-print("falls back to the asked priest:", sent[#sent]); assert(sent[#sent]:find("WHISPER Anduin"))
+print("unknown giver, asked priest:", #sent-b2); assert(#sent==b2, "an unknown giver must not thank the player I asked")
+-- No unit token at all: same.
+myAuras[1].sourceUnit=nil; myAuras[1].auraInstanceID=102; myAuras[1].expirationTime=NOW+3550; fire("UNIT_AURA","player"); runTimers()
+print("no source, asked priest:", #sent-b2); assert(#sent==b2, "a buff with no giver must not thank")
+-- My own cast of the buff I asked for: nobody thanked, and the request stays open.
+units.player={"Yann","PRIEST",40}
+myAuras[1].sourceUnit="player"; myAuras[1].auraInstanceID=103; myAuras[1].expirationTime=NOW+3580; fire("UNIT_AURA","player"); runTimers()
+print("self-buff sends:", #sent-b2); assert(#sent==b2, "my own buff must not thank")
+-- A stranger priest gives it first: no thanks, and my request to Anduin stays open.
+units.nameplate8={"Velen","PRIEST",40}
+myAuras[1].sourceUnit="nameplate8"; myAuras[1].auraInstanceID=104; myAuras[1].expirationTime=NOW+3590; fire("UNIT_AURA","player"); runTimers()
+print("stranger gives it:", #sent-b2); assert(#sent==b2, "a buff from someone I didn't ask must not thank")
+-- Anduin answers after all: thanked, once.
+myAuras[1].sourceUnit="nameplate5"; myAuras[1].expirationTime=NOW+3600; fire("UNIT_AURA","player"); runTimers()
+print("asked priest answers:", sent[#sent]); assert(sent[#sent]:find("WHISPER Anduin"), "the asked player giving the asked buff is thanked")
+units.nameplate8=nil
+-- Time left hidden, aura re-indexed (shapeshift) while a request to its giver is open: no landing.
+BuffDiggerDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}; b2=#sent
+myAuras[1].auraInstanceID=105; myAuras[1].expirationTime=nil; myAuras[1].duration=nil; fire("UNIT_AURA","player")
+myAuras[1].auraInstanceID=106; fire("UNIT_AURA","player"); runTimers()
+print("hidden time, re-indexed:", #sent-b2); assert(#sent==b2, "a re-indexed aura with hidden time must not thank")
+-- Time hidden, but another priest's cast replaces it (new instance): a landing, Velen asked -> thanked.
+units.nameplate8={"Velen","PRIEST",40}; BuffDiggerDB.asked={Velen={at=time(), key="fortitude", channel="WHISPER", target="Velen"}}; b2=#sent
+myAuras[1].auraInstanceID=107; myAuras[1].sourceUnit="nameplate8"; fire("UNIT_AURA","player"); runTimers()
+print("hidden time, other caster:", sent[#sent]); assert(#sent>b2 and sent[#sent]:find("WHISPER Velen"), "a new caster replacing my buff is a landing")
+units.nameplate8=nil
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 
 print("=== next-player key")
