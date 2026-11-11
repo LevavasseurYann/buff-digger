@@ -417,14 +417,58 @@ local function spellText(buff, lang)
   return (link:gsub("%[.-%]", "[" .. name .. "]"))
 end
 
+-- ---------------------------------------------------------------- custom phrases (#20)
+-- BuffDiggerDB.custom[kind] (new, replace, upgrade, refresh, thanks): whole lines the player wrote,
+-- sent instead of ours while not empty, in any language. {spell} stands for the spell link
+-- (requests only). BuffDiggerDB.customText[kind] keeps the box as typed, refused lines included.
+ns.CUSTOM_KINDS = { "new", "replace", "upgrade", "refresh", "thanks" }
+local CUSTOM_MAX = 20
+local SAY_PREFIX = 12 * 2 + 3 -- "Name : " before a /say: 12 letters of up to 2 bytes each
+
+local function custom(kind)
+  local list = BuffDiggerDB and BuffDiggerDB.custom and BuffDiggerDB.custom[kind]
+  return list and #list > 0 and list
+end
+
+-- Saves the lines of `text` that can be sent; returns the refused ones, as messages.
+-- Typed text is never run through string.format: a % stays a %, and | (WoW's chat escape) is removed.
+function ns.setCustom(kind, text, lang)
+  local L = ns.L
+  local longest = 0
+  for _, buff in pairs(ns.BUFFS) do longest = math.max(longest, #spellText(buff, lang)) end
+  local lines, errors, n = {}, {}, 0
+  for raw in (text .. "\n"):gmatch("(.-)\n") do
+    n = n + 1
+    local line = raw:gsub("|", ""):match("^%s*(.-)%s*$")
+    local spells = select(2, line:gsub("{spell}", ""))
+    local over = #line + spells * (longest - #"{spell}") + SAY_PREFIX - 255
+    local err
+    if line == "" then -- skipped
+    elseif kind == "thanks" and spells > 0 then err = L["no {spell} in a thank-you"]
+    elseif kind ~= "thanks" and spells ~= 1 then err = L["needs {spell} exactly once"]
+    elseif over > 0 then err = L["too long by %d letters"]:format(over)
+    elseif #lines == CUSTOM_MAX then err = L["%d lines at most"]:format(CUSTOM_MAX)
+    else lines[#lines + 1] = line end
+    if err then errors[#errors + 1] = L["Line %d: %s"]:format(n, err) end
+  end
+  BuffDiggerDB.custom[kind] = lines -- a new table: pick() starts a fresh bag for it
+  BuffDiggerDB.customText[kind] = text
+  return errors
+end
+
 -- lang: a key of ns.MESSAGES; anything else (an old or unknown setting) writes English.
 function ns.thanks(lang)
+  if custom("thanks") then return pick(custom("thanks")) end
   local t = ns.THANKS[lang] or ns.THANKS.en
   return pick(t.thanks) .. pick(t.bye)
 end
 
 function ns.message(kind, key, lang)
   if not ns.MESSAGES[lang] then lang = "en" end
+  local list = custom(kind)
+  if list then -- a function replacement: a % in the link or the line can't break anything
+    return (pick(list):gsub("{spell}", function() return spellText(ns.BUFFS[key], lang) end))
+  end
   local m = ns.MESSAGES[lang]
   return pick(m.hello) .. pick(m[kind]):format(spellText(ns.BUFFS[key], lang)) .. pick(m.bye)
 end
