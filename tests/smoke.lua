@@ -587,6 +587,10 @@ local nwr=_G.BuffDiggerNearby.rows; assert(nwr[1].entry.fold and nwr[1].fold._sh
 assert(not nwr[2].fold._shown and not nwr[2].line._shown, "a member's row: no [-], no line")
 nwr[1].fold._OnClick(nwr[1].fold); fe=_G.BuffDiggerNearby.entries
 assert(BuffDiggerDB.hideGroup.nearby, "the click folds")
+nwr[1].fold._OnClick(nwr[1].fold); nwr[1].fold._OnClick(nwr[1].fold); _G.BuffDiggerNearby.fill()
+local heads=0; for _,x in ipairs(_G.BuffDiggerNearby.entries) do if x.header then heads=heads+1 end end
+assert(heads==2, "re-fills never pile up headers: "..heads)
+fe=_G.BuffDiggerNearby.entries
 assert(fe[1].header and fe[1].fold and fe[1].text=="Group (3)", "folded: header kept")
 for _,x in ipairs(fe) do assert(not x.group, "folded: no member listed") end
 BuffDiggerDB.hideGroup.nearby=nil; BuffDiggerDB.nearby=false; ns.applyWindows()

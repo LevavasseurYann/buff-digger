@@ -723,9 +723,11 @@ local function withHeaders(entries, hideGroup)
   return out
 end
 
-local function fill(w, entries, emptyMessage)
-  w.fill = function() fill(w, entries, emptyMessage) end
-  entries = withHeaders(entries, BuffDiggerDB.hideGroup[w.setting])
+local function fill(w, list, emptyMessage)
+  -- Re-fills (scroll, resize, [-]) start again from the list without headers: headers on headers
+  -- piled up "Group / Around" and lost the folded members.
+  w.fill = function() fill(w, list, emptyMessage) end
+  local entries = withHeaders(list, BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
   -- Icon column as wide as the most icons on any line of this list (not just the visible ones:
   -- scrolling must not move the names), icons against the name: names stay lined up, and no empty
