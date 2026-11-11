@@ -18,6 +18,10 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   Give buffs, menu clic droit), `Comm.lua` (messages d'addon entre deux Buff Digger, fenêtre
   Requests). `Bindings.xml` : raccourcis.
 - Le suivi est dans les issues GitHub (`gh issue list`) ; idée et paris : `docs/ideas/demande-de-buffs.md`.
+- Groupe (constaté en jeu le 2026-11-11, journal) : `UnitIsUnit(nameplateN, partyN)` ne reconnaît
+  pas le même joueur → comparer aussi le nom (`ns.unitName`). Buffs des membres secrets en combat,
+  lisibles hors combat. `UnitIsVisible` = `false` lisible pour un membre loin. La cible d'un sort
+  (UNIT_SPELLCAST_SENT) arrive en « Prénom Nom ».
 
 ## Vérifier
 - Test sans le jeu (fausse API WoW + scénarios) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
