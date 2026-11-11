@@ -65,3 +65,17 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 |---|---|---|
 | 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
 | 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
+
+## Merci à la main (#21) — n'importe quelle classe, un ou deux buffeurs croisés
+
+Réglages > *Thanks* > cocher *Let me click Thank (no automatic thanks)*.
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 54 | Demander un buff, le recevoir | Rien ne part tout seul ; une petite fenêtre *Thanks* apparaît avec le donneur (icône du buff, nom en couleur de classe) |
+| 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne disparaît, la fenêtre se cache si vide |
+| 56 | Un buff spontané d'un joueur du groupe, puis d'un inconnu hors groupe | Une ligne dans les deux cas (sinon `/bd` : *Buffs received with no identifiable giver* a grimpé) ; clic = `/merci` + MP |
+| 57 | Un druide pose Marque puis Épines | Une seule ligne, deux icônes |
+| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 2 min une ligne | Ligne retirée sans rien envoyer ; tout vidé ; la ligne s'efface seule (au plus 5 s après) |
+| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Remercie la ligne du haut ; sans ligne, « Nobody to thank right now. » |
+| 60 | En donjon : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé ; en monde ouvert, en groupe, un buff de groupe | Donjon : seule la demande donne une ligne. Monde ouvert : chacun voit une ligne (noter si c'est gênant) ; la fenêtre se déplace sauf avec le cadenas fermé ; elle reste en combat |
