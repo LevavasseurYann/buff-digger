@@ -401,6 +401,11 @@ local function buildPhrases()
   edit:SetFontObject(ChatFontNormal)
   edit:SetWidth(width - 24)
   edit:SetScript("OnEscapePressed", edit.ClearFocus)
+  -- Keep the cursor in sight while typing past the bottom (Blizzard's helpers, if Forever has them).
+  if ScrollingEdit_OnCursorChanged and ScrollingEdit_OnUpdate then
+    edit:SetScript("OnCursorChanged", ScrollingEdit_OnCursorChanged)
+    edit:SetScript("OnUpdate", function(self, elapsed) ScrollingEdit_OnUpdate(self, elapsed, box) end)
+  end
   box:SetScrollChild(edit)
   box:EnableMouse(true)
   box:SetScript("OnMouseDown", function() edit:SetFocus() end)
@@ -408,7 +413,10 @@ local function buildPhrases()
   w.errors = text(w, "GameFontRedSmall", PAD, -244, width, "")
 
   local function check()
-    local errors = ns.setCustom(w.kind, edit:GetText() or "", BuffDiggerDB.language)
+    local errors = ns.setCustom(w.kind, edit:GetText() or "")
+    local more = #errors - 3 -- room for 3 lines above Preview
+    for i = #errors, 4, -1 do errors[i] = nil end
+    if more > 0 then errors[4] = L["+%d more"]:format(more) end
     w.errors:SetText(table.concat(errors, "\n"))
   end
   edit:SetScript("OnTextChanged", function(_, typed) if typed then check() end end)

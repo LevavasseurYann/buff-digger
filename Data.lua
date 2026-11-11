@@ -386,7 +386,8 @@ ns.LANGUAGES = {
 
 -- Shuffle bag: each line of `list` comes out once, in random order, before the bag refills. The last
 -- line of one round never opens the next, so nothing comes out twice in a row.
-local bags, lastPick = {}, {}
+-- Weak keys: the bags of custom lists replaced since (a new table per save) go away.
+local bags, lastPick = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
 
 local function pick(list)
   local bag = bags[list]
@@ -431,28 +432,35 @@ local function custom(kind)
 end
 
 -- Saves the lines of `text` that can be sent; returns the refused ones, as messages.
--- Typed text is never run through string.format: a % stays a %, and | (WoW's chat escape) is removed.
-function ns.setCustom(kind, text, lang)
+-- Typed text is never run through string.format: a % stays a %. | (WoW's chat codes) is refused.
+-- The length allows for the longest link in either spelling (English or the client's language), so
+-- changing "Write to players in" later can't push a line over the chat limit.
+function ns.setCustom(kind, text)
   local L = ns.L
-  local longest = 0
-  for _, buff in pairs(ns.BUFFS) do longest = math.max(longest, #spellText(buff, lang)) end
+  local client, longest = GetLocale():sub(1, 2), 0
+  for _, buff in pairs(ns.BUFFS) do
+    longest = math.max(longest, #spellText(buff, "en"), #spellText(buff, client))
+  end
   local lines, errors, n = {}, {}, 0
   for raw in (text .. "\n"):gmatch("(.-)\n") do
     n = n + 1
-    local line = raw:gsub("|", ""):match("^%s*(.-)%s*$")
+    local line = raw:match("^%s*(.-)%s*$")
     local spells = select(2, line:gsub("{spell}", ""))
     local over = #line + spells * (longest - #"{spell}") + SAY_PREFIX - 255
     local err
     if line == "" then -- skipped
+    elseif line:find("|", 1, true) then err = L["no | (chat codes can't be typed)"]
     elseif kind == "thanks" and spells > 0 then err = L["no {spell} in a thank-you"]
     elseif kind ~= "thanks" and spells ~= 1 then err = L["needs {spell} exactly once"]
-    elseif over > 0 then err = L["too long by %d letters"]:format(over)
+    elseif over > 0 then err = L["too long for the chat (%d over)"]:format(over)
     elseif #lines == CUSTOM_MAX then err = L["%d lines at most"]:format(CUSTOM_MAX)
     else lines[#lines + 1] = line end
     if err then errors[#errors + 1] = L["Line %d: %s"]:format(n, err) end
   end
-  BuffDiggerDB.custom[kind] = lines -- a new table: pick() starts a fresh bag for it
-  BuffDiggerDB.customText[kind] = text
+  if text ~= BuffDiggerDB.customText[kind] or not BuffDiggerDB.custom[kind] then
+    BuffDiggerDB.custom[kind] = lines -- a new table: pick() starts a fresh bag for it
+    BuffDiggerDB.customText[kind] = text
+  end
   return errors
 end
 
