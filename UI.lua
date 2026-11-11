@@ -142,6 +142,7 @@ local SECTIONS = {
     { key = "gameMenu", label = "Buff requests in the game's right-click menu" },
   }, delay = true, language = true },
   { title = "Thanks", options = {
+    { key = "thankByHand", label = "Let me click Thank (no automatic thanks)" },
     { key = "thank",   label = "/thank emote when someone buffs me" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
   } },
@@ -787,7 +788,80 @@ local function fill(w, list, emptyMessage)
   w.down:SetShown(#entries - w.offset > shown)
 end
 
-local nearby, give, giveNext, requests
+local nearby, give, giveNext, requests, thanksWindow
+
+-- ---------------------------------------------------------------- Thanks window (#21)
+-- "Let me click Thank": who just buffed me, one line each (ns.thanksWaiting keeps at most 5). Shown only
+-- while someone waits; click = thank them, right click = forget them, close = forget everyone.
+-- Nothing secure here, so it also works in combat.
+
+local function buildThanks()
+  local w = CreateFrame("Frame", "BuffDiggerThanks", UIParent, "BasicFrameTemplateWithInset")
+  w:SetSize(240, 60)
+  w:SetPoint("TOP", 0, -220)
+  w:SetMovable(true)
+  w:EnableMouse(true)
+  w:RegisterForDrag("LeftButton")
+  w:SetScript("OnDragStart", function(self) if not BuffDiggerDB.lockWindows then self:StartMoving() end end)
+  w:SetScript("OnDragStop", w.StopMovingOrSizing)
+  w:Hide()
+  w.CloseButton:HookScript("OnClick", function() ns.dismissThank() end)
+  local header = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  header:SetPoint("TOP", 0, -5)
+  header:SetText(L["Buff Digger — Thanks"])
+  w.rows = {}
+  for i = 1, 5 do
+    local row = CreateFrame("Button", nil, w)
+    row:SetHeight(ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
+    row:SetPoint("RIGHT", -12, 0)
+    row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, mouse)
+      if mouse == "RightButton" then ns.dismissThank(self.name) else ns.thankBuffer(self.name) end
+    end)
+    row:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:AddLine(L["Click: thank %s. Right click: forget it."]:format(self.name), 0.4, 0.8, 1, true)
+      GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.icons = {}
+    for j = 1, MAX_BUFFS do
+      local icon = row:CreateTexture(nil, "ARTWORK")
+      icon:SetSize(18, 18)
+      icon:SetPoint("LEFT", 2 + (j - 1) * 22, 0)
+      row.icons[j] = icon
+    end
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
+    row.text:SetPoint("RIGHT", -2, 0)
+    row.text:SetJustifyH("LEFT")
+    row:Hide()
+    w.rows[i] = row
+  end
+  thanksWindow = w
+end
+
+function ns.refreshThanks()
+  if not thanksWindow then return end
+  local list = ns.thanksWaiting()
+  for i, row in ipairs(thanksWindow.rows) do
+    local e = list[i]
+    if e then
+      row.name = e.name
+      row.text:SetText(classColored(e.name, e.class))
+      for j, icon in ipairs(row.icons) do
+        local key = e.keys[j]
+        if key then icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id)) end
+        icon:SetShown(key ~= nil)
+      end
+    end
+    row:SetShown(e ~= nil)
+  end
+  thanksWindow:SetHeight(40 + math.max(#list, 1) * ROW_HEIGHT)
+  thanksWindow:SetShown(#list > 0)
+end
 
 -- ---------------------------------------------------------------- Get buffs (idea 4)
 
@@ -1057,5 +1131,7 @@ function ns.buildUI()
   -- Players walk in and out of range without any event: look again every second (the windows,
   -- and the next-player key's aim when it is bound).
   C_Timer.NewTicker(1, ns.refreshWindow)
+  buildThanks()
+  C_Timer.NewTicker(5, ns.refreshThanks) -- lines older than 2 minutes go
   ns.applyWindows()
 end

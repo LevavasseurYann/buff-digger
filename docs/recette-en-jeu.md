@@ -126,3 +126,19 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 50 | En raid | Tout le raid dans Group (seuls ceux qui ont quelque chose à donner ou recevoir) |
 | 51 | Clic droit sur le portrait d'un paladin ciblé, puis sur un membre dans le cadre de groupe | En bas du menu : titre « Buff Digger » et ses bénédictions ; un clic envoie la demande ; aucune ligne sur soi-même ni sur un guerrier ; Réglages > *Buff requests in the game's right-click menu* décoché : plus rien, sans /reload ; aucune erreur « action bloquée » après usage, puis *Set Focus* et (chef de raid) promouvoir / exclure depuis ce même menu : marchent toujours, sans « action bloquée » |
 | 52 | Get buffs avec seulement des mages / prêtres autour, puis avec un paladin ; Requests ; Give buffs en mage | Pas de vide entre les icônes et les noms ; les noms restent alignés entre eux ; avec un paladin, la colonne s'élargit et les icônes d'un mage restent collées à son nom ; rien ne bouge en faisant défiler |
+| 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
+| 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
+
+## Merci à la main (#21) — n'importe quelle classe, un ou deux buffeurs croisés
+
+Réglages > *Thanks* > cocher *Let me click Thank (no automatic thanks)*.
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 54 | Demander un buff, le recevoir | Rien ne part tout seul ; une petite fenêtre *Thanks* apparaît avec le donneur (icône du buff, nom en couleur de classe) |
+| 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne disparaît, la fenêtre se cache si vide |
+| 56 | Un buff spontané d'un joueur du groupe, puis d'un inconnu hors groupe | Une ligne dans les deux cas (sinon `/bd` : *Buffs received with no identifiable giver* a grimpé) ; clic = `/merci` + MP |
+| 57 | Un druide pose Marque puis Épines | Une seule ligne, deux icônes |
+| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 2 min une ligne | Ligne retirée sans rien envoyer ; tout vidé ; la ligne s'efface seule (au plus 5 s après) |
+| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Remercie la ligne du haut ; sans ligne, « Nobody to thank right now. » |
+| 60 | En donjon : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé ; en monde ouvert, en groupe, un buff de groupe | Donjon : seule la demande donne une ligne. Monde ouvert : chacun voit une ligne (noter si c'est gênant) ; la fenêtre se déplace sauf avec le cadenas fermé ; elle reste en combat |

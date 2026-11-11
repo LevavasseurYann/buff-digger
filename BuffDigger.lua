@@ -45,6 +45,7 @@ ns.DEFAULTS = {
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- automatic /thank emote
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
+  thankByHand = false, -- no automatic thanks: givers wait in the Thanks window for a click (#21)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
@@ -218,13 +219,72 @@ local function thank(name, request)
   end
 end
 
-local function onBuffLanded(aura, info)
+-- ---------------------------------------------------------------- thanks by hand (#21)
+-- With "thankByHand", nothing is thanked on its own: who just buffed me waits here, newest first,
+-- one entry per player, until I click Thank (a real click: /say and the emote go out at once),
+-- dismiss them, or PENDING_MAX seconds pass.
+local TO_THANK_MAX = 5
+local toThank = {} -- { name, class, target ("Name-Realm"), keys = { buff keys }, at, request }
+
+local function addToThank(name, class, target, key, request)
+  local e
+  for i, x in ipairs(toThank) do
+    if x.name == name then e = table.remove(toThank, i) break end
+  end
+  e = e or { name = name, class = class, target = target, keys = {} }
+  local known = false
+  for _, k in ipairs(e.keys) do known = known or k == key end
+  if not known then e.keys[#e.keys + 1] = key end
+  e.at, e.request = time(), e.request or request
+  table.insert(toThank, 1, e)
+  toThank[TO_THANK_MAX + 1] = nil
+  if ns.refreshThanks then ns.refreshThanks() end
+end
+
+-- Who is waiting for a thank-you (expired ones dropped).
+function ns.thanksWaiting()
+  if not BuffDiggerDB.thankByHand then wipe(toThank) end -- option turned off: the window goes too
+  for i = #toThank, 1, -1 do
+    if time() - toThank[i].at > PENDING_MAX then table.remove(toThank, i) end
+  end
+  return toThank
+end
+
+-- Remove `name` from the list (all of them when nil); returns the entry removed. Its request counts
+-- as answered: a recast of that buff must not bring back a player I chose to skip.
+function ns.dismissThank(name)
+  local e
+  if name == nil then
+    for _, x in ipairs(toThank) do if x.request then x.request.thanked = true end end
+    wipe(toThank)
+  else
+    for i, x in ipairs(toThank) do
+      if x.name == name then e = table.remove(toThank, i) break end
+    end
+    if e and e.request then e.request.thanked = true end
+  end
+  if ns.refreshThanks then ns.refreshThanks() end
+  return e
+end
+
+-- Called from a click or a key: emote and message (as ticked) now, in my request's channel if
+-- I asked them, in a whisper otherwise.
+function ns.thankBuffer(name)
+  local e = ns.dismissThank(name)
+  if not e then return end
+  thank(e.name, e.request or { channel = "WHISPER", target = e.target })
+  lastThank[e.name] = time()
+  ns.flushThanks()
+end
+
+-- prevGiver: who gave me that buff before this landing (a renewal by the same player isn't a gift).
+local function onBuffLanded(aura, info, prevGiver)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
-  local name, class, level, _
+  local name, class, level, target, _
   if source then
     if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
-    name = ns.unitName(source)
+    name, target = ns.unitName(source) -- target: "First-Last", the whisper form
     _, class = UnitClass(source)
     level = UnitLevel(source)
     if not (name and readable(class) and readable(level)) then record("source", false, "giver secret") return end
@@ -250,7 +310,14 @@ local function onBuffLanded(aura, info)
   -- Only the buff I asked this player for, from this very player, is thanked. Giver unknown (no unit
   -- token, stale token): no guessing, nobody is thanked — guessing thanked people who gave nothing.
   local request = findRequest(name, info.key)
-  if request then thank(name, request) end
+  if not BuffDiggerDB.thankByHand then
+    if request then thank(name, request) end
+  -- By hand: a buff I asked for, or (open world only: group buffs rain in instances) a real gift.
+  elseif name and info.key and (BuffDiggerDB.thank or BuffDiggerDB.thankMessage)
+    and not (lastThank[name] and time() - lastThank[name] < THANK_GAP)
+    and (request or not (IsInInstance() or name == prevGiver)) then
+    addToThank(name, class, target, info.key, request)
+  end
 end
 
 local function readMyBuffs()
@@ -288,8 +355,11 @@ local function readMyBuffs()
           if entry then entry.value = value end
         end
         local oldGiver = info.giver or (same and old.giver)
+        -- Not oldGiver: that one is only for an aura judged the same. prevGiver is who gave this buff
+        -- before, for any landing (unknown giver before: nil, so a renewal then counts as a gift).
+        local prevGiver = info.giver or (old and old.giver)
         info.giver = nil
-        if ready and not same then onBuffLanded(aura, info) end
+        if ready and not same then onBuffLanded(aura, info, prevGiver) end
         info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
         info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
@@ -829,11 +899,16 @@ BINDING_NAME_BUFFDIGGER_BEST = L["Ask the best buff around me"]
 BINDING_NAME_BUFFDIGGER_TARGET = L["Ask my target for a buff"]
 BINDING_NAME_BUFFDIGGER_NEARBY = L["Show / hide the Get buffs window"]
 BINDING_NAME_BUFFDIGGER_GIVE = L["Show / hide the Give buffs window"]
+BINDING_NAME_BUFFDIGGER_THANK = L["Thank the last player who buffed me"]
 BuffDigger = {
   askBest = function() record("key", true) ns.askBest() end,
   request = function(unit) record("key", true) ns.request(unit) end,
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
+  thankLast = function()
+    local last = ns.thanksWaiting()[1]
+    if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
+  end,
 }
 _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end

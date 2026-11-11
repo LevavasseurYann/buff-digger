@@ -93,6 +93,18 @@ for _, lang in ipairs(ns.LANGUAGES) do
   for _, kind in ipairs({ "new", "replace", "upgrade", "refresh" }) do
     for _, m in ipairs(ns.MESSAGES[lang[1]][kind]) do assert(select(2, m:gsub("%%s", "")) == 1, m) end
   end
+  -- A request never thanks: the thank-you comes after the buff (ns.THANKS).
+  for part, list in pairs(ns.MESSAGES[lang[1]]) do
+    assert(#list > 0, lang[1] .. "." .. part)
+    for _, m in ipairs(list) do
+      if part == "hello" or part == "bye" then assert(not m:find("%%"), m) end
+      for _, w in ipairs({ "[Tt]hank", "[Mm]erci", "[Dd]ank", "[Gg]racias", "[Gg]razie", "[Vv]aleu",
+        "[Oo]brigad", "Спасибо", "спасибо", "[Бб]лагодар", "[Dd]zięk", "appreciated", "[Cc]heers", "Ty!" }) do
+        assert(not m:find(w), lang[1] .. " request thanks: " .. m)
+      end
+    end
+  end
+  local t = ns.THANKS[lang[1]]; assert(#t.thanks > 0 and #t.bye > 0, lang[1] .. " thanks")
   print(lang[1], (ns.message("new", "might", lang[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1]))
 end
 assert(ns.message("new", "might", "xx") and ns.thanks(nil))
@@ -638,4 +650,69 @@ assert(#menu("MENU_UNIT_PLAYER",nil)==0, "nothing without a unit (name in chat)"
 units.target={"Garrosh","WARRIOR",40}; assert(#menu("MENU_UNIT_PARTY","target")==0, "nothing when they can't buff")
 units.target={"Arthas","PALADIN",25}; BuffDiggerDB.gameMenu=false; assert(#menu("MENU_UNIT_RAID_PLAYER","target")==0, "setting off: nothing")
 BuffDiggerDB.gameMenu=true; units.target=nil
+
+print("=== thanks by hand (#21)")
+BuffDiggerDB.thankByHand=true; BuffDiggerDB.asked={}; myAuras={}; fire("UNIT_AURA","player"); runTimers()
+units.nameplate30={"Malfurion","DRUID",40}; units.nameplate31={"Benedictus","PRIEST",40}
+local function aura(id, name, spell, src) return {auraInstanceID=id,name=name,spellId=spell,sourceUnit=src,expirationTime=NOW+600,duration=600} end
+-- Asked Malfurion for Mark: it lands, nothing goes out, he waits with one row.
+BuffDiggerDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion-Realm"}}
+b=#sent; myAuras[1]=aura(300,"spell1126",1126,"nameplate30"); fire("UNIT_AURA","player"); runTimers()
+assert(#sent==b, "by hand: no automatic thanks"); assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Malfurion")
+-- Then Thorns from him, unasked: same row, two buffs.
+myAuras[2]=aura(301,"spell467",467,"nameplate30"); fire("UNIT_AURA","player")
+local e=ns.thanksWaiting()[1]; print("Malfurion row:", table.concat(e.keys, ",")); assert(#ns.thanksWaiting()==1 and #e.keys==2)
+-- An unasked Fortitude from a stranger: a second row, newest first.
+myAuras[3]=aura(302,"Mot de pouvoir : Robustesse",1243,"nameplate31"); fire("UNIT_AURA","player")
+assert(#ns.thanksWaiting()==2 and ns.thanksWaiting()[1].name=="Benedictus")
+-- Thanking Malfurion: emote now, whisper in my request's channel after the delay, row gone.
+b=#sent; ns.thankBuffer("Malfurion"); assert(sent[#sent]=="EMOTE THANK Malfurion"); runTimers()
+print("thanked by hand:", sent[#sent]); assert(sent[#sent]:find("^WHISPER Malfurion%-Realm: ")); assert(#ns.thanksWaiting()==1)
+-- His next buff within a minute: no new row (Mark then Thorns after a thank-you). Thorns wears off,
+-- then he casts it again (a new aura, no previous giver): only THANK_GAP keeps him out.
+local thorns=table.remove(myAuras, 2); fire("UNIT_AURA","player")
+thorns.auraInstanceID=310; table.insert(myAuras, 2, thorns); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1, "just thanked: no row")
+-- Benedictus unasked: whisper to him; dismissing instead sends nothing.
+b=#sent; ns.dismissThank("Benedictus"); runTimers(); assert(#sent==b and #ns.thanksWaiting()==0)
+-- A renewal by the same giver, unasked: no row. By someone else: a row.
+myAuras[3].expirationTime=NOW+1200; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "renewal by the same giver")
+units.nameplate32={"Moira","PRIEST",40}; local realName=UnitName; UnitName=function(u) if u=="nameplate32" then return "Moira","Ironforge" end return realName(u) end; myAuras[3].sourceUnit="nameplate32"; myAuras[3].expirationTime=NOW+1500; fire("UNIT_AURA","player")
+assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Moira Ironforge")
+b=#sent; ns.thankBuffer("Moira Ironforge"); runTimers(); assert(sent[#sent]:find("^WHISPER Moira%-Ironforge: "), "unasked: a whisper, to her realm"); UnitName=realName
+-- In an instance: unasked gives no row, asked does.
+IsInInstance=function() return true end
+myAuras[3].sourceUnit="nameplate31"; myAuras[3].expirationTime=NOW+1800; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "instance, unasked")
+BuffDiggerDB.asked={Benedictus={at=time(), key="fortitude", channel="SAY", target="Benedictus"}}
+units.nameplate31={"Benedictus","PRIEST",40}; myAuras[3].expirationTime=NOW+2100; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1, "instance, asked")
+-- Asked in /say: the click sends it in /say right away.
+assert(not BuffDiggerDB.asked.Benedictus.thanked)
+b=#sent; ns.thankBuffer("Benedictus"); print("say by hand:", sent[#sent]); assert(sent[#sent]:find("^SAY nil: Benedictus : "))
+IsInInstance=function() return false end
+-- Nothing to send (both boxes off): no row. Rows expire after 2 minutes.
+BuffDiggerDB.thank, BuffDiggerDB.thankMessage = false, false
+units.nameplate33={"Hamuul","DRUID",40}; myAuras[4]=aura(303,"spell467",467,"nameplate33"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0)
+BuffDiggerDB.thank, BuffDiggerDB.thankMessage = true, true
+units.nameplate34={"Remulos","DRUID",40}; myAuras[5]=aura(304,"spell467",467,"nameplate34"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
+local realTime=time; time=function() return realTime()+121 end; assert(#ns.thanksWaiting()==0, "expired"); time=realTime
+-- The Thanks window: shown while someone waits; click thanks, right click forgets, close clears.
+local tw=_G.BuffDiggerThanks; ns.refreshThanks(); assert(not tw._shown, "nobody to thank: hidden")
+units.nameplate35={"Cenarius","DRUID",40}; myAuras[6]=aura(305,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
+units.nameplate36={"Lunara","DRUID",40}; myAuras[7]=aura(306,"spell467",467,"nameplate36"); fire("UNIT_AURA","player")
+assert(tw._shown and tw.rows[1]._shown and tw.rows[1].name=="Lunara" and tw.rows[2].name=="Cenarius" and not tw.rows[3]._shown)
+assert(tw.rows[1].icons[1]._shown and not tw.rows[1].icons[2]._shown, "one icon per buff")
+b=#sent; tw.rows[1]._OnClick(tw.rows[1], "LeftButton"); assert(sent[#sent]=="EMOTE THANK Lunara" and tw.rows[1].name=="Cenarius")
+runTimers(); b=#sent; tw.rows[1]._OnClick(tw.rows[1], "RightButton"); runTimers(); assert(#sent==b and not tw._shown, "forgotten, window hidden")
+units.nameplate37={"Broll","DRUID",40}; myAuras[8]=aura(307,"spell467",467,"nameplate37"); fire("UNIT_AURA","player"); assert(tw._shown)
+for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.thanksWaiting()==0 and not tw._shown, "close forgets everyone")
+-- Key "Thank the last player who buffed me": the newest line; nobody left -> nothing sent.
+units.nameplate38={"Naralex","DRUID",40}; myAuras[9]=aura(308,"spell467",467,"nameplate38"); fire("UNIT_AURA","player")
+units.nameplate39={"Keeper","DRUID",40}; myAuras[10]=aura(309,"spell467",467,"nameplate39"); fire("UNIT_AURA","player")
+BuffDigger.thankLast(); assert(sent[#sent]=="EMOTE THANK Keeper" and ns.thanksWaiting()[1].name=="Naralex")
+BuffDigger.thankLast(); runTimers(); b=#sent; BuffDigger.thankLast(); runTimers(); assert(#sent==b and #ns.thanksWaiting()==0)
+-- Dismissing a line I asked for closes that request; turning the option off empties the list.
+units.nameplate40={"Aponi","DRUID",40}; BuffDiggerDB.asked={Aponi={at=time(), key="thorns", channel="WHISPER", target="Aponi"}}
+myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); assert(ns.thanksWaiting()[1].name=="Aponi")
+ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
+units.nameplate41={"Sunwalker","DRUID",40}; myAuras[12]=aura(312,"spell467",467,"nameplate41"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
+BuffDiggerDB.thankByHand=false; assert(#ns.thanksWaiting()==0, "option off: list emptied")
 print("SMOKE OK")
