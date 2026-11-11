@@ -568,6 +568,9 @@ IsInGroup=function() return true end; IsInRaid=function() return false end; GetN
 local realIsUnit=UnitIsUnit; UnitIsUnit=function(a,b) return a==b or (a=="nameplate70" and b=="party2") end
 local listed=ns.listUnits(); assert(listed[1]=="party1" and listed[2]=="party2", "members first")
 for _,u in ipairs(listed) do assert(u~="nameplate70", "a member's plate is not listed twice") end
+UnitIsUnit=realIsUnit -- Forever: nameplate vs party token never matches; the name still does
+for _,u in ipairs(ns.listUnits()) do assert(u~="nameplate70", "a member's plate is not listed twice, by name") end
+UnitIsUnit=function(a,b) return a==b or (a=="nameplate70" and b=="party2") end
 BuffDiggerDB.nearby=true; ns.applyWindows(); local nw=_G.BuffDiggerNearby
 local e=nw.entries; print("Get buffs:", e[1].text, e[2].who, e[3].who, e[4].text)
 assert(e[1].header and e[1].text=="Group (2)" and e[2].group and e[3].group and e[4].header and e[4].text=="Around", "Group (2), members, then Around")

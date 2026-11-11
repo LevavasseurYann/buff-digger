@@ -555,14 +555,21 @@ function ns.groupUnits()
 end
 
 -- Who the windows and the ask key look at: group members first, then everyone else's nameplate
--- (a member's own nameplate is skipped: one line per player).
+-- (a member's own nameplate is skipped: one line per player). UnitIsUnit(nameplate, party) did not
+-- match in Forever (a member listed twice, seen 2026-11-11): the name decides too.
 function ns.listUnits()
   local units = ns.groupUnits()
-  local members = #units
+  local members, names = #units, {}
+  for i = 1, members do
+    local name = ns.unitName(units[i])
+    if name then names[name] = true end
+  end
   for _, unit in ipairs(ns.nearbyUnits()) do
-    local member = false
-    for i = 1, members do
-      if truthy(UnitIsUnit(unit, units[i])) then member = true break end
+    local member = names[ns.unitName(unit) or false] or false
+    if not member then
+      for i = 1, members do
+        if truthy(UnitIsUnit(unit, units[i])) then member = true break end
+      end
     end
     if not member then units[#units + 1] = unit end
   end
