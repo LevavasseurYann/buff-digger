@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0-beta
 
 - **Thank by hand.** New option *Let me click Thank (no automatic thanks)*: Buff Digger no longer thanks anyone on its own. Whoever just buffed you, asked or not, shows up for two minutes in a small *Thanks* window instead: click their line to thank them (emote and message, as ticked, sent at once, even in /say), right-click to skip it. In a dungeon or raid, only the buffs you asked for show up. A key (Key Bindings > AddOns > Buff Digger) thanks the last one. A player who renews a buff they had already given you doesn't count, and one you just thanked doesn't come back for a minute.
 - **Your own phrases.** In the settings, *My own phrases > Edit...*: write your own requests and thank-yous, one per line, for each case (missing buff, swap blessing, better rank, running out, thank-you), in any language. `{spell}` is where the spell link goes. Once you've written some for a case, Buff Digger uses yours instead of its own; empty the box to get them back. Lines that can't be sent (no `{spell}`, too long for the chat) are refused with the reason, *Start from Buff Digger's* copies ours into the box to edit, and *Try one* shows one in your chat without sending anything.
