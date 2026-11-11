@@ -12,6 +12,9 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
 - `C_NamePlate.GetNamePlates()` ne liste pas les joueurs alliés dans Forever : on suit
   `NAME_PLATE_UNIT_ADDED/REMOVED` (`shownPlates`). Sans barres de nom alliées, l'addon ne voit
   personne (aucune autre API) → bouton « Turn on » et `/bd nameplates`.
+- Boutons sécurisés (constaté en jeu le 2026-11-09) : `RegisterForClicks("AnyUp")` + attribut
+  `useOnKeyDown=false`, sinon rien ne part chez qui a `ActionButtonUseKeyDown=1`. Cibler :
+  `/target Prénom` (sans royaume) ; `/targetexact` ne fait rien dans Forever.
 - Fichiers, chargés dans cet ordre : `Locales.lua` (L passthrough, anglais seul), `Data.lua`
   (buffs, rangs Forever, préférences par classe, phrases), `BuffDigger.lua` (logique, arbre de
   décision, demandes, remerciements, barres de nom, `/bd`), `UI.lua` (minimap, réglages, Nearby,
@@ -36,6 +39,9 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
 - Un tag `vX.Y.Z-alpha` (ou `-beta`, ou sans suffixe) poussé sur GitHub → le webhook CurseForge
   (projet 1792062) construit et publie le zip ; le workflow `release.yml` crée la Release GitHub.
   **Ne pas créer le secret `CF_API_KEY`** : ce serait un double envoi. Le tag est posé sur demande de Yann.
+  `release.yml` passe déjà le secret `CURSEFORGE` au packager (en `CF_API_KEY`) ; pas de doublon sur
+  CurseForge à la 0.4.3-beta (vu le 2026-11-11) : ne rien changer sans revérifier la page Files.
+  Le test sans le jeu tourne avant le packager : s'il échoue, rien n'est publié.
 - Mettre à jour `CHANGELOG.md` (anglais, lu par CurseForge) avant le tag.
 - Description CurseForge : `docs/curseforge-description.md`. L'éditeur CurseForge ne lit pas le
   Markdown : générer une page HTML (module `markdown`) que Yann copie-colle depuis son navigateur.
