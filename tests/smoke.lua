@@ -376,4 +376,46 @@ w.lock._OnClick(w.lock); assert(not BuffDiggerDB.lockWindows and w.grip._shown, 
 InCombatLockdown=function() return true end; local gw=_G.BuffDiggerGive; gw.lock._OnClick(gw.lock)
 assert(not w.grip._shown and not gw.grip._shown, "both locked at once"); gw.lock._OnClick(gw.lock); InCombatLockdown=function() return false end
 local g=_G.BuffDiggerGive; if g.fill then g.fill() end; assert(not g.down._shown, "Give buffs never scrolls: no arrow")
+
+print("=== thanks by hand (#21)")
+BuffDiggerDB.thankByHand=true; BuffDiggerDB.asked={}; myAuras={}; fire("UNIT_AURA","player"); runTimers()
+units.nameplate30={"Malfurion","DRUID",40}; units.nameplate31={"Benedictus","PRIEST",40}
+local function aura(id, name, spell, src) return {auraInstanceID=id,name=name,spellId=spell,sourceUnit=src,expirationTime=NOW+600,duration=600} end
+-- Asked Malfurion for Mark: it lands, nothing goes out, he waits with one row.
+BuffDiggerDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion-Realm"}}
+b=#sent; myAuras[1]=aura(300,"spell1126",1126,"nameplate30"); fire("UNIT_AURA","player"); runTimers()
+assert(#sent==b, "by hand: no automatic thanks"); assert(#ns.toThank()==1 and ns.toThank()[1].name=="Malfurion")
+-- Then Thorns from him, unasked: same row, two buffs.
+myAuras[2]=aura(301,"spell467",467,"nameplate30"); fire("UNIT_AURA","player")
+local e=ns.toThank()[1]; print("Malfurion row:", table.concat(e.keys, ",")); assert(#ns.toThank()==1 and #e.keys==2)
+-- An unasked Fortitude from a stranger: a second row, newest first.
+myAuras[3]=aura(302,"Mot de pouvoir : Robustesse",1243,"nameplate31"); fire("UNIT_AURA","player")
+assert(#ns.toThank()==2 and ns.toThank()[1].name=="Benedictus")
+-- Thanking Malfurion: emote now, whisper in my request's channel after the delay, row gone.
+b=#sent; ns.thankBuffer("Malfurion"); assert(sent[#sent]=="EMOTE THANK Malfurion"); runTimers()
+print("thanked by hand:", sent[#sent]); assert(sent[#sent]:find("^WHISPER Malfurion%-Realm: ")); assert(#ns.toThank()==1)
+-- His next buff within a minute: no new row (Mark then Thorns after a thank-you).
+myAuras[2].expirationTime=NOW+900; fire("UNIT_AURA","player"); assert(#ns.toThank()==1, "just thanked: no row")
+-- Benedictus unasked: whisper to him; dismissing instead sends nothing.
+b=#sent; ns.dismissThank("Benedictus"); runTimers(); assert(#sent==b and #ns.toThank()==0)
+-- A renewal by the same giver, unasked: no row. By someone else: a row.
+myAuras[3].expirationTime=NOW+1200; fire("UNIT_AURA","player"); assert(#ns.toThank()==0, "renewal by the same giver")
+units.nameplate32={"Moira","PRIEST",40}; myAuras[3].sourceUnit="nameplate32"; myAuras[3].expirationTime=NOW+1500; fire("UNIT_AURA","player")
+assert(#ns.toThank()==1 and ns.toThank()[1].name=="Moira")
+b=#sent; ns.thankBuffer("Moira"); runTimers(); assert(sent[#sent]:find("^WHISPER Moira: "), "unasked: a whisper")
+-- In an instance: unasked gives no row, asked does.
+IsInInstance=function() return true end
+myAuras[3].sourceUnit="nameplate31"; myAuras[3].expirationTime=NOW+1800; fire("UNIT_AURA","player"); assert(#ns.toThank()==0, "instance, unasked")
+BuffDiggerDB.asked={Benedictus={at=time(), key="fortitude", channel="SAY", target="Benedictus"}}
+units.nameplate31={"Benedictus","PRIEST",40}; myAuras[3].expirationTime=NOW+2100; fire("UNIT_AURA","player"); assert(#ns.toThank()==1, "instance, asked")
+-- Asked in /say: the click sends it in /say right away.
+b=#sent; ns.thankBuffer("Benedictus"); print("say by hand:", sent[#sent]); assert(sent[#sent]:find("^SAY nil: Benedictus : "))
+IsInInstance=function() return false end
+-- Nothing to send (both boxes off): no row. Rows expire after 2 minutes.
+BuffDiggerDB.thank, BuffDiggerDB.thankMessage = false, false
+units.nameplate33={"Hamuul","DRUID",40}; myAuras[4]=aura(303,"spell467",467,"nameplate33"); fire("UNIT_AURA","player"); assert(#ns.toThank()==0)
+BuffDiggerDB.thank, BuffDiggerDB.thankMessage = true, true
+units.nameplate34={"Remulos","DRUID",40}; myAuras[5]=aura(304,"spell467",467,"nameplate34"); fire("UNIT_AURA","player"); assert(#ns.toThank()==1)
+local realTime=time; time=function() return realTime()+121 end; assert(#ns.toThank()==0, "expired"); time=realTime
+BuffDiggerDB.thankByHand=false
 print("SMOKE OK")

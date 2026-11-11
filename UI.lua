@@ -97,6 +97,7 @@ local SECTIONS = {
     { key = "acceptRequests", label = "Pop up requests from Buff Digger users", soon = true },
   }, delay = true, language = true },
   { title = "Thanks", options = {
+    { key = "thankByHand", label = "Let me click Thank (no automatic thanks)" },
     { key = "thank",   label = "/thank emote when someone buffs me" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
   } },

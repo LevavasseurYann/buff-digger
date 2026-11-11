@@ -41,6 +41,7 @@ ns.DEFAULTS = {
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- automatic /thank emote
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
+  thankByHand = false, -- no automatic thanks: givers wait in the Thanks window for a click (#21)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
@@ -209,7 +210,59 @@ local function thank(name, request)
   end
 end
 
-local function onBuffLanded(aura, info)
+-- ---------------------------------------------------------------- thanks by hand (#21)
+-- With "thankByHand", nothing is thanked on its own: who just buffed me waits here, newest first,
+-- one entry per player, until I click Thank (a real click: /say and the emote go out at once),
+-- dismiss them, or PENDING_MAX seconds pass.
+local TO_THANK_MAX = 5
+local toThank = {} -- { name, keys = { buff keys }, at, request }
+
+local function addToThank(name, key, request)
+  local e
+  for i, x in ipairs(toThank) do
+    if x.name == name then e = table.remove(toThank, i) break end
+  end
+  e = e or { name = name, keys = {} }
+  local known = false
+  for _, k in ipairs(e.keys) do known = known or k == key end
+  if not known then e.keys[#e.keys + 1] = key end
+  e.at, e.request = time(), e.request or request
+  table.insert(toThank, 1, e)
+  toThank[TO_THANK_MAX + 1] = nil
+  if ns.refreshThanks then ns.refreshThanks() end
+end
+
+-- Who is waiting for a thank-you (expired ones dropped).
+function ns.toThank()
+  for i = #toThank, 1, -1 do
+    if time() - toThank[i].at > PENDING_MAX then table.remove(toThank, i) end
+  end
+  return toThank
+end
+
+-- Remove `name` from the list (all of them when nil); returns the entry removed.
+function ns.dismissThank(name)
+  local e
+  if name == nil then wipe(toThank) end
+  for i, x in ipairs(toThank) do
+    if x.name == name then e = table.remove(toThank, i) break end
+  end
+  if ns.refreshThanks then ns.refreshThanks() end
+  return e
+end
+
+-- Called from a click or a key: emote and message (as ticked) now, in my request's channel if
+-- I asked them, in a whisper otherwise.
+function ns.thankBuffer(name)
+  local e = ns.dismissThank(name)
+  if not e then return end
+  thank(e.name, e.request or { channel = "WHISPER", target = e.name })
+  lastThank[e.name] = time()
+  ns.flushThanks()
+end
+
+-- prevGiver: who gave me that buff before this landing (a renewal by the same player isn't a gift).
+local function onBuffLanded(aura, info, prevGiver)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name, class, level, _
@@ -241,7 +294,14 @@ local function onBuffLanded(aura, info)
   -- Only the buff I asked this player for, from this very player, is thanked. Giver unknown (no unit
   -- token, stale token): no guessing, nobody is thanked — guessing thanked people who gave nothing.
   local request = findRequest(name, info.key)
-  if request then thank(name, request) end
+  if not BuffDiggerDB.thankByHand then
+    if request then thank(name, request) end
+  -- By hand: a buff I asked for, or (open world only: group buffs rain in instances) a real gift.
+  elseif name and info.key and (BuffDiggerDB.thank or BuffDiggerDB.thankMessage)
+    and not (lastThank[name] and time() - lastThank[name] < THANK_GAP)
+    and (request or not (IsInInstance() or name == prevGiver)) then
+    addToThank(name, info.key, request)
+  end
 end
 
 local function readMyBuffs()
@@ -279,8 +339,9 @@ local function readMyBuffs()
           if entry then entry.value = value end
         end
         local oldGiver = info.giver or (same and old.giver)
+        local prevGiver = info.giver or (old and old.giver)
         info.giver = nil
-        if ready and not same then onBuffLanded(aura, info) end
+        if ready and not same then onBuffLanded(aura, info, prevGiver) end
         info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
         info.rank = info.rank or oldRank -- nothing better known: keep what we had
       end
