@@ -417,5 +417,15 @@ units.nameplate33={"Hamuul","DRUID",40}; myAuras[4]=aura(303,"spell467",467,"nam
 BuffDiggerDB.thank, BuffDiggerDB.thankMessage = true, true
 units.nameplate34={"Remulos","DRUID",40}; myAuras[5]=aura(304,"spell467",467,"nameplate34"); fire("UNIT_AURA","player"); assert(#ns.toThank()==1)
 local realTime=time; time=function() return realTime()+121 end; assert(#ns.toThank()==0, "expired"); time=realTime
+-- The Thanks window: shown while someone waits; click thanks, right click forgets, close clears.
+local tw=_G.BuffDiggerThanks; ns.refreshThanks(); assert(not tw._shown, "nobody to thank: hidden")
+units.nameplate35={"Cenarius","DRUID",40}; myAuras[6]=aura(305,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
+units.nameplate36={"Lunara","DRUID",40}; myAuras[7]=aura(306,"spell467",467,"nameplate36"); fire("UNIT_AURA","player")
+assert(tw._shown and tw.rows[1]._shown and tw.rows[1].name=="Lunara" and tw.rows[2].name=="Cenarius" and not tw.rows[3]._shown)
+assert(tw.rows[1].icons[1]._shown and not tw.rows[1].icons[2]._shown, "one icon per buff")
+b=#sent; tw.rows[1]._OnClick(tw.rows[1], "LeftButton"); assert(sent[#sent]=="EMOTE THANK Lunara" and tw.rows[1].name=="Cenarius")
+runTimers(); b=#sent; tw.rows[1]._OnClick(tw.rows[1], "RightButton"); runTimers(); assert(#sent==b and not tw._shown, "forgotten, window hidden")
+units.nameplate37={"Broll","DRUID",40}; myAuras[8]=aura(307,"spell467",467,"nameplate37"); fire("UNIT_AURA","player"); assert(tw._shown)
+for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.toThank()==0 and not tw._shown, "close forgets everyone")
 BuffDiggerDB.thankByHand=false
 print("SMOKE OK")

@@ -215,14 +215,14 @@ end
 -- one entry per player, until I click Thank (a real click: /say and the emote go out at once),
 -- dismiss them, or PENDING_MAX seconds pass.
 local TO_THANK_MAX = 5
-local toThank = {} -- { name, keys = { buff keys }, at, request }
+local toThank = {} -- { name, class, keys = { buff keys }, at, request }
 
-local function addToThank(name, key, request)
+local function addToThank(name, class, key, request)
   local e
   for i, x in ipairs(toThank) do
     if x.name == name then e = table.remove(toThank, i) break end
   end
-  e = e or { name = name, keys = {} }
+  e = e or { name = name, class = class, keys = {} }
   local known = false
   for _, k in ipairs(e.keys) do known = known or k == key end
   if not known then e.keys[#e.keys + 1] = key end
@@ -300,7 +300,7 @@ local function onBuffLanded(aura, info, prevGiver)
   elseif name and info.key and (BuffDiggerDB.thank or BuffDiggerDB.thankMessage)
     and not (lastThank[name] and time() - lastThank[name] < THANK_GAP)
     and (request or not (IsInInstance() or name == prevGiver)) then
-    addToThank(name, info.key, request)
+    addToThank(name, class, info.key, request)
   end
 end
 
