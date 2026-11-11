@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Shorter tooltips.** Icon tooltips in the windows and on nameplates no longer repeat the player's name (it's on the line already), and the right-click menus are titled *Buff Digger*.
+- **No more gap before names.** The icon column is only as wide as the most buffs anyone on the list gives, and icons sit right against the name: a mage's or a priest's line no longer leaves two empty slots, and names stay lined up.
 
 - **Your group first.** In a party or a raid, Get buffs, Give buffs and Requests list your group under a *Group* header, then everyone else under *Around*. Members show up even without their nameplate (far away, or in a dungeon where friendly nameplates are locked); a member out of range is greyed with *(too far)* in Give buffs and Requests. The *Ask the best buff around me* key looks at your group too. Out of a group, nothing changes.
 - **Ask from the game's own menu.** Right click a player's portrait (target, party or raid frame): a *Buff Digger* section lists the buffs they can give you, one click asks, like the Get buffs menu. Option *Buff requests in the game's right-click menu* (on by default).

@@ -696,6 +696,11 @@ local function fill(w, entries, emptyMessage)
   w.fill = function() fill(w, entries, emptyMessage) end
   entries = withHeaders(entries)
   w.entries = entries
+  -- Icon column as wide as the most icons on any line of this list (not just the visible ones:
+  -- scrolling must not move the names), icons against the name: names stay lined up, and no empty
+  -- slots when nobody gives 3 buffs (a mage, Requests).
+  local slots = 0
+  for _, e in ipairs(entries) do slots = math.max(slots, #e.buffs) end
   local shown = visibleRows(w)
   w.offset = math.max(0, math.min(w.offset, #entries - shown))
   for i, row in ipairs(w.rows) do
@@ -712,7 +717,10 @@ local function fill(w, entries, emptyMessage)
       end
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
       ns.aimTarget(row, e.unit, e.who)
+      row.text:SetPoint("LEFT", 2 + slots * 22 + 4, 0)
+      local first = slots - #e.buffs -- empty slots on the left
       for j, b in ipairs(row.buffs) do
+        b:SetPoint("LEFT", 2 + (first + j - 1) * 22, 0)
         local buff = e.buffs[j]
         if buff then
           b.key = buff.key
