@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Thanks only for what you asked, from who you asked.** Buff Digger thanks a player only when the buff you asked them for comes from them. No more thank-you for eating or drinking, a buff nobody asked for, another buff than the one you asked for, your own buff, a buff from someone else, or a buff whose caster the game doesn't name (it used to guess the player you had asked, who sometimes gave nothing). If someone else beats them to it, the player you asked still gets thanked when their buff lands (as long as the game shows its time left).
+
 ## 0.4.3-beta
 
 - **See which blessing a paladin gave you.** A paladin can keep only one blessing on you: ask for another and it replaces the first. The blessing a paladin put on you now has a gold frame, in Get buffs and on nameplates, and hovering their other blessings says which one it would replace.
