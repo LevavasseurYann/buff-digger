@@ -27,7 +27,7 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   (UNIT_SPELLCAST_SENT) arrive en « Prénom Nom ».
 
 ## Vérifier
-- Test sans le jeu (fausse API WoW + scénarios) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
+- Test sans le jeu (fausse API WoW + scénarios dans `tests/smoke.lua`) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
   Il ne remplace pas le jeu : tout ce qui touche à Blizzard (secrets, blocages, barres de nom) se
   confirme en jeu, par Yann. Ce qu'il reste à vérifier en jeu : `docs/recette-en-jeu.md` (résultats dans l'issue #1).
 - Installer en jeu : voir README § Développer (copie vers `_forever_\Interface\AddOns\BuffDigger`).
