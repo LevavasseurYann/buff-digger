@@ -584,15 +584,19 @@ end
 local getCVar = (C_CVar and C_CVar.GetCVar) or GetCVar
 local setCVar = (C_CVar and C_CVar.SetCVar) or SetCVar
 
--- In Forever the setting can read "off" while friendly players' plates show (seen 2026-11-09):
--- a friendly player's plate in sight proves they are on.
--- ponytail: with nobody around and that setting off, still says off; the real setting is recette 46.
-function ns.friendlyPlatesOn() return getCVar("nameplateShowFriends") == "1" or #ns.nearbyUnits() > 0 end
+-- Forever's client (Midnight) calls it "nameplateShowFriendlyPlayers"; "nameplateShowFriends" doesn't
+-- exist there (GetCVar gives nil, seen in game 2026-11-12, recette 46). A friendly plate in sight
+-- also proves they are on.
+local PLATE_CVAR = "nameplateShowFriendlyPlayers"
+
+function ns.friendlyPlatesOn() return getCVar(PLATE_CVAR) == "1" or #ns.nearbyUnits() > 0 end
 
 function ns.turnOnFriendlyPlates()
   if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
-  setCVar("nameplateShowFriends", "1")
-  notice(L["Friendly nameplates are on."])
+  pcall(setCVar, PLATE_CVAR, "1")
+  -- Read back: the write didn't take -> say so, not "on".
+  notice(getCVar(PLATE_CVAR) == "1" and L["Friendly nameplates are on."]
+    or L["Couldn't turn them on: Options > Nameplates > friendly players."])
 end
 
 -- ---------------------------------------------------------------- nearby players

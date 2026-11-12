@@ -5,6 +5,7 @@
 - **Follow your ask in Get buffs.** Click a buff to ask for it and that player's line stays on the list, at the top of its section, name in orange, until the buff lands or you could ask again (2 minutes by default). When their buff lands, the line turns green: click it to thank them, and it goes back to normal. A small cross at the end of an orange or green line drops it, sending nothing. The *Thanks* window now only shows players Get buffs doesn't (Get buffs closed, out of sight, group folded).
 - **Thank by hand is now the default**, for everyone, including if you installed 0.5.0-beta (the box was saved unticked without you choosing). Rather have it automatic? Untick *Let me click Thank* in the settings.
 - **Thanks you click go out at once.** No more second or two of "typing" before the whisper when you click to thank. Automatic thanks keep that short pause.
+- **Friendly nameplates: the red "off" is gone for real.** The settings, the login line and `/bd` read the setting Forever's client actually uses for friendly players' nameplates, so they no longer say *off* (in red) when you've turned them on, even with nobody around. *Turn on* and `/bd nameplates` switch on that setting too.
 
 ## 0.5.0-beta
 

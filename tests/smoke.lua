@@ -31,7 +31,7 @@ UIParent, Minimap, UISpecialFrames, GameTooltip = obj(), obj(), {}, obj()
 SlashCmdList={}; TIMERS={}; C_Timer={After=function(_,f) TIMERS[#TIMERS+1]=f end, NewTicker=function() end}; function runTimers() local t=TIMERS; TIMERS={}; for _,f in ipairs(t) do f() end end; IsInInstance=function() return false end; PlaySound=function() end; SOUNDKIT={TELL_MESSAGE=1}; wipe=function(t) for k in pairs(t) do t[k]=nil end end; tremove=table.remove; unpack=unpack; tinsert=table.insert; strtrim=function(s) return (s:gsub("^%s+",""):gsub("%s+$","")) end
 time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
 issecure=function() return false end; InCombatLockdown=function() return false end
-GetBuildInfo=function() return "1.60.1",1,"",16001 end; CVARS={nameplateShowFriends="0"}; GetCVar=function(k) return CVARS[k] end; SetCVar=function(k,v) CVARS[k]=v end
+GetBuildInfo=function() return "1.60.1",1,"",16001 end; CVARS={nameplateShowFriendlyPlayers="0"}; GetCVar=function(k) return CVARS[k] end; SetCVar=function(k,v) CVARS[k]=v end
 GetCursorPosition=function() return 0,0 end; IsPlayerSpell=function() return false end
 DoEmote=function(e,n) sent[#sent+1]="EMOTE "..e.." "..n end
 local NAMES={[19740]="Bénédiction de puissance",[20217]="Bénédiction des rois",[19742]="Bénédiction de sagesse",[1243]="Mot de pouvoir : Robustesse"}
@@ -546,8 +546,17 @@ assert(jean.text._t:find("Jean Dupont", 1, true), "whole name shown in Give buff
 assert(jean.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "macro targets the first name")
 assert(jean.entry.who=="Jean Dupont", "aim frozen on the whole name")
 -- Setting reads off, but a friendly player's plate is in sight: they are on (seen in Forever).
-local cv=CVARS.nameplateShowFriends; CVARS.nameplateShowFriends="0"
-assert(ns.friendlyPlatesOn(), "a friendly plate in sight means friendly nameplates are on"); CVARS.nameplateShowFriends=cv
+local cv=CVARS.nameplateShowFriendlyPlayers; CVARS.nameplateShowFriendlyPlayers="0"
+assert(ns.friendlyPlatesOn(), "a friendly plate in sight means friendly nameplates are on")
+-- Nobody around: the setting alone decides; a write that doesn't take is not reported as "on".
+local realNearby=ns.nearbyUnits; ns.nearbyUnits=function() return {} end
+CVARS.nameplateShowFriendlyPlayers="0"; assert(not ns.friendlyPlatesOn())
+local said2; UIErrorsFrame={AddMessage=function(_, m) said2=m end}
+-- A write that doesn't take (the addon kept its own SetCVar: block the table instead).
+CVARS.nameplateShowFriendlyPlayers=nil; setmetatable(CVARS, {__newindex=function() end})
+ns.turnOnFriendlyPlates(); assert(said2:find("^Couldn't"), tostring(said2))
+setmetatable(CVARS, nil); ns.turnOnFriendlyPlates(); assert(said2=="Friendly nameplates are on." and ns.friendlyPlatesOn())
+UIErrorsFrame=nil; ns.nearbyUnits=realNearby; CVARS.nameplateShowFriendlyPlayers=cv
 -- A cast sent at "Jean-Dupont" skips them for a while.
 fire("UNIT_SPELLCAST_SENT","player","Jean-Dupont","guid",1243); ns.refreshWindow()
 for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end
