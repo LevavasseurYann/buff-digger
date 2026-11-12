@@ -132,7 +132,8 @@ print("askedAgo:", ns.askedAgo("Arthas"))
 BuffDiggerDB.prefs.WARRIOR = {"kings","might"}
 print("custom prefs best:", ns.bestBuff("Zed","PALADIN",25))
 
--- Thanks flow
+-- Thanks flow (automatic: the option is on by default since #24)
+assert(BuffDiggerDB.thankByHand and BuffDiggerDB.thankByHandOn, "thank by hand on by default"); BuffDiggerDB.thankByHand=false
 SHIFT=false; BuffDiggerDB.language="en"; BuffDiggerDB.asked={}; BuffDiggerDB.prefs.WARRIOR=nil
 units.nameplate4={"Uther","PALADIN",30}
 myAuras={}; fire("UNIT_AURA","player")
@@ -365,6 +366,9 @@ BuffDiggerDB.plates="off"; ns.refreshAll(); runTimers(); print("off:", #shownKey
 CreateFrame=mk; BuffDiggerDB.plates="best"
 -- An old saved "icons = false" becomes "off".
 local saved=BuffDiggerDB; BuffDiggerDB={icons=false}; fire("ADDON_LOADED","BuffDigger"); assert(BuffDiggerDB.plates=="off" and BuffDiggerDB.icons==nil); BuffDiggerDB=saved
+-- #24: thank by hand switched on once for a 0.5.0-beta save; unticked after that, it stays off.
+BuffDiggerDB={thankByHand=false}; fire("ADDON_LOADED","BuffDigger"); assert(BuffDiggerDB.thankByHand, "0.5.0 save: on")
+BuffDiggerDB={thankByHand=false, thankByHandOn=true}; fire("ADDON_LOADED","BuffDigger"); assert(BuffDiggerDB.thankByHand==false, "my choice kept"); BuffDiggerDB=saved
 
 print("=== Get buffs: one icon per buff, scrolling")
 local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
@@ -669,9 +673,10 @@ local e=ns.thanksWaiting()[1]; print("Malfurion row:", table.concat(e.keys, ",")
 -- An unasked Fortitude from a stranger: a second row, newest first.
 myAuras[3]=aura(302,"Mot de pouvoir : Robustesse",1243,"nameplate31"); fire("UNIT_AURA","player")
 assert(#ns.thanksWaiting()==2 and ns.thanksWaiting()[1].name=="Benedictus")
--- Thanking Malfurion: emote now, whisper in my request's channel after the delay, row gone.
-b=#sent; ns.thankBuffer("Malfurion"); assert(sent[#sent]=="EMOTE THANK Malfurion"); runTimers()
-print("thanked by hand:", sent[#sent]); assert(sent[#sent]:find("^WHISPER Malfurion%-Realm: ")); assert(#ns.thanksWaiting()==1)
+-- Thanking Malfurion: whisper in my request's channel and emote, both at once (a click: no delay, #24), row gone.
+b=#sent; ns.thankBuffer("Malfurion"); assert(#sent==b+2 and sent[#sent]=="EMOTE THANK Malfurion")
+print("thanked by hand:", sent[b+1]); assert(sent[b+1]:find("^WHISPER Malfurion%-Realm: ")); assert(#ns.thanksWaiting()==1)
+runTimers(); assert(#sent==b+2, "nothing left for later")
 -- His next buff within a minute: no new row (Mark then Thorns after a thank-you). Thorns wears off,
 -- then he casts it again (a new aura, no previous giver): only THANK_GAP keeps him out.
 local thorns=table.remove(myAuras, 2); fire("UNIT_AURA","player")
@@ -682,7 +687,7 @@ b=#sent; ns.dismissThank("Benedictus"); runTimers(); assert(#sent==b and #ns.tha
 myAuras[3].expirationTime=NOW+1200; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "renewal by the same giver")
 units.nameplate32={"Moira","PRIEST",40}; local realName=UnitName; UnitName=function(u) if u=="nameplate32" then return "Moira","Ironforge" end return realName(u) end; myAuras[3].sourceUnit="nameplate32"; myAuras[3].expirationTime=NOW+1500; fire("UNIT_AURA","player")
 assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Moira Ironforge")
-b=#sent; ns.thankBuffer("Moira Ironforge"); runTimers(); assert(sent[#sent]:find("^WHISPER Moira%-Ironforge: "), "unasked: a whisper, to her realm"); UnitName=realName
+b=#sent; ns.thankBuffer("Moira Ironforge"); assert(sent[b+1]:find("^WHISPER Moira%-Ironforge: "), "unasked: a whisper, to her realm"); UnitName=realName
 -- In an instance: unasked gives no row, asked does.
 IsInInstance=function() return true end
 myAuras[3].sourceUnit="nameplate31"; myAuras[3].expirationTime=NOW+1800; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "instance, unasked")
@@ -719,6 +724,47 @@ myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); 
 ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
 units.nameplate41={"Sunwalker","DRUID",40}; myAuras[12]=aura(312,"spell467",467,"nameplate41"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
 BuffDiggerDB.thankByHand=false; assert(#ns.thanksWaiting()==0, "option off: list emptied")
+print("=== Get buffs: my request orange, the buff green (#24)")
+BuffDiggerDB.thankByHand=true; BuffDiggerDB.asked={}; ns.dismissThank()
+units.nameplate42={"Tyrande","DRUID",40}; units.nameplate43={"Shandris","DRUID",40}
+fire("NAME_PLATE_UNIT_ADDED","nameplate42"); fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
+local gw2=_G.BuffDiggerNearby; gw2:Show()
+local function lineOf(name) for _,r in ipairs(gw2.rows) do if r._shown and r.entry and r.entry.who==name then return r end end end
+-- Nothing better from them and "only those with something better": hidden until I ask.
+local realBest2=ns.bestBuff; ns.bestBuff=function(name, ...) if name=="Tyrande" or name=="Shandris" then return nil end return realBest2(name, ...) end
+BuffDiggerDB.nearbyUseful=true; ns.refreshWindow(); assert(not lineOf("Tyrande"))
+ns.request("nameplate42", "thorns"); ns.refreshWindow(); local r=lineOf("Tyrande")
+print("asked line:", r and r.text._t); assert(r and r.state=="asked" and r.text._t:find("^|cffff9933Tyrande|r") and r.close._shown, "asked: kept, orange, a cross")
+assert(r.entry.order==-0.5 and r:GetAttribute("macrotext")=="/target Tyrande", "first of Around, the name still targets")
+-- Her Thorns lands: green, the click thanks (at once) and doesn't target; Thanks stays hidden.
+myAuras[13]=aura(313,"spell467",467,"nameplate42"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Tyrande")
+print("thank line:", r.text._t); assert(r.state=="thank" and r.text._t:find("^|cff33ff33Tyrande|r") and r:GetAttribute("*type1")==nil)
+assert(not _G.BuffDiggerThanks._shown, "on Get buffs: no Thanks window")
+b=#sent; for _,f in ipairs(r._hooks.PostClick) do f(r,"LeftButton",false) end
+assert(#sent==b+2 and sent[b+1]:find("^WHISPER Tyrande") and sent[b+2]=="EMOTE THANK Tyrande", "green click thanks at once")
+assert(r.state==nil and not r.close._shown and r:GetAttribute("macrotext")=="/target Tyrande", "back to normal")
+ns.refreshWindow(); assert(not lineOf("Tyrande"), "thanked: the filter applies again")
+-- The cross on an orange line: nothing sent, the request closed.
+ns.request("nameplate43", "thorns"); ns.refreshWindow(); r=lineOf("Shandris"); assert(r.state=="asked")
+b=#sent; r.close._OnClick(r.close); assert(#sent==b and BuffDiggerDB.asked.Shandris.thanked and r.state==nil, "cross: closed, silent")
+-- No buff in time: orange goes on its own.
+BuffDiggerDB.asked.Shandris={at=time()-BuffDiggerDB.delay, key="thorns", channel="WHISPER"}; assert(ns.askState("Shandris")==nil, "expired")
+-- His buff lands while the cursor is still on Get buffs: green anyway, never in Thanks.
+units.nameplate44={"Mathrengyl","DRUID",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate44"); runTimers()
+ns.request("nameplate44", "wild"); ns.refreshWindow(); assert(lineOf("Mathrengyl").state=="asked"); gw2.IsMouseOver=function() return true end
+myAuras[#myAuras+1]=aura(315,"spell1126",1126,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Mathrengyl")
+assert(r.state=="thank" and not _G.BuffDiggerThanks._shown, "hovered: green on Get buffs"); gw2.IsMouseOver=nil
+-- Combat hides Get buffs: Thanks takes him at once.
+InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(_G.BuffDiggerThanks._shown, "combat: Thanks")
+InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); gw2:Show(); ns.refreshWindow()
+-- The cross on his green line, while I asked him for something else since: that request stays open.
+BuffDiggerDB.asked.Mathrengyl={at=time(), key="thorns", channel="WHISPER"}; ns.closeAsk("Mathrengyl")
+assert(not BuffDiggerDB.asked.Mathrengyl.thanked and ns.askState("Mathrengyl")=="asked", "skipping a thank-you keeps the open request")
+BuffDiggerDB.asked.Mathrengyl=nil
+-- A gift while Get buffs is closed: the Thanks window takes it.
+myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Shandris")
+assert(r.state=="thank" and not _G.BuffDiggerThanks._shown); gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
+ns.dismissThank(); ns.bestBuff=realBest2; BuffDiggerDB.nearbyUseful=false; BuffDiggerDB.thankByHand=false
 print("=== custom phrases (#20)")
 BuffDiggerDB.language="en"
 local errs=ns.setCustom("new", "Oi, {spell} please, 100% sure\n\n  |cffff0000Red {spell}|r  \nno spell here\n{spell} and {spell}\n" .. ("x"):rep(230) .. " {spell}")

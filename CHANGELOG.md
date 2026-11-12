@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Follow your ask in Get buffs.** Click a buff to ask for it and that player's line stays on the list, at the top of its section, name in orange, until the buff lands or you could ask again (2 minutes by default). When their buff lands, the line turns green: click it to thank them, and it goes back to normal. A small cross at the end of an orange or green line drops it, sending nothing. The *Thanks* window now only shows players Get buffs doesn't (Get buffs closed, out of sight, group folded).
+- **Thank by hand is now the default**, for everyone, including if you installed 0.5.0-beta (the box was saved unticked without you choosing). Rather have it automatic? Untick *Let me click Thank* in the settings.
+- **Thanks you click go out at once.** No more second or two of "typing" before the whisper when you click to thank. Automatic thanks keep that short pause.
+
 ## 0.5.0-beta
 
 - **Give buffs is on.** Pallies, priests, mages and druids: the Give buffs window (Shift+right click on the minimap button) lists who around lacks your buffs, laid out like Get buffs: one icon per buff they lack, in the order their class wants them. Click an icon to cast it on them (you get your previous target back), click the name to target them, hover an icon for the spell and its rank. Requests look the same: the requested buff's icon, click it to cast. The *Give my buff to the next player around* key works too (it casts when you release the key). Buff Digger users who ask you get one click in your Requests window instead of a whisper. Its settings are no longer greyed out as "coming soon". In a busy city, Give buffs and Requests scroll with the mouse wheel, like Get buffs.

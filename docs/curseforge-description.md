@@ -1,6 +1,6 @@
 **Never run around begging for Fort again. Well... you still beg, but now you do it with style.**
 
-You know the drill. You zone into Stormwind, three paladins and a priest run past, and you're spamming "BoM pls" in /say hoping somebody notices. Buff Digger puts a little icon next to every friendly player who can actually give you something you're missing. Click it and a polite whisper goes out, with the spell linked. When the buff lands, it says thanks for you.
+You know the drill. You zone into Stormwind, three paladins and a priest run past, and you're spamming "BoM pls" in /say hoping somebody notices. Buff Digger puts a little icon next to every friendly player who can actually give you something you're missing. Click it and a polite whisper goes out, with the spell linked. When the buff lands, the line turns green: one click and the thanks go out.
 
 *Alpha for WoW Forever. It works, but expect rough edges. Feedback very welcome.*
 
@@ -35,7 +35,7 @@ Buff Digger looks at the friendly players around you, their class and their leve
 - **One key, no aiming:** bind *Ask the best buff around me* and it finds the right player for you. Handy when everyone's running around the bank.
 - Spell links in every request, a bunch of different phrasings so you don't sound like a bot, in eight languages (English, French, German, Spanish, Italian, Portuguese, Polish, Russian).
 - Won't nag. Same player, same buff? It waits (1 to 10 min, your call).
-- Auto **/thank** whoever buffs you, plus a thank-you in the same channel you asked in. Manners matter.
+- Your ask stays orange in Get buffs until the buff lands, then turns green: click it to **/thank** them, with a thank-you in the same channel you asked in. Rather have it automatic? One checkbox. Manners matter.
 
 **The Get buffs window**
 

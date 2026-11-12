@@ -45,7 +45,7 @@ ns.DEFAULTS = {
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- automatic /thank emote
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
-  thankByHand = false, -- no automatic thanks: givers wait in the Thanks window for a click (#21)
+  thankByHand = true, -- no automatic thanks: givers wait for a click, in Get buffs or Thanks (#21, #24)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
@@ -197,7 +197,8 @@ end
 local THANK_GAP = 60
 local lastThank = {}
 
-local function thank(name, request)
+-- now: a click (#24), the message goes at once; on its own it waits a second or two.
+local function thank(name, request, now)
   -- A thank-you in the same channel as the request, if there was one.
   request.thanked = true -- answered: one thank-you per request
   if BuffDiggerDB.thankMessage then
@@ -208,7 +209,8 @@ local function thank(name, request)
       -- A second or two, like someone typing: an instant thank-you reads like a bot.
       -- (The /thank emote stays immediate: that's the reflex.)
       local target = request.target or name
-      C_Timer.After(1 + math.random(), function() send(text, "WHISPER", nil, target) end) -- 1 to 2 s
+      local whisper = function() send(text, "WHISPER", nil, target) end
+      if now then whisper() else C_Timer.After(1 + math.random(), whisper) end -- 1 to 2 s
     end
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
@@ -272,9 +274,26 @@ end
 function ns.thankBuffer(name)
   local e = ns.dismissThank(name)
   if not e then return end
-  thank(e.name, e.request or { channel = "WHISPER", target = e.target })
+  thank(e.name, e.request or { channel = "WHISPER", target = e.target }, true)
   lastThank[e.name] = time()
   ns.flushThanks()
+end
+
+-- How Get buffs shows this player (#24): "thank" (buffed me, waits for my click), "asked" (my
+-- request is open and I can't ask them again yet: BuffDiggerDB.delay), or nil.
+function ns.askState(name)
+  for _, x in ipairs(ns.thanksWaiting()) do if x.name == name then return "thank" end end
+  local e = BuffDiggerDB.asked[name]
+  if type(e) == "table" and not e.thanked and time() - e.at < BuffDiggerDB.delay then return "asked" end
+end
+
+-- The cross on a Get buffs line, nothing sent. Green: skip that thank-you (its request, if any, is
+-- answered; another open request to them stays). Orange: the request is closed; a late buff from
+-- them then only comes back as a gift (open world).
+function ns.closeAsk(name)
+  if ns.dismissThank(name) then return end
+  local e = BuffDiggerDB.asked[name]
+  if type(e) == "table" then e.thanked = true end
 end
 
 -- prevGiver: who gave me that buff before this landing (a renewal by the same player isn't a gift).
@@ -1019,6 +1038,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- Up to 0.4.0, nameplate icons were a checkbox: unticked means "off".
     if BuffDiggerDB.icons == false and BuffDiggerDB.plates == nil then BuffDiggerDB.plates = "off" end
     BuffDiggerDB.icons = nil
+    -- 0.5.0-beta saved "thankByHand = false" as a default, nobody chose it: on once, for everyone (#24).
+    if not BuffDiggerDB.thankByHandOn then BuffDiggerDB.thankByHand, BuffDiggerDB.thankByHandOn = true, true end
     for k, v in pairs(ns.DEFAULTS) do
       if BuffDiggerDB[k] == nil then BuffDiggerDB[k] = v end
     end

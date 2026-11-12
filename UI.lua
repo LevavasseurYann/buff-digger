@@ -725,7 +725,7 @@ local function makeWindow(globalName, title, setting, cast, point)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
-    row.text:SetPoint("RIGHT", -2, 0)
+    row.text:SetPoint("RIGHT", cast and -2 or -18, 0) -- Get buffs: room for the cross
     row.text:SetJustifyH("LEFT")
     -- Section header (#16): a thin gold line under the title, fading out to the right.
     row.line = row:CreateTexture(nil, "ARTWORK")
@@ -765,8 +765,34 @@ local function makeWindow(globalName, title, setting, cast, point)
     end
     ns.secureClicks(row)
     row:HookScript("PostClick", function(self, mouse)
-      if not cast and mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
+      if cast then return end
+      if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit)
+      -- A green line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
+      elseif mouse == "LeftButton" and self.state == "thank" then
+        ns.thankBuffer(self.entry.who)
+        if not InCombatLockdown() then w.fill() end
+      end
     end)
+    -- Get buffs (#24): a cross ends the wait (orange) or skips the thank-you (green), sending nothing.
+    -- A plain button on the secure row, like the fold: nothing secure to set.
+    if not cast then
+      row.close = CreateFrame("Button", nil, row)
+      row.close:SetSize(14, 14)
+      row.close:SetPoint("RIGHT", -2, 0)
+      row.close:SetNormalTexture("Interface\\Buttons\\UI-StopButton")
+      row.close:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+      row.close:SetScript("OnClick", function()
+        ns.closeAsk(row.entry.who)
+        if not InCombatLockdown() then w.fill() end
+      end)
+      row.close:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(row.state == "thank" and L["Skip the thank-you"] or L["Stop waiting for this buff"])
+        GameTooltip:Show()
+      end)
+      row.close:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      row.close:Hide()
+    end
     row.buffs = {}
     for j = 1, MAX_BUFFS do
       local b = CreateFrame("Button", nil, row, "SecureActionButtonTemplate")
@@ -869,7 +895,17 @@ local function fill(w, list, emptyMessage)
     if e then
       row.unit = e.unit
       row.entry = e
-      row.text:SetText(e.text)
+      -- Get buffs (#24): my request to them, orange while it waits, green once their buff landed.
+      local state = not w.cast and not e.header and e.who and ns.askState(e.who) or nil
+      row.state = state
+      if row.close then row.close:SetShown(state ~= nil) end
+      if state == "thank" then
+        row.text:SetText("|cff33ff33" .. e.who .. "|r" .. e.tail .. L[" |cff33ff33click to thank|r"])
+      elseif state == "asked" then
+        row.text:SetText("|cffff9933" .. e.who .. "|r" .. e.tail)
+      else
+        row.text:SetText(e.text)
+      end
       row:EnableMouse(not e.header) -- a header: no click, no highlight
       row.line:SetShown(e.header == true)
       row.fold:SetShown(e.fold == true)
@@ -880,7 +916,8 @@ local function fill(w, list, emptyMessage)
       if e.header then row.text:SetTextColor(1, 0.82, 0) -- gold, like the settings' section titles
       else row.text:SetTextColor(1, 1, 1) end -- the name keeps its class colour; far = red icons
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
-      ns.aimTarget(row, e.unit, e.who)
+      -- A green line thanks instead of targeting.
+      ns.aimTarget(row, state ~= "thank" and e.unit or nil, e.who)
       -- Headers start at the left edge, after the [+]/[-] box (both, so they line up).
       row.text:SetPoint("LEFT", e.header and 20 or 2 + slots * 22 + 4, 0)
       local first = slots - #e.buffs -- empty slots on the left
@@ -970,9 +1007,23 @@ local function buildThanks()
   thanksWindow = w
 end
 
+-- Is this player on a Get buffs line I can see (not scrolled away)? There, the green line thanks them (#24).
+local function onGetBuffs(name)
+  if not (nearby and nearby:IsShown()) then return false end
+  for _, row in ipairs(nearby.rows) do
+    if row:IsShown() and row.entry and row.entry.who == name then return true end
+  end
+  return false
+end
+
 function ns.refreshThanks()
   if not thanksWindow then return end
-  local list = ns.thanksWaiting()
+  -- Only those Get buffs doesn't show (closed, nameplate gone, group folded): a gift from someone out
+  -- of sight can still be thanked.
+  local list = {}
+  for _, e in ipairs(ns.thanksWaiting()) do
+    if not onGetBuffs(e.name) then list[#list + 1] = e end
+  end
   for i, row in ipairs(thanksWindow.rows) do
     local e = list[i]
     if e then
@@ -1003,7 +1054,9 @@ local function nearbyEntries()
     local offers = name and ns.offers(class, level) or {}
     local key, kind, top
     if #offers > 0 then key, kind, top = ns.bestBuff(name, class, level) end
-    if #offers > 0 and (key or not BuffDiggerDB.nearbyUseful) then
+    -- Asked, or to thank (#24): kept on the list whatever the filter, first of its section.
+    local state = name and ns.askState(name)
+    if #offers > 0 and (key or state or not BuffDiggerDB.nearbyUseful) then
       -- A member at the other end of the world: listed, red icons, never asked (ns.request says so).
       local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
@@ -1020,12 +1073,14 @@ local function nearbyEntries()
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       if far then extra = L[" (too far)"] end
+      -- tail: all but the name, which fill() colours orange or green for my requests (#24).
+      local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
-        -- Members in sight, then members too far, then everyone else.
-        order = (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
-        text = ("%s%s %d%s"):format(classColored(name, class),
-          ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra),
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far, tail = tail,
+        -- Members in sight, then members too far, then everyone else; asked or to thank first of each.
+        order = state and (ns.isMember(unit) and -7 or -0.5)
+          or (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
+        text = classColored(name, class) .. tail,
       }
     end
   end
@@ -1169,7 +1224,12 @@ function ns.refreshWindow()
     fill(nearby, nearbyEntries(), BuffDiggerDB.nearbyUseful
       and L["Nobody around has anything better for you.\n(Friendly nameplates on?)"]
       or L["Nobody around can buff you.\n(Friendly nameplates on?)"])
+  elseif nearby and nearby:IsShown() and nearby.fill then
+    -- Under the cursor: same list, same rows, only orange/green changes (#24). The buff that lands
+    -- while I still hover the icon I clicked turns the line green without waiting for the mouse to leave.
+    nearby.fill()
   end
+  ns.refreshThanks() -- who Get buffs shows (or no longer shows) leaves (or comes back to) Thanks
   -- The next-player key works without the window, once it is bound.
   local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")
   if not ((give and give:IsShown()) or nextBound) then return end
@@ -1225,6 +1285,7 @@ function ns.onCombat(inCombat)
     nearby:Hide()
     give:Hide()
     requests:Hide()
+    ns.refreshThanks() -- Get buffs gone: its green lines go to Thanks now (not secure: fine in combat)
     -- Still allowed during PLAYER_REGEN_DISABLED: in combat the key can't be re-aimed (nameplate
     -- tokens move to other players), so it does nothing until combat ends.
     giveNext:SetAttribute("type", nil)
