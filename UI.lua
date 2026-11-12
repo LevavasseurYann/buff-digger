@@ -283,6 +283,8 @@ local function nameplateRow(x, y)
     button:SetEnabled(not on)
   end
   button:SetScript("OnShow", update)
+  -- Turned on or off elsewhere (game options, /bd nameplates) while the settings are open.
+  C_Timer.NewTicker(1, function() if button:IsVisible() then update() end end)
   button:SetScript("OnClick", function()
     ns.turnOnFriendlyPlates()
     update()
