@@ -153,3 +153,9 @@ Réglages > *Thanks* > cocher *Let me click Thank (no automatic thanks)*.
 | 65 | Vider la boîte *Missing buff* ; `/reload` avec des phrases dans *Thank-you* | Retour aux phrases de Buff Digger ; après `/reload`, les phrases sont toujours là |
 | 66 | Ouvrir *Edit...* et lire la fenêtre sans aide | Chaque onglet se comprend (la ligne jaune dit quand il sert), l'onglet choisi est en surbrillance (pas grisé), la boîte de saisie se voit, la ligne d'état dit si ce sont mes phrases ou celles de Buff Digger qui partent |
 | 67 | Onglet vide > *Start from Buff Digger's* | La boîte se remplit des phrases de Buff Digger avec `{spell}`, modifiables ; le bouton se grise dès que la boîte n'est plus vide |
+
+## Merci dans Get buffs, style ready check (#24)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 68 | Get buffs : clic sur une icône d'un buffeur, attendre son buff, cliquer la ligne | Attente : nom couleur de classe, bandeau ambre qui s'efface vers la droite, icône « ? » du ready check, croix. Buff reçu : bandeau doré qui clignote 2 fois, coche verte, « Thank » doré, nom jamais caché dessous. Pas de carré vert (sinon : `/dump GetFileIDFromPath("Interface\\RaidFrame\\ReadyCheck-Ready")`). Le titre de section (Group / Around) : ligne dorée, un peu plus vive qu'avant |

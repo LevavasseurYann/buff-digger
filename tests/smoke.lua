@@ -733,7 +733,7 @@ myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); 
 ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
 units.nameplate41={"Sunwalker","DRUID",40}; myAuras[12]=aura(312,"spell467",467,"nameplate41"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
 BuffDiggerDB.thankByHand=false; assert(#ns.thanksWaiting()==0, "option off: list emptied")
-print("=== Get buffs: my request orange, the buff green (#24)")
+print("=== Get buffs: my request amber, the buff gold (#24)")
 BuffDiggerDB.thankByHand=true; BuffDiggerDB.asked={}; ns.dismissThank()
 units.nameplate42={"Tyrande","DRUID",40}; units.nameplate43={"Shandris","DRUID",40}
 fire("NAME_PLATE_UNIT_ADDED","nameplate42"); fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
@@ -743,33 +743,40 @@ local function lineOf(name) for _,r in ipairs(gw2.rows) do if r._shown and r.ent
 local realBest2=ns.bestBuff; ns.bestBuff=function(name, ...) if name=="Tyrande" or name=="Shandris" then return nil end return realBest2(name, ...) end
 BuffDiggerDB.nearbyUseful=true; ns.refreshWindow(); assert(not lineOf("Tyrande"))
 ns.request("nameplate42", "thorns"); ns.refreshWindow(); local r=lineOf("Tyrande")
-print("asked line:", r and r.text._t); assert(r and r.state=="asked" and r.text._t:find("^|cffff9933Tyrande|r") and r.close._shown, "asked: kept, orange, a cross")
+print("asked line:", r and r.text._t); assert(r and r.state=="asked" and r.close._shown and r.band._shown and r.status._shown and not r.thank._shown, "asked: kept, a band, a cross")
 assert(r.entry.order==-0.5 and r:GetAttribute("macrotext")=="/target Tyrande", "first of Around, the name still targets")
--- Her Thorns lands: green, the click thanks (at once) and doesn't target; Thanks stays hidden.
+-- Her Thorns lands: gold (one flash), the click thanks (at once) and doesn't target; Thanks stays hidden.
 myAuras[13]=aura(313,"spell467",467,"nameplate42"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Tyrande")
-print("thank line:", r.text._t); assert(r.state=="thank" and r.text._t:find("^|cff33ff33Tyrande|r") and r:GetAttribute("*type1")==nil)
+print("thank line:", r.text._t); assert(r.state=="thank" and r.thank._shown and r.band._shown and r:GetAttribute("*type1")==nil)
+assert(r.text._t==r.entry.text, "the name keeps its class colour")
+local plays=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() plays=plays+1 end end
+ns.refreshWindow(); assert(plays==0, "already flashed: no flash on refresh")
 assert(not _G.BuffDiggerThanks._shown, "on Get buffs: no Thanks window")
 b=#sent; for _,f in ipairs(r._hooks.PostClick) do f(r,"LeftButton",false) end
-assert(#sent==b+2 and sent[b+1]:find("^WHISPER Tyrande") and sent[b+2]=="EMOTE THANK Tyrande", "green click thanks at once")
-assert(r.state==nil and not r.close._shown and r:GetAttribute("macrotext")=="/target Tyrande", "back to normal")
+assert(#sent==b+2 and sent[b+1]:find("^WHISPER Tyrande") and sent[b+2]=="EMOTE THANK Tyrande", "gold click thanks at once")
+assert(r.state==nil and not r.close._shown and not r.band._shown and not r.thank._shown and r:GetAttribute("macrotext")=="/target Tyrande", "back to normal")
 ns.refreshWindow(); assert(not lineOf("Tyrande"), "thanked: the filter applies again")
--- The cross on an orange line: nothing sent, the request closed.
+-- The cross on an amber line: nothing sent, the request closed.
 ns.request("nameplate43", "thorns"); ns.refreshWindow(); r=lineOf("Shandris"); assert(r.state=="asked")
 b=#sent; r.close._OnClick(r.close); assert(#sent==b and BuffDiggerDB.asked.Shandris.thanked and r.state==nil, "cross: closed, silent")
--- No buff in time: orange goes on its own.
+-- No buff in time: amber goes on its own.
 BuffDiggerDB.asked.Shandris={at=time()-BuffDiggerDB.delay, key="thorns", channel="WHISPER"}; assert(ns.askState("Shandris")==nil, "expired")
--- His buff lands while the cursor is still on Get buffs: green anyway, never in Thanks.
+-- His buff lands while the cursor is still on Get buffs: gold anyway, never in Thanks.
 units.nameplate44={"Mathrengyl","DRUID",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate44"); runTimers()
 ns.request("nameplate44", "wild"); ns.refreshWindow(); assert(lineOf("Mathrengyl").state=="asked"); gw2.IsMouseOver=function() return true end
 myAuras[#myAuras+1]=aura(315,"spell1126",1126,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Mathrengyl")
-assert(r.state=="thank" and not _G.BuffDiggerThanks._shown, "hovered: green on Get buffs"); gw2.IsMouseOver=nil
+assert(r.state=="thank" and not _G.BuffDiggerThanks._shown, "hovered: gold on Get buffs"); gw2.IsMouseOver=nil
 -- Combat hides Get buffs: Thanks takes him at once.
 InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(_G.BuffDiggerThanks._shown, "combat: Thanks")
 InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); gw2:Show(); ns.refreshWindow()
--- The cross on his green line, while I asked him for something else since: that request stays open.
+-- The cross on his gold line, while I asked him for something else since: that request stays open.
 BuffDiggerDB.asked.Mathrengyl={at=time(), key="thorns", channel="WHISPER"}; ns.closeAsk("Mathrengyl")
 assert(not BuffDiggerDB.asked.Mathrengyl.thanked and ns.askState("Mathrengyl")=="asked", "skipping a thank-you keeps the open request")
 BuffDiggerDB.asked.Mathrengyl=nil
+-- His thank-you skipped away from his line (closeAsk, like the Thanks window): his next buff flashes again.
+local flashes=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() flashes=flashes+1 end end
+ns.refreshWindow(); myAuras[#myAuras+1]=aura(316,"spell467",467,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow()
+assert(lineOf("Mathrengyl").state=="thank" and flashes==1, "a new buff from him flashes again"); ns.dismissThank("Mathrengyl")
 -- A gift while Get buffs is closed: the Thanks window takes it.
 myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Shandris")
 assert(r.state=="thank" and not _G.BuffDiggerThanks._shown); gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
