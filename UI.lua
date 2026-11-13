@@ -770,7 +770,7 @@ local function makeWindow(globalName, title, setting, cast, point)
     -- The token may have gone to someone else since the list was built (cursor on it): then
     -- the menu or the request would reach whoever holds it now, not the player shown.
     local function gone()
-      if ns.targetName(row.unit) == row.entry.who then return false end
+      if row.unit and ns.targetName(row.unit) == row.entry.who then return false end -- a line out of sight has no unit
       ns.notice(L["%s is no longer around."]:format(row.entry.who or "?"))
       return true
     end
