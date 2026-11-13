@@ -4,6 +4,7 @@
 
 - **Follow your ask in Get buffs.** Click a buff to ask for it and that player's line stays on the list, at the top of its section, on a soft amber band with the ready check's question mark, until the buff lands or you could ask again (2 minutes by default). When their buff lands, the band flashes gold and shows the ready check tick and *Thank*: click the line to thank them, and it goes back to normal. The name keeps its class colour. A small cross at the end of the line drops it, sending nothing. The *Thanks* window now only shows players Get buffs doesn't (Get buffs closed, out of sight, group folded).
 - **Thank by hand is now the default**, for everyone, including if you installed 0.5.0-beta (the box was saved unticked without you choosing). Rather have it automatic? Untick *Let me click Thank* in the settings.
+- **No more Thanks window out of nowhere.** A buff you didn't ask for no longer pops up the *Thanks* window: it shows gold on Get buffs if that player is there (click to thank), and the *Thank the last player who buffed me* key still works. The window is for the buffs you asked for.
 - **Thanks you click go out at once.** No more second or two of "typing" before the whisper when you click to thank. Automatic thanks keep that short pause.
 
 ## 0.5.0-beta

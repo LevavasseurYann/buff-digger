@@ -703,8 +703,13 @@ units.nameplate33={"Hamuul","DRUID",40}; myAuras[4]=aura(303,"spell467",467,"nam
 BuffDiggerDB.thank, BuffDiggerDB.thankMessage = true, true
 units.nameplate34={"Remulos","DRUID",40}; myAuras[5]=aura(304,"spell467",467,"nameplate34"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
 local realTime=time; time=function() return realTime()+121 end; assert(#ns.thanksWaiting()==0, "expired"); time=realTime
--- The Thanks window: shown while someone waits; click thanks, right click forgets, close clears.
+-- The Thanks window: shown while someone I asked waits; click thanks, right click forgets, close clears.
 local tw=_G.BuffDiggerThanks; ns.refreshThanks(); assert(not tw._shown, "nobody to thank: hidden")
+-- A gift (nothing asked): waiting, but no window pops up.
+units.nameplate45={"Elune","DRUID",40}; myAuras[#myAuras+1]=aura(317,"spell467",467,"nameplate45"); fire("UNIT_AURA","player")
+assert(ns.thanksWaiting()[1].name=="Elune" and not tw._shown, "a gift: no window"); ns.dismissThank("Elune")
+local function asked(...) BuffDiggerDB.asked={}; for _,n in ipairs({...}) do BuffDiggerDB.asked[n]={at=time(), key="thorns", channel="WHISPER", target=n} end end
+asked("Cenarius","Lunara","Broll")
 units.nameplate35={"Cenarius","DRUID",40}; myAuras[6]=aura(305,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
 units.nameplate36={"Lunara","DRUID",40}; myAuras[7]=aura(306,"spell467",467,"nameplate36"); fire("UNIT_AURA","player")
 assert(tw._shown and tw.rows[1]._shown and tw.rows[1].name=="Lunara" and tw.rows[2].name=="Cenarius" and not tw.rows[3]._shown)
@@ -712,7 +717,19 @@ assert(tw.rows[1].icons[1]._shown and not tw.rows[1].icons[2]._shown, "one icon 
 b=#sent; tw.rows[1]._OnClick(tw.rows[1], "LeftButton"); assert(sent[#sent]=="EMOTE THANK Lunara" and tw.rows[1].name=="Cenarius")
 runTimers(); b=#sent; tw.rows[1]._OnClick(tw.rows[1], "RightButton"); runTimers(); assert(#sent==b and not tw._shown, "forgotten, window hidden")
 units.nameplate37={"Broll","DRUID",40}; myAuras[8]=aura(307,"spell467",467,"nameplate37"); fire("UNIT_AURA","player"); assert(tw._shown)
-for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.thanksWaiting()==0 and not tw._shown, "close forgets everyone")
+units.nameplate46={"Elune","DRUID",40}; myAuras[#myAuras+1]=aura(318,"spell467",467,"nameplate46"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==2)
+for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Elune" and not tw._shown, "close forgets the lines shown, not the gift")
+ns.dismissThank()
+-- The key with the window shown: its top line, not a newer gift it doesn't show.
+asked("Cenarius"); units.nameplate35={"Cenarius","DRUID",40}; myAuras[#myAuras+1]=aura(319,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
+units.nameplate47={"Ysera","DRUID",40}; myAuras[#myAuras+1]=aura(320,"spell467",467,"nameplate47"); fire("UNIT_AURA","player")
+assert(tw._shown and ns.thanksWaiting()[1].name=="Ysera"); BuffDigger.thankLast(); assert(sent[#sent]=="EMOTE THANK Cenarius", "key: the window's line")
+-- Full list: the oldest gift goes, never the buff I asked for.
+asked("Remulos"); units.nameplate34={"Remulos","DRUID",40}; myAuras[#myAuras+1]=aura(321,"spell467",467,"nameplate34"); fire("UNIT_AURA","player")
+for i=1,5 do units["nameplate"..(47+i)]={"Gift"..i,"DRUID",40}; myAuras[#myAuras+1]=aura(321+i,"spell467",467,"nameplate"..(47+i)); fire("UNIT_AURA","player") end
+local names={}; for _,x in ipairs(ns.thanksWaiting()) do names[x.name]=true end
+assert(#ns.thanksWaiting()==5 and names.Remulos and not names.Ysera and not names.Gift1, "asked one kept")
+ns.dismissThank()
 -- Key "Thank the last player who buffed me": the newest line; nobody left -> nothing sent.
 units.nameplate38={"Naralex","DRUID",40}; myAuras[9]=aura(308,"spell467",467,"nameplate38"); fire("UNIT_AURA","player")
 units.nameplate39={"Keeper","DRUID",40}; myAuras[10]=aura(309,"spell467",467,"nameplate39"); fire("UNIT_AURA","player")
@@ -768,7 +785,7 @@ BuffDiggerDB.asked.Mathrengyl=nil
 local flashes=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() flashes=flashes+1 end end
 ns.refreshWindow(); myAuras[#myAuras+1]=aura(316,"spell467",467,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow()
 assert(lineOf("Mathrengyl").state=="thank" and flashes==1, "a new buff from him flashes again"); ns.dismissThank("Mathrengyl")
--- A gift while Get buffs is closed: the Thanks window takes it.
+-- A late buff (asked less than 10 minutes ago, past the delay) while Get buffs is closed: the Thanks window takes it.
 myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Shandris")
 assert(r.state=="thank" and not _G.BuffDiggerThanks._shown); gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
 ns.dismissThank(); ns.bestBuff=realBest2; BuffDiggerDB.nearbyUseful=false; BuffDiggerDB.thankByHand=false
