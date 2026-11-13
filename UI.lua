@@ -1019,19 +1019,30 @@ local nearby, give, giveNext, requests, thanksWindow
 
 -- ---------------------------------------------------------------- Thanks window (#21)
 -- "Let me click Thank": who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at
--- most 5). Shown only while someone waits; click = thank them, right click = forget them, close = forget
+-- most 5), when Get buffs can't show them: Get buffs closed, in combat, group folded, line scrolled
+-- away. Shown only while someone waits; click = thank them, right click = forget them, close = forget
 -- them all. A gift never opens it: it only shows on Get buffs, if they're there.
 -- Nothing secure here, so it also works in combat.
 
 local function buildThanks()
   local w = CreateFrame("Frame", "BuffDiggerThanks", UIParent, "BasicFrameTemplateWithInset")
   w:SetSize(240, 60)
-  w:SetPoint("TOP", 0, -220)
+  -- Where I dragged it last (BuffDiggerDB.thanksPos), else top middle. No padlock on it, so the
+  -- windows' lock doesn't apply: it used to stay stuck mid-screen once Get buffs was locked.
+  local pos = BuffDiggerDB.thanksPos
+  if pos then w:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4]) else w:SetPoint("TOP", 0, -220) end
   w:SetMovable(true)
+  w:SetClampedToScreen(true)
   w:EnableMouse(true)
+  local function startMove() w:StartMoving() end
+  local function stopMove()
+    w:StopMovingOrSizing()
+    local point, _, relPoint, x, y = w:GetPoint()
+    BuffDiggerDB.thanksPos = { point, relPoint, math.floor(x + 0.5), math.floor(y + 0.5) }
+  end
   w:RegisterForDrag("LeftButton")
-  w:SetScript("OnDragStart", function(self) if not BuffDiggerDB.lockWindows then self:StartMoving() end end)
-  w:SetScript("OnDragStop", w.StopMovingOrSizing)
+  w:SetScript("OnDragStart", startMove)
+  w:SetScript("OnDragStop", stopMove)
   w:Hide()
   -- Only the lines shown: a gift waiting on Get buffs stays there.
   w.CloseButton:HookScript("OnClick", function()
@@ -1051,6 +1062,10 @@ local function buildThanks()
     row:SetScript("OnClick", function(self, mouse)
       if mouse == "RightButton" then ns.dismissThank(self.name) else ns.thankBuffer(self.name) end
     end)
+    -- The lines fill the window: dragging one moves the window (a drag is not a click, nothing sent).
+    row:RegisterForDrag("LeftButton")
+    row:SetScript("OnDragStart", startMove)
+    row:SetScript("OnDragStop", stopMove)
     row:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:AddLine(L["Click: thank %s. Right click: forget it."]:format(self.name), 0.4, 0.8, 1, true)
@@ -1149,6 +1164,16 @@ local function nearbyEntries()
           or (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
         text = classColored(name, class) .. tail,
       }
+    end
+  end
+  -- Someone to thank who walked out of sight keeps their gold line (no unit, no icons) until I thank
+  -- them, close it or ns.thanksWaiting lets them go: no jump to the Thanks window (#24).
+  local listed = {}
+  for _, e in ipairs(entries) do listed[e.who] = true end
+  for _, t in ipairs(ns.thanksWaiting()) do
+    if not listed[t.name] then
+      entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5,
+        text = classColored(t.name, t.class) .. L[" (out of sight)"] }
     end
   end
   -- Group members first (#16); table.sort is not stable: keep the list order within each rank.
@@ -1387,6 +1412,6 @@ function ns.buildUI()
   -- and the next-player key's aim when it is bound).
   C_Timer.NewTicker(1, ns.refreshWindow)
   buildThanks()
-  C_Timer.NewTicker(5, ns.refreshThanks) -- lines older than 2 minutes go
+  C_Timer.NewTicker(5, ns.refreshThanks) -- lines older than 5 minutes go
   ns.applyWindows()
 end

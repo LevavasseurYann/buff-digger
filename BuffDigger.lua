@@ -224,8 +224,10 @@ end
 -- ---------------------------------------------------------------- thanks by hand (#21)
 -- With "thankByHand", nothing is thanked on its own: who just buffed me waits here, newest first,
 -- one entry per player, until I click Thank (a real click: /say and the emote go out at once),
--- dismiss them, or PENDING_MAX seconds pass.
+-- dismiss them, or THANK_KEEP seconds pass.
 local TO_THANK_MAX = 5
+-- ponytail: a guess (#24, Get buffs keeps their line even out of sight): tune after a few sessions.
+local THANK_KEEP = 300
 local toThank = {} -- { name, class, target ("Name-Realm"), keys = { buff keys }, at, request }
 
 local function addToThank(name, class, target, key, request)
@@ -252,7 +254,7 @@ end
 function ns.thanksWaiting()
   if not BuffDiggerDB.thankByHand then wipe(toThank) end -- option turned off: the window goes too
   for i = #toThank, 1, -1 do
-    if time() - toThank[i].at > PENDING_MAX then table.remove(toThank, i) end
+    if time() - toThank[i].at > THANK_KEEP then table.remove(toThank, i) end
   end
   return toThank
 end

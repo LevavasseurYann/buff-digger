@@ -711,7 +711,7 @@ BuffDiggerDB.thank, BuffDiggerDB.thankMessage = false, false
 units.nameplate33={"Hamuul","DRUID",40}; myAuras[4]=aura(303,"spell467",467,"nameplate33"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0)
 BuffDiggerDB.thank, BuffDiggerDB.thankMessage = true, true
 units.nameplate34={"Remulos","DRUID",40}; myAuras[5]=aura(304,"spell467",467,"nameplate34"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
-local realTime=time; time=function() return realTime()+121 end; assert(#ns.thanksWaiting()==0, "expired"); time=realTime
+local realTime=time; time=function() return realTime()+301 end; assert(#ns.thanksWaiting()==0, "expired"); time=realTime
 -- The Thanks window: shown while someone I asked waits; click thanks, right click forgets, close clears.
 local tw=_G.BuffDiggerThanks; ns.refreshThanks(); assert(not tw._shown, "nobody to thank: hidden")
 -- A gift (nothing asked): waiting, but no window pops up.
@@ -796,7 +796,17 @@ ns.refreshWindow(); myAuras[#myAuras+1]=aura(316,"spell467",467,"nameplate44"); 
 assert(lineOf("Mathrengyl").state=="thank" and flashes==1, "a new buff from him flashes again"); ns.dismissThank("Mathrengyl")
 -- A late buff (asked less than 10 minutes ago, past the delay) while Get buffs is closed: the Thanks window takes it.
 myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Shandris")
-assert(r.state=="thank" and not _G.BuffDiggerThanks._shown); gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
+assert(r.state=="thank" and not _G.BuffDiggerThanks._shown)
+-- She walks out of sight: her gold line stays on Get buffs (no icons), never the Thanks window.
+units.nameplate43=nil; fire("NAME_PLATE_UNIT_REMOVED","nameplate43"); ns.refreshWindow(); r=lineOf("Shandris")
+print("gone line:", r and r.text._t); assert(r and r.state=="thank" and #r.entry.buffs==0 and r.text._t:find("out of sight") and not _G.BuffDiggerThanks._shown, "out of sight: still on Get buffs")
+gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
+-- The Thanks window moves even with the windows locked, from a line too, and stays where I left it.
+local tw2=_G.BuffDiggerThanks; BuffDiggerDB.lockWindows=true; local moved=0; tw2.StartMoving=function() moved=moved+1 end
+tw2.GetPoint=function() return "TOPLEFT", UIParent, "TOPLEFT", 100.4, -50.6 end
+tw2._OnDragStart(tw2); tw2.rows[1]._OnDragStart(tw2.rows[1]); tw2._OnDragStop(tw2)
+assert(moved==2 and BuffDiggerDB.thanksPos[1]=="TOPLEFT" and BuffDiggerDB.thanksPos[3]==100 and BuffDiggerDB.thanksPos[4]==-51, "dragged, position saved")
+BuffDiggerDB.lockWindows=false
 ns.dismissThank(); ns.bestBuff=realBest2; BuffDiggerDB.nearbyUseful=false; BuffDiggerDB.thankByHand=false
 print("=== custom phrases (#20)")
 BuffDiggerDB.language="en"
