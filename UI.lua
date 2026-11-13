@@ -1018,8 +1018,9 @@ end
 local nearby, give, giveNext, requests, thanksWindow
 
 -- ---------------------------------------------------------------- Thanks window (#21)
--- "Let me click Thank": who just buffed me, one line each (ns.thanksWaiting keeps at most 5). Shown only
--- while someone waits; click = thank them, right click = forget them, close = forget everyone.
+-- "Let me click Thank": who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at
+-- most 5). Shown only while someone waits; click = thank them, right click = forget them, close = forget
+-- them all. A gift never opens it: it only shows on Get buffs, if they're there.
 -- Nothing secure here, so it also works in combat.
 
 local function buildThanks()
@@ -1032,7 +1033,10 @@ local function buildThanks()
   w:SetScript("OnDragStart", function(self) if not BuffDiggerDB.lockWindows then self:StartMoving() end end)
   w:SetScript("OnDragStop", w.StopMovingOrSizing)
   w:Hide()
-  w.CloseButton:HookScript("OnClick", function() ns.dismissThank() end)
+  -- Only the lines shown: a gift waiting on Get buffs stays there.
+  w.CloseButton:HookScript("OnClick", function()
+    for _, e in ipairs(w.list or {}) do ns.dismissThank(e.name) end
+  end)
   local header = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   header:SetPoint("TOP", 0, -5)
   header:SetText(L["Buff Digger — Thanks"])
@@ -1081,12 +1085,13 @@ end
 
 function ns.refreshThanks()
   if not thanksWindow then return end
-  -- Only those Get buffs doesn't show (closed, nameplate gone, group folded): a gift from someone out
-  -- of sight can still be thanked.
+  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded). A gift
+  -- (nothing asked) never pops a window up: Get buffs shows it, or the "thank the last" key.
   local list = {}
   for _, e in ipairs(ns.thanksWaiting()) do
-    if not onGetBuffs(e.name) then list[#list + 1] = e end
+    if e.request and not onGetBuffs(e.name) then list[#list + 1] = e end
   end
+  thanksWindow.list = list
   for i, row in ipairs(thanksWindow.rows) do
     local e = list[i]
     if e then

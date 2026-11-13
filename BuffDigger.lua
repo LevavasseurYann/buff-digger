@@ -239,7 +239,12 @@ local function addToThank(name, class, target, key, request)
   if not known then e.keys[#e.keys + 1] = key end
   e.at, e.request = time(), e.request or request
   table.insert(toThank, 1, e)
-  toThank[TO_THANK_MAX + 1] = nil
+  -- Full: the oldest gift goes first; gifts show nowhere but Get buffs, a buff I asked for must stay.
+  if #toThank > TO_THANK_MAX then
+    local drop = #toThank
+    for i = #toThank, 1, -1 do if not toThank[i].request then drop = i break end end
+    table.remove(toThank, drop)
+  end
   if ns.refreshThanks then ns.refreshThanks() end
 end
 
@@ -929,7 +934,9 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
   thankLast = function()
-    local last = ns.thanksWaiting()[1]
+    -- The Thanks window shown: its top line, the one I see (a gift isn't in it).
+    local w = _G.BuffDiggerThanks
+    local last = w and w:IsShown() and w.list and w.list[1] or ns.thanksWaiting()[1]
     if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
   end,
 }

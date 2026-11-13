@@ -137,10 +137,10 @@ Réglages > *Thanks* > cocher *Let me click Thank (no automatic thanks)*.
 |---|---|---|
 | 54 | Demander un buff, le recevoir | Rien ne part tout seul ; une petite fenêtre *Thanks* apparaît avec le donneur (icône du buff, nom en couleur de classe) |
 | 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne disparaît, la fenêtre se cache si vide |
-| 56 | Un buff spontané d'un joueur du groupe, puis d'un inconnu hors groupe | Une ligne dans les deux cas (sinon `/bd` : *Buffs received with no identifiable giver* a grimpé) ; clic = `/merci` + MP |
+| 56 | Un buff spontané d'un joueur du groupe, puis d'un inconnu hors groupe, Get buffs ouvert puis fermé | Jamais de fenêtre *Thanks* (seuls les buffs demandés l'ouvrent). Get buffs ouvert : sa ligne dorée, clic = `/merci` + MP (sinon `/bd` : *Buffs received with no identifiable giver* a grimpé) ; la touche *Thank the last…* le remercie aussi |
 | 57 | Un druide pose Marque puis Épines | Une seule ligne, deux icônes |
-| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 2 min une ligne | Ligne retirée sans rien envoyer ; tout vidé ; la ligne s'efface seule (au plus 5 s après) |
-| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Remercie la ligne du haut ; sans ligne, « Nobody to thank right now. » |
+| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 2 min une ligne | Ligne retirée sans rien envoyer ; les lignes affichées vidées (un doré dans Get buffs reste) ; la ligne s'efface seule (au plus 5 s après) |
+| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Fenêtre affichée : remercie sa ligne du haut ; sinon le dernier qui m'a buffé, même un cadeau ; sans personne, « Nobody to thank right now. » |
 | 60 | En donjon : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé ; en monde ouvert, en groupe, un buff de groupe | Donjon : seule la demande donne une ligne. Monde ouvert : chacun voit une ligne (noter si c'est gênant) ; la fenêtre se déplace sauf avec le cadenas fermé ; elle reste en combat |
 ## Mes propres phrases (#20) — n'importe quelle classe, un buffeur croisé
 
