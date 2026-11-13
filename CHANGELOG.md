@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0-beta
 
 - **Follow your ask in Get buffs.** Click a buff to ask for it and that player's line stays on the list, at the top of its section, on a soft amber band with the ready check's question mark, until the buff lands or you could ask again (2 minutes by default). When their buff lands, the band flashes gold and shows the ready check tick and *Thank*: click the line to thank them, and it goes back to normal. The name keeps its class colour. A small cross at the end of the line drops it, sending nothing. A player to thank keeps their gold line even after walking out of sight, marked *(out of sight)*, until you thank them, close it with the cross, or 5 minutes pass. The *Thanks* window now only shows up when Get buffs can't show them: Get buffs closed, in combat, group folded.
 - **Thank by hand is now the default**, for everyone, including if you installed 0.5.0-beta (the box was saved unticked without you choosing). Rather have it automatic? Untick *Let me click Thank* in the settings.
