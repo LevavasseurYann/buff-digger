@@ -287,8 +287,8 @@ function ns.askState(name)
   if type(e) == "table" and not e.thanked and time() - e.at < BuffDiggerDB.delay then return "asked" end
 end
 
--- The cross on a Get buffs line, nothing sent. Green: skip that thank-you (its request, if any, is
--- answered; another open request to them stays). Orange: the request is closed; a late buff from
+-- The cross on a Get buffs line, nothing sent. Gold: skip that thank-you (its request, if any, is
+-- answered; another open request to them stays). Amber: the request is closed; a late buff from
 -- them then only comes back as a gift (open world).
 function ns.closeAsk(name)
   if ns.dismissThank(name) then return end

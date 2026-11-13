@@ -636,6 +636,18 @@ end
 -- ---------------------------------------------------------------- list windows
 
 local listWindows = {} -- Get buffs, Give buffs and Requests: they share the padlock
+local pulsed = {} -- name -> their Get buffs band already flashed gold (#24)
+
+-- A colour fading out to the right (section lines, Get buffs bands); plain without SetGradient.
+-- On white: SetGradient tints the texture, a coloured one would get the colour twice.
+local function fadeRight(tex, r, g, b, a)
+  if tex.SetGradient and CreateColor then
+    tex:SetColorTexture(1, 1, 1)
+    tex:SetGradient("HORIZONTAL", CreateColor(r, g, b, a), CreateColor(r, g, b, 0))
+  else
+    tex:SetColorTexture(r, g, b, a)
+  end
+end
 
 -- Padlock look and resize grip, from the setting (neither is secure: fine in combat too).
 local function applyLock()
@@ -732,10 +744,7 @@ local function makeWindow(globalName, title, setting, cast, point)
     row.line:SetHeight(1)
     row.line:SetPoint("BOTTOMLEFT", 2, 1)
     row.line:SetPoint("BOTTOMRIGHT", -2, 1)
-    row.line:SetColorTexture(1, 0.82, 0, 0.8) -- gold, plain if the gradient isn't there
-    if row.line.SetGradient and CreateColor then
-      row.line:SetGradient("HORIZONTAL", CreateColor(1, 0.82, 0, 0.8), CreateColor(1, 0.82, 0, 0))
-    end
+    fadeRight(row.line, 1, 0.82, 0, 0.8) -- gold
     -- The Group header folds, like a quest log header: [-] shows the members, [+] hides them.
     -- A plain button over the (unclickable) secure row: nothing secure to set, the click re-fills.
     row.fold = CreateFrame("Button", nil, row)
@@ -767,13 +776,13 @@ local function makeWindow(globalName, title, setting, cast, point)
     row:HookScript("PostClick", function(self, mouse)
       if cast then return end
       if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit)
-      -- A green line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
+      -- A gold line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
       elseif mouse == "LeftButton" and self.state == "thank" then
         ns.thankBuffer(self.entry.who)
         if not InCombatLockdown() then w.fill() end
       end
     end)
-    -- Get buffs (#24): a cross ends the wait (orange) or skips the thank-you (green), sending nothing.
+    -- Get buffs (#24): a cross ends the wait (amber) or skips the thank-you (gold), sending nothing.
     -- A plain button on the secure row, like the fold: nothing secure to set.
     if not cast then
       row.close = CreateFrame("Button", nil, row)
@@ -792,6 +801,34 @@ local function makeWindow(globalName, title, setting, cast, point)
       end)
       row.close:SetScript("OnLeave", function() GameTooltip:Hide() end)
       row.close:Hide()
+      -- My request to them (#24), in WoW's own words: a soft band from the name, fading to the
+      -- right like the section lines, with a bright edge; amber + ready check "?" while it waits,
+      -- gold + ready check tick once their buff landed, and "Thank" says what the click does.
+      row.band = row:CreateTexture(nil, "BACKGROUND")
+      row.band:SetPoint("LEFT", row.text, "LEFT", -4, 0)
+      row.band:SetPoint("RIGHT")
+      row.band:SetHeight(ROW_HEIGHT - 2)
+      row.edge = row:CreateTexture(nil, "BORDER")
+      row.edge:SetPoint("TOPLEFT", row.band)
+      row.edge:SetPoint("BOTTOMLEFT", row.band)
+      row.edge:SetWidth(2)
+      row.status = row:CreateTexture(nil, "OVERLAY")
+      row.status:SetSize(14, 14)
+      row.thank = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall") -- gold, like a button label
+      row.thank:SetPoint("RIGHT", -20, 0)
+      row.thank:SetText(L["Thank"])
+      -- The buff just landed: the band and its edge flash twice.
+      row.pulse = row:CreateAnimationGroup()
+      for k = 1, 4 do
+        for _, tex in ipairs({ row.band, row.edge }) do -- same order: both at once, not the name
+          local a = row.pulse:CreateAnimation("Alpha")
+          a:SetTarget(tex)
+          a:SetFromAlpha(k % 2 == 1 and 1 or 0.15)
+          a:SetToAlpha(k % 2 == 1 and 0.15 or 1)
+          a:SetDuration(0.25)
+          a:SetOrder(k)
+        end
+      end
     end
     row.buffs = {}
     for j = 1, MAX_BUFFS do
@@ -883,6 +920,11 @@ local function fill(w, list, emptyMessage)
   w.fill = function() fill(w, list, emptyMessage) end
   local entries = withHeaders(list, BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
+  -- A gold line flashes once per buff: forget those no longer to thank, wherever they were thanked
+  -- (Thanks window, key, folded group), so their next buff flashes again.
+  if not w.cast then
+    for n in pairs(pulsed) do if ns.askState(n) ~= "thank" then pulsed[n] = nil end end
+  end
   -- Icon column as wide as the most icons on any line of this list (not just the visible ones:
   -- scrolling must not move the names), icons against the name: names stay lined up, and no empty
   -- slots when nobody gives 3 buffs (a mage, Requests).
@@ -895,16 +937,35 @@ local function fill(w, list, emptyMessage)
     if e then
       row.unit = e.unit
       row.entry = e
-      -- Get buffs (#24): my request to them, orange while it waits, green once their buff landed.
+      -- Get buffs (#24): my request to them, amber while it waits, gold once their buff landed.
       local state = not w.cast and not e.header and e.who and ns.askState(e.who) or nil
       row.state = state
-      if row.close then row.close:SetShown(state ~= nil) end
-      if state == "thank" then
-        row.text:SetText("|cff33ff33" .. e.who .. "|r" .. e.tail .. L[" |cff33ff33click to thank|r"])
-      elseif state == "asked" then
-        row.text:SetText("|cffff9933" .. e.who .. "|r" .. e.tail)
-      else
-        row.text:SetText(e.text)
+      row.text:SetText(e.text) -- the name keeps its class colour: the band says the rest
+      if row.band then
+        row.close:SetShown(state ~= nil)
+        row.band:SetShown(state ~= nil)
+        row.edge:SetShown(state ~= nil)
+        row.status:SetShown(state ~= nil)
+        row.thank:SetShown(state == "thank")
+        if state == "thank" then
+          fadeRight(row.band, 1, 0.82, 0, 0.35)
+          row.edge:SetColorTexture(1, 0.82, 0, 0.9)
+          row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+          row.status:SetPoint("RIGHT", row.thank, "LEFT", -2, 0)
+        else
+          fadeRight(row.band, 1, 0.5, 0.1, 0.25)
+          row.edge:SetColorTexture(1, 0.5, 0.1, 0.9)
+          row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Waiting")
+          row.status:SetPoint("RIGHT", -20, 0)
+        end
+        -- Never under them, whatever the width of "Thank".
+        if state then row.text:SetPoint("RIGHT", row.status, "LEFT", -4, 0) else row.text:SetPoint("RIGHT", -18, 0) end
+        -- Flash once when it turns gold, not on every refresh or scroll; the flash is the row's,
+        -- not the player's: a row scrolled to someone else stops it.
+        if row.pulseFor ~= e.who then row.pulse:Stop(); row.pulseFor = nil end
+        if state == "thank" and not pulsed[e.who] then
+          pulsed[e.who] = true; row.pulseFor = e.who; row.pulse:Play()
+        end
       end
       row:EnableMouse(not e.header) -- a header: no click, no highlight
       row.line:SetShown(e.header == true)
@@ -916,7 +977,7 @@ local function fill(w, list, emptyMessage)
       if e.header then row.text:SetTextColor(1, 0.82, 0) -- gold, like the settings' section titles
       else row.text:SetTextColor(1, 1, 1) end -- the name keeps its class colour; far = red icons
       -- Every attribute is set each time: a row reused for another player never keeps the old target.
-      -- A green line thanks instead of targeting.
+      -- A gold line thanks instead of targeting.
       ns.aimTarget(row, state ~= "thank" and e.unit or nil, e.who)
       -- Headers start at the left edge, after the [+]/[-] box (both, so they line up).
       row.text:SetPoint("LEFT", e.header and 20 or 2 + slots * 22 + 4, 0)
@@ -1007,7 +1068,7 @@ local function buildThanks()
   thanksWindow = w
 end
 
--- Is this player on a Get buffs line I can see (not scrolled away)? There, the green line thanks them (#24).
+-- Is this player on a Get buffs line I can see (not scrolled away)? There, the gold line thanks them (#24).
 local function onGetBuffs(name)
   if not (nearby and nearby:IsShown()) then return false end
   for _, row in ipairs(nearby.rows) do
@@ -1073,10 +1134,9 @@ local function nearbyEntries()
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
       if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
       if far then extra = L[" (too far)"] end
-      -- tail: all but the name, which fill() colours orange or green for my requests (#24).
       local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far, tail = tail,
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
         -- Members in sight, then members too far, then everyone else; asked or to thank first of each.
         order = state and (ns.isMember(unit) and -7 or -0.5)
           or (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
@@ -1225,8 +1285,8 @@ function ns.refreshWindow()
       and L["Nobody around has anything better for you.\n(Friendly nameplates on?)"]
       or L["Nobody around can buff you.\n(Friendly nameplates on?)"])
   elseif nearby and nearby:IsShown() and nearby.fill then
-    -- Under the cursor: same list, same rows, only orange/green changes (#24). The buff that lands
-    -- while I still hover the icon I clicked turns the line green without waiting for the mouse to leave.
+    -- Under the cursor: same list, same rows, only amber/gold changes (#24). The buff that lands
+    -- while I still hover the icon I clicked turns the line gold without waiting for the mouse to leave.
     nearby.fill()
   end
   ns.refreshThanks() -- who Get buffs shows (or no longer shows) leaves (or comes back to) Thanks
@@ -1285,7 +1345,7 @@ function ns.onCombat(inCombat)
     nearby:Hide()
     give:Hide()
     requests:Hide()
-    ns.refreshThanks() -- Get buffs gone: its green lines go to Thanks now (not secure: fine in combat)
+    ns.refreshThanks() -- Get buffs gone: its gold lines go to Thanks now (not secure: fine in combat)
     -- Still allowed during PLAYER_REGEN_DISABLED: in combat the key can't be re-aimed (nameplate
     -- tokens move to other players), so it does nothing until combat ends.
     giveNext:SetAttribute("type", nil)
