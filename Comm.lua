@@ -92,7 +92,14 @@ local function unitOf(full, units)
   end
 end
 
-function ns.refreshIncoming()
+ns.refreshIncoming = ns.timed("refreshIncoming", function()
+  local w = ns.requestsWindow
+  -- Nothing to drop nor to show: skip the nameplate scans (#35). Count and markers still cleared.
+  if #incoming == 0 and not (w and w:IsShown()) then
+    if ns.showRequestCount then ns.showRequestCount(0) end
+    ns.refreshMarkers(incoming)
+    return
+  end
   -- Drop expired requests and the ones already fulfilled.
   local listed, plates = ns.listUnits(), ns.nearbyUnits()
   for i = #incoming, 1, -1 do
@@ -109,7 +116,6 @@ function ns.refreshIncoming()
   end
   if ns.showRequestCount then ns.showRequestCount(#incoming) end -- not secure: in combat too
   ns.refreshMarkers(incoming) -- above their nameplate (#15); hidden in combat by itself
-  local w = ns.requestsWindow
   -- Secure rows: never in combat, never under the cursor (a re-fill between press and release
   -- would cast on someone else), and only when the player opened it.
   if not w or InCombatLockdown() or not w:IsShown() or w:IsMouseOver() then return end
@@ -135,7 +141,7 @@ function ns.refreshIncoming()
     for _, e in ipairs(part) do entries[#entries + 1] = e end
   end
   ns.fillRequests(entries)
-end
+end)
 
 local function onRequest(full, key, kind)
   local name = ns.chatName(full)

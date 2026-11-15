@@ -191,3 +191,9 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 70 | Avoir la Robustesse d'un prêtre, lui demander une relance, puis Loup fantôme avant qu'il relance | Aucune ligne Thank. Journal : le retrait et l'ajout arrivent-ils dans **un seul** `UNIT_AURA` ou deux ? Fin (`expirationTime`) et durée lisibles sur l'aura ajoutée ? |
 | 71 | Il relance ensuite la Robustesse demandée | Une ligne dorée Thank, une seule |
 | 72 | En combat, il me donne le buff demandé ; attendre la fin du combat | La ligne Thank arrive à la fin du combat (ou dans les 30 s). Noter s'il était encore en vue à ce moment-là (sinon : pas de ligne, limite connue) |
+
+## Coût des rafraîchissements en ville (#35)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 73 | `/run BuffDiggerDB.debug=true`, en capitale bondée, toutes fenêtres fermées. **Avant** (ancien comportement : une demande en attente) : `/bd selftest`, fermer Requests, `/bd perf` (remet à zéro), 60 s, `/bd perf`. **Après** (aucune demande, attendre 90 s qu'elle expire) : `/bd perf`, 60 s, `/bd perf`. Refaire avec Get buffs + Give buffs ouvertes | Noter dans l'issue #35 les ms/s de `refreshNow`, `refreshWindow`, `refreshIncoming` dans chaque cas ; `refreshIncoming` doit chuter dans « après » |

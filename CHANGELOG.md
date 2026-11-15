@@ -11,6 +11,7 @@
 - **Buffs followed as they change.** Buff Digger now follows what the game says changed on you (a buff added, recast or gone) instead of re-reading all your buffs every time: less work in busy towns, and Ghost Wolf or a shapeshift no longer looks like a new buff, even right after you asked that player for a refresh.
 - **Same first name, no mix-up.** In Give buffs, buffing "Raide Boule" no longer hides "Raide Tartempion" for a few seconds: each player is told apart by their whole name.
 - **Buffs recognized right after login.** If the game hadn't loaded a spell's name yet the first time Buff Digger looked, that buff (rank, Thank line) stayed unknown until a /reload. It now looks again once the name is there.
+- **Less work when nobody asks you anything.** With no request waiting and the Requests window closed, Buff Digger no longer scans the nameplates every second for it. `/bd perf` (debug mode) shows how often and how long the refreshes run.
 
 ## 1.0.0
 

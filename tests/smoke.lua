@@ -980,6 +980,29 @@ do
   BuffDiggerDB.give=false; ns.applyWindows(); NOW=NOW+60
   fire("NAME_PLATE_UNIT_REMOVED","nameplate71"); fire("NAME_PLATE_UNIT_REMOVED","nameplate72"); units.nameplate71=nil; units.nameplate72=nil
 end
+print("=== #35 /bd perf, refreshes skipped when nothing shows")
+do
+  local realTime, rq = time, _G.BuffDiggerRequests
+  BuffDiggerDB.requests=false; BuffDiggerDB.give=false; BuffDiggerDB.nearby=false; ns.applyWindows(); BOUND=nil
+  time=function() return realTime()+1000 end; ns.refreshIncoming(); time=realTime -- every request expired
+  local realNearby, scans = ns.nearbyUnits, 0
+  ns.nearbyUnits=function(...) scans=scans+1; return realNearby(...) end
+  ns.refreshIncoming(); assert(scans==0, "no request, Requests closed: no nameplate scan")
+  units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.acceptRequests=true
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Perfo-Realm"); assert(scans>0, "a request: scanned")
+  ns.toggleRequests(); local seen
+  for _,r in ipairs(rq.rows) do seen = seen or (r._shown and r.entry.request.name=="Perfo") end
+  assert(seen, "Requests reopened: the request that came while it was closed is there"); ns.toggleRequests()
+  ns.nearbyUnits=realNearby
+  BOUND="F5"; ns.refreshWindow(); assert(_G.BuffDiggerGiveNext:GetAttribute("type")=="macro", "key bound, windows closed: still aimed"); BOUND=nil
+  local out, realPrint = {}, print
+  print=function(...) out[#out+1]=table.concat({...}," ") end
+  BuffDiggerDB.debug=false; SlashCmdList.BUFFDIGGER("perf"); BuffDiggerDB.debug=true; SlashCmdList.BUFFDIGGER("perf")
+  BuffDiggerDB.debug=false; print=realPrint
+  local all = table.concat(out,"\n"); print(all)
+  assert(all:find("debug mode only") and all:find("refreshIncoming") and all:find("refreshWindow"), "/bd perf lists the refreshes")
+end
+print("PERF OK")
 print("SMOKE OK")
 print("=== buffKeyOf: spell names not loaded yet (#34)")
 do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.

@@ -30,7 +30,7 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
 CreateFrame=function(_,name,parent) local o=obj(); rawset(o,"_parent",parent); if name then _G[name]=o end; return o end
 UIParent, Minimap, UISpecialFrames, GameTooltip = obj(), obj(), {}, obj()
 SlashCmdList={}; TIMERS={}; C_Timer={After=function(_,f) TIMERS[#TIMERS+1]=f end, NewTicker=function() end}; function runTimers() local t=TIMERS; TIMERS={}; for _,f in ipairs(t) do f() end end; IsInInstance=function() return false end; PlaySound=function() end; SOUNDKIT={TELL_MESSAGE=1}; wipe=function(t) for k in pairs(t) do t[k]=nil end end; tremove=table.remove; unpack=unpack; tinsert=table.insert; strtrim=function(s) return (s:gsub("^%s+",""):gsub("%s+$","")) end
-time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
+time=os.time; date=os.date; NOW=1000; GetTime=function() return NOW end; debugprofilestop=function() return os.clock()*1000 end; BOUND=nil; GetBindingKey=function() return BOUND end; print=print; GetLocale=function() return "frFR" end
 issecure=function() return false end; InCombatLockdown=function() return false end
 GetBuildInfo=function() return "1.60.1",1,"",16001 end; CVARS={nameplateShowFriendlyPlayers="0"}; GetCVar=function(k) return CVARS[k] end; SetCVar=function(k,v) CVARS[k]=v end
 GetCursorPosition=function() return 0,0 end; IsPlayerSpell=function() return false end

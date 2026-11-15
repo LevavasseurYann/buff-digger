@@ -905,14 +905,26 @@ end
 local REFRESH_DELAY = 0.25
 local refreshPending = false
 
-local function refreshNow()
+-- /bd perf (#35): how many calls and how many ms each refresh took since the last /bd perf.
+local perf, perfSince = {}, GetTime()
+function ns.timed(name, f)
+  return function(...)
+    local t0 = debugprofilestop()
+    f(...)
+    local p = perf[name] or { n = 0, ms = 0 }
+    perf[name] = p
+    p.n, p.ms = p.n + 1, p.ms + debugprofilestop() - t0
+  end
+end
+
+local refreshNow = ns.timed("refreshNow", function()
   refreshPending = false
   if InCombatLockdown() then return end
   hideIcons(nil)
   for _, unit in ipairs(ns.nearbyUnits()) do updateIcon(unit) end
   if ns.refreshWindow then ns.refreshWindow() end
   if ns.refreshIncoming then ns.refreshIncoming() end
-end
+end)
 
 function ns.refreshAll()
   if refreshPending then return end
@@ -1037,6 +1049,17 @@ function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, se
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
 function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
+function COMMANDS.perf()
+  if not BuffDiggerDB.debug then say("/bd perf: debug mode only (/run BuffDiggerDB.debug=true)") return end
+  local secs = math.max(GetTime() - perfSince, 1)
+  say(("Refreshes over the last %d s (refreshNow includes the other two):"):format(secs))
+  for _, name in ipairs({ "refreshNow", "refreshWindow", "refreshIncoming" }) do -- same order every time
+    local p = perf[name] or { n = 0, ms = 0 }
+    print(("  %-16s %6d calls  %8.1f ms  %.2f calls/s  %.2f ms/s"):format(name, p.n, p.ms, p.n / secs, p.ms / secs))
+  end
+  wipe(perf)
+  perfSince = GetTime()
+end
 
 SLASH_BUFFDIGGER1 = "/bd"
 SlashCmdList.BUFFDIGGER = function(text)

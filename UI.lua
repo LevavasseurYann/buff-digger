@@ -1316,7 +1316,7 @@ end
 
 -- ---------------------------------------------------------------- refresh and visibility
 
-function ns.refreshWindow()
+ns.refreshWindow = ns.timed("refreshWindow", function()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
   -- Not under the cursor either: with targetOnAsk, the list must not change between aiming and
   -- releasing, or the click would ask someone else than the one targeted.
@@ -1351,7 +1351,7 @@ function ns.refreshWindow()
   end
   giveNext.unit = first and first.unit
   ns.aimCast(giveNext, first and first.unit, first and first.buffs[1].spell)
-end
+end)
 
 -- Show each window according to its setting (out of combat only).
 function ns.applyWindows()
