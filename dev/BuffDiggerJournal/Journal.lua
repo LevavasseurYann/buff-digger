@@ -135,7 +135,7 @@ local function snapshotAsked()
   for name, e in pairs(BuffDiggerCharDB and BuffDiggerCharDB.asked or {}) do
     if type(e) == "table" and lastAsked[name] ~= e.at then
       lastAsked[name] = e.at
-      add("request", name, e.key, "channel=" .. show(e.channel), "to=" .. show(e.target), e.silent and "silent" or "")
+      add("request", name, table.concat(e.keys or { e.key }, "+"), "channel=" .. show(e.channel), "to=" .. show(e.target), e.silent and "silent" or "")
     end
   end
 end

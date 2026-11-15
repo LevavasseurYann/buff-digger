@@ -1414,7 +1414,9 @@ function ns.buildUI()
   requests = makeWindow("BuffDiggerRequests", L["Buff Digger — Requests"], "requests", true, { "RIGHT", -40, 60 })
   ns.requestsWindow = requests
   function ns.fillRequests(entries) fill(requests, entries, L["No requests right now."]) end
-  for _, row in ipairs(requests.rows) do row.buffs[1]:HookScript("PostClick", ns.onRequestClick) end
+  for _, row in ipairs(requests.rows) do
+    for _, b in ipairs(row.buffs) do b:HookScript("PostClick", ns.onRequestClick) end
+  end
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")

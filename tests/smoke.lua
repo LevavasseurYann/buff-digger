@@ -1044,6 +1044,14 @@ do
   BuffDiggerDB.requests=true; ns.applyWindows()
   local kr; for _,x in ipairs(_G.BuffDiggerRequests.entries) do if x.request and x.request.name=="Kael" then kr=x end end
   assert(kr and #kr.buffs==2 and kr.buffs[1].key=="fortitude" and kr.buffs[2].key=="spirit", "both icons")
+  -- A refresh extra can't close by itself (they have it): a click on its icon, the second one, does.
+  units.nameplate84={"Rhonin","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate84"); runTimers()
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Rhonin-Realm")
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:spirit:refresh","WHISPER","Rhonin-Realm"); ns.refreshIncoming()
+  local function rhonin() for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request and r.entry.request.name=="Rhonin" then return r end end end
+  click(rhonin().buffs[2], false); ns.refreshIncoming(); assert(#rhonin().entry.buffs==1 and rhonin().entry.buffs[1].key=="fortitude", "second icon: Spirit closed")
+  click(rhonin().buffs[1], false); ns.refreshIncoming(); assert(not rhonin(), "both clicked: request gone")
+  fire("NAME_PLATE_UNIT_REMOVED","nameplate84"); units.nameplate84=nil
   -- An older Buff Digger reads only REQ:<key>:<kind> (its pattern): it still gets Fort, ignores ADD.
   assert(("ADD:spirit:new"):match("^REQ:(%a+):(%a+)$")==nil and ("REQ:fortitude:new"):match("^REQ:(%a+):(%a+)$")=="fortitude")
   -- First buff unknown to me (no Fort): the ADD alone is the request.
