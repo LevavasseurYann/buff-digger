@@ -17,3 +17,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Smoke test
         run: uv run --no-project -q --with "lupa>=2,<3" python -I tests/run_smoke.py
+      - name: API check (Blizzard docs for Forever)
+        run: python3 -I tests/check_api.py
