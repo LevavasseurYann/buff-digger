@@ -24,11 +24,11 @@ jouer normalement puis coller `/bd` : la plupart des lignes se remplissent toute
 | 2 | Le MP contient un lien dont le texte est le nom **anglais** (client français) | Le message apparaît bien comme envoyé ; sinon, noter le message d'erreur du serveur | Send a whisper |
 | 3 | Maj+clic sur l'icône | La demande part en /dire | Talk in /say |
 | 4 | Raccourcis > AddOns > Buff Digger > *Ask the best buff around me*, puis la touche | Le bon joueur est choisi, la demande part | Ask with a key binding |
-| 5 | Se faire buffer après une demande | `/merci` + message de remerciement dans le même canal | Know who put a buff on me / Automatic /thank |
-| 42 | Sans rien demander : manger, boire, prendre à une table de rafraîchissement, recevoir un buff spontané ; puis demander les Rois à un paladin qui me donne Puissance | Aucun /merci ni message : seul le buff demandé, venant du joueur à qui je l'ai demandé, est remercié | Automatic /thank |
-| 43 | Juste après avoir reçu un buff, demander à un joueur plus fort de le remettre (« Ton buff est plus costaud… ») ; il le relance dans la minute | `/merci` **et** le message de remerciement lui arrivent | Automatic /thank |
-| 53 | Demander la Robustesse à un prêtre A ; un autre prêtre B la donne d'abord ; puis A la donne ; et, prêtre, se la lancer soi-même avec une demande ouverte | Rien pour B ni pour soi ; `/merci` + message pour A seulement. Puis `/bd` : noter la ligne *Buffs received with no identifiable giver* (si elle grimpe avec des inconnus, les remerciements leur manquent) | Automatic /thank |
-| 19 | Avec un buff déjà sur soi, faire une demande puis se transformer (Loup fantôme, forme de druide) | Personne n'est remercié | — |
+| 5 | Se faire buffer après une demande, puis cliquer *Thank* sur sa ligne | Rien ne part tout seul ; sa ligne devient dorée (Get buffs, sinon fenêtre *Thanks*) ; le clic envoie `/merci` + message dans le canal de la demande | Know who put a buff on me / Send /thank |
+| 42 | Sans rien demander, hors combat : manger, boire, prendre à une table de rafraîchissement, recevoir un buff spontané ; puis demander les Rois à un paladin qui me donne Puissance | Aucune ligne *Thank* ni fenêtre *Thanks* : seul le buff demandé, venant du joueur à qui je l'ai demandé, en donne une | — |
+| 43 | Juste après avoir reçu un buff, demander à un joueur plus fort de le remettre (« Ton buff est plus costaud… ») ; il le relance dans la minute | Une ligne *Thank* pour lui ; clic = `/merci` **et** le message lui arrivent | Send /thank |
+| 53 | Demander la Robustesse à un prêtre A ; un autre prêtre B la donne d'abord ; puis A la donne ; et, prêtre, se la lancer soi-même avec une demande ouverte | Ligne *Thank* pour A seulement, rien pour B ni pour soi. Puis `/bd` : noter la ligne *Buffs received with no identifiable giver* (si elle grimpe avec des inconnus, leurs lignes manquent) | Send /thank |
+| 19 | Avec un buff déjà sur soi, faire une demande puis se transformer (Loup fantôme, forme de druide) | Aucune ligne *Thank* | — |
 | 20 | Réglages > *On nameplates* : essayer les 4 choix ; en *Every buff*, clic sur la 2e icône d'un paladin | Rien / petite icône Buff Digger / une icône / une par béné ; la demande porte sur l'icône cliquée ; survol = nom du sort et rang ; en foule, les icônes ne gênent pas le clic sur un voisin | Receive a click on that icon |
 | 21 | Get buffs en ville (plus de 10 joueurs) | Plusieurs icônes par ligne, clic = ce buff, clic sur le nom = le cible (sans MP, Shift/Ctrl-clic aussi) ; la molette fait défiler, même le curseur sur une ligne ou une icône ; petites flèches haut/bas seulement quand il reste des joueurs de ce côté (clic = défile) ; le coin bas-droit agrandit la fenêtre (plus de lignes), taille et position gardées après /reload ; les flèches et le coin s'affichent bien (pas de carré vert) ; cadenas de l'en-tête : fermé = ni déplacement ni coin, ouvert = libre ; il s'affiche bien (sinon : `/dump GetFileIDFromPath("Interface\\Buttons\\LockButton-Locked-Up")`) | — |
 | 22 | Get buffs, et barres de nom en *Every buff* | Toutes les icônes en pleine opacité, dans l'ordre de mes priorités ; buffs déjà sur soi en gris | — |
@@ -51,7 +51,7 @@ Réglage : *Ask again when a buff has less left than* (5 min par défaut ; Never
 | # | Test | Ce qu'on doit voir | Ligne `/bd` |
 |---|---|---|---|
 | 9 | Garder un buff jusqu'à ses 5 dernières minutes, près d'un joueur qui peut le donner | L'icône réapparaît (« yours is running out ») ; le message dit « about to wear off » | Read the time left on my buffs |
-| 10 | Le joueur rafraîchit le buff | Il est remercié (une seule fois) | — |
+| 10 | Le joueur rafraîchit le buff | Une ligne *Thank* pour lui (une seule) | — |
 | 11 | Un buffeur de **plus bas** niveau que celui qui m'a buffé | Ne propose **pas** de rafraîchir (il ferait baisser le rang) | — |
 
 ## Côté buffeur — paladin, prêtre, mage ou druide
@@ -100,7 +100,7 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 45 | Réglages > *Debug messages* coché, clic sur son icône dans Give buffs | Noter la ligne « Spell sent: … on X » : X = « Jean », « Jean-Dupont » ou « Jean Dupont » ? Puis il disparaît de Give buffs quelques secondes | Cast a buff… |
 | 46 | Barres de nom alliées affichées (on voit les joueurs), taper `/run for _,c in ipairs({"nameplateShowFriends","nameplateShowFriendlyPlayers","nameplateShowAll","nameplateShowFriendlyNPCs"}) do print(c, C_CVar.GetCVar(c)) end` ; puis Réglages de Buff Digger | Noter les 4 valeurs ; Réglages : « Friendly nameplates: on », bouton *Turn on* grisé | — |
 | 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
-| 39 | Se faire buffer par lui après une demande | `/merci` vise bien lui, et le remerciement en MP lui arrive | Automatic /thank |
+| 39 | Se faire buffer par lui après une demande, cliquer *Thank* | `/merci` vise bien lui, et le remerciement en MP lui arrive | Send /thank |
 | 40 | S'il a Buff Digger : il me demande un buff | La demande arrive dans Requests à son nom entier, un clic sur l'icône le buffe ; l'étoile ★ Buff Digger apparaît après son nom dans Get buffs | — |
 | 41 | Voit-on des noms avec un tiret (« Jean-Pierre Dupont ») ? | Noter oui / non : l'addon lit tout tiret venu du chat comme l'espace entre prénom et nom | — |
 
@@ -129,19 +129,18 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
 | 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
 
-## Merci à la main (#21) — n'importe quelle classe, un ou deux buffeurs croisés
+## Merci à la main (#21, #37) — n'importe quelle classe, un ou deux buffeurs croisés
 
-Réglages > *Thanks* > cocher *Let me click Thank (no automatic thanks)*.
+Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demandé.
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
 | 54 | Demander un buff, le recevoir | Rien ne part tout seul ; une petite fenêtre *Thanks* apparaît avec le donneur (icône du buff, nom en couleur de classe) |
 | 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne disparaît, la fenêtre se cache si vide |
-| 56 | Un buff spontané d'un joueur du groupe, puis d'un inconnu hors groupe, Get buffs ouvert puis fermé | Jamais de fenêtre *Thanks* (seuls les buffs demandés l'ouvrent). Get buffs ouvert : sa ligne dorée, clic = `/merci` + MP (sinon `/bd` : *Buffs received with no identifiable giver* a grimpé) ; la touche *Thank the last…* le remercie aussi |
-| 57 | Un druide pose Marque puis Épines | Une seule ligne, deux icônes |
-| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 2 min une ligne | Ligne retirée sans rien envoyer ; les lignes affichées vidées (un doré dans Get buffs reste) ; la ligne s'efface seule (au plus 5 s après) |
-| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Fenêtre affichée : remercie sa ligne du haut ; sinon le dernier qui m'a buffé, même un cadeau ; sans personne, « Nobody to thank right now. » |
-| 60 | En donjon : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé ; en monde ouvert, en groupe, un buff de groupe | Donjon : seule la demande donne une ligne. Monde ouvert : chacun voit une ligne (noter si c'est gênant) ; la fenêtre se déplace sauf avec le cadenas fermé ; elle reste en combat |
+| 57 | Demander la Marque à un druide, qui pose Marque puis Épines | Une seule ligne, une icône (Marque) : Épines n'était pas demandée |
+| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 5 min une ligne | Ligne retirée sans rien envoyer ; les lignes affichées vidées (un doré dans Get buffs reste) ; la ligne s'efface seule (au plus 5 s après) |
+| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Fenêtre affichée : remercie sa ligne du haut ; sinon le dernier buff demandé reçu ; sans personne, « Nobody to thank right now. » |
+| 60 | En donjon puis en monde ouvert, en groupe : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé | Seule la demande donne une ligne ; la fenêtre se déplace (même cadenas fermé) ; elle reste en combat |
 ## Mes propres phrases (#20) — n'importe quelle classe, un buffeur croisé
 
 | # | Test | Ce qu'on doit voir |
