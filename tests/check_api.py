@@ -21,7 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CACHE = ROOT / "tests" / ".apidoc"
 URL = "https://codeload.github.com/Gethe/wow-ui-source/tar.gz/refs/heads/forever"
 DOC_DIR = "/Interface/AddOns/Blizzard_APIDocumentationGenerated/"
-ADDON = ["Locales.lua", "Data.lua", "BuffDigger.lua", "UI.lua", "Comm.lua"]
+ADDON = ["Locales.lua", "Data.lua", "BuffDigger.lua", "UI.lua", "Comm.lua", "dev/BuffDiggerJournal/Journal.lua"]
 FLAG = re.compile(r"^(Secret(?!Arguments)\w*|RequiresNonSecret\w*|HasRestrictions|\w*Restricted\w*)$")
 
 

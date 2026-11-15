@@ -985,6 +985,18 @@ BuffDigger = {
     local last = w and w:IsShown() and w.list and w.list[1] or ns.thanksWaiting()[1]
     if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
   end,
+  -- Dev only (dev/BuffDiggerJournal): copies of what Buff Digger knows, never its own tables.
+  debugState = function()
+    local function copy(v)
+      if type(v) ~= "table" then return v end
+      local t = {}
+      for k, x in pairs(v) do t[k] = copy(x) end
+      return t
+    end
+    local spellIDs = {}
+    for key, b in pairs(BUFFS) do spellIDs[key] = { b.id, unpack(b.group or {}) } end
+    return { toThank = copy(toThank), mine = copy(mine), asked = copy(BuffDiggerDB and BuffDiggerDB.asked), spellIDs = spellIDs }
+  end,
 }
 _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
 function COMMANDS.config() if ns.toggleSettings then ns.toggleSettings() end end
