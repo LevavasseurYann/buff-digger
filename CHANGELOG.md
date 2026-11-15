@@ -7,6 +7,7 @@
 - **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.
 - **No stray thank-yous.** On a gold line in Get buffs, only the tick and *Thank* thank the player, and only the cross closes it: a click elsewhere on the line, say next to the cross, sends nothing.
 - **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed, for good this time: whenever the game hides your buffs (combat, dungeons, the moment a fight ends), Buff Digger keeps what it knew and, once it can read them again, only thanks a buff you actually asked for. A buff you asked for that lands mid-fight still gets its Thank line after the fight.
+- **Buffs recognized right after login.** If the game hadn't loaded a spell's name yet the first time Buff Digger looked, that buff (rank, Thank line) stayed unknown until a /reload. It now looks again once the name is there.
 
 ## 1.0.0
 

@@ -96,17 +96,18 @@ ns.record = record
 
 -- ---------------------------------------------------------------- my buffs
 
--- Spell name (rank 1 and group version) -> buff key, built once names are available.
-local keyByName
+-- Spell name (rank 1 and group version) -> buff key. Rebuilt on a miss while a name was still missing
+-- (not loaded yet at the first lookup): otherwise that buff stays unknown until /reload (#34).
+local keyByName, namesMissing
 local function buffKeyOf(spellName)
-  if not keyByName then
-    keyByName = {}
+  if not keyByName or (namesMissing and not keyByName[spellName]) then
+    keyByName, namesMissing = {}, false
     for key, buff in pairs(BUFFS) do
       local n = C_Spell.GetSpellName(buff.id)
-      if n then keyByName[n] = key end
+      if n then keyByName[n] = key else namesMissing = true end
       for _, id in ipairs(buff.group or {}) do
         n = C_Spell.GetSpellName(id)
-        if n then keyByName[n] = key end
+        if n then keyByName[n] = key else namesMissing = true end
       end
     end
   end
@@ -353,6 +354,7 @@ local function readMyBuffs()
     local info = byInstance[id] or lost[id]
     local expires, duration = auraExpires(aura)
     local key = buffKeyOf(aura.name)
+    if info and not info.key then info.key = key end -- read before its name loaded (#34)
     local src = aura.sourceUnit
     local caster = readable(src) and src and ns.unitName(src)
     local old = not info and key and (caster and had[key .. "|" .. caster] or had[key])

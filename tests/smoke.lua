@@ -939,3 +939,18 @@ pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") 
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
 print("SMOKE OK")
+print("=== buffKeyOf: spell names not loaded yet (#34)")
+do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.
+  local ns34, real, ready = {}, C_Spell.GetSpellName, false
+  C_Spell.GetSpellName = function(id) if ready then return real(id) end end
+  for _,f in ipairs{"Locales","Data","BuffDigger"} do assert(setfenv(loadfile(DIR..f..".lua"), addonEnv))("BuffDigger", ns34) end
+  -- Fort already on me at login, read before its name loads: known once the name is there.
+  for i=#myAuras,1,-1 do myAuras[i]=nil end; myAuras[1]=aura(3401,"Mot de pouvoir : Robustesse",1243)
+  fire("UNIT_AURA","player")
+  assert(ns34.buffKeyOf("Mot de pouvoir : Robustesse")==nil and not ns34.haveBuff("fortitude"), "no names yet")
+  ready = true
+  assert(ns34.buffKeyOf("Mot de pouvoir : Robustesse")=="fortitude", "names arrived: Fort known without /reload")
+  fire("UNIT_AURA","player"); assert(ns34.haveBuff("fortitude"), "the Fort read too early is mine now")
+  C_Spell.GetSpellName = real
+end
+print("BUFFKEYOF OK")
