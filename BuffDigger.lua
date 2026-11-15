@@ -121,7 +121,12 @@ ns.buffKeyOf = buffKeyOf
 -- lands. Neither known (value hidden or not in Data.lua, giver unknown): unknown rank, never "upgraded".
 local mine = {}
 local byInstance = {} -- auraInstanceID -> { key, rank, giver, expires }
-local ready = false
+-- A read I couldn't trust (combat, restricted map, error, secrets, at login): the next full read is
+-- silent, it only honors an open request. A re-read never makes a gift (#25, journal 2026-11-15).
+local stale = true
+-- Missing from a read but not run out: maybe only hidden (a partial list under restriction). Back
+-- under the same instance ID, it is the same aura, not a landing.
+local lost = {}
 
 -- What the buff gives (+55 attack power -> 55), or nil when the game hides it.
 local function auraValue(aura)
@@ -308,7 +313,8 @@ function ns.closeAsk(name)
 end
 
 -- prevGiver: who gave me that buff before this landing (a renewal by the same player isn't a gift).
-local function onBuffLanded(aura, info, prevGiver)
+-- silent: after a read I couldn't trust; learn the giver, but only an open request is thanked.
+local function onBuffLanded(aura, info, prevGiver, silent)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name, class, level, target, _
@@ -332,7 +338,7 @@ local function onBuffLanded(aura, info, prevGiver)
     local entry = logEntry(aura)
     local seen = entry.classes[class]
     entry.classes[class] = seen and math.min(seen, level) or level
-  else
+  elseif not silent then
     -- A stranger outside the group does not always have a unit token: count those cases.
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
   end
@@ -340,6 +346,7 @@ local function onBuffLanded(aura, info, prevGiver)
   -- Only the buff I asked this player for, from this very player, is thanked. Giver unknown (no unit
   -- token, stale token): no guessing, nobody is thanked — guessing thanked people who gave nothing.
   local request = findRequest(name, info.key)
+  if silent and not request then return end
   if not BuffDiggerDB.thankByHand then
     if request then thank(name, request) end
   -- By hand: a buff I asked for, or (open world only: group buffs rain in instances) a real gift.
@@ -351,10 +358,32 @@ local function onBuffLanded(aura, info, prevGiver)
 end
 
 local function readMyBuffs()
-  -- In combat my auras can be secret, missing from the list, or the call can fail: none of that is
-  -- reliable to tell apart (journal 2026-11-15, Thank lines after every fight). Don't read them
-  -- then: PLAYER_REGEN_ENABLED reads again, and what landed in the fight is seen there.
-  if InCombatLockdown() then return end
+  -- In combat or on a restricted map my auras can be secret, missing from the list (nil), or the call
+  -- can fail: none of that is reliable to tell apart (journal 2026-11-15, Thank lines after every
+  -- fight). Don't trust such a read: keep what I knew; the next good read is silent.
+  local secret = C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret()
+  if InCombatLockdown() or not readable(secret) or secret then stale = true return end
+  local auras = {}
+  for i = 1, 40 do
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+    if not ok or aura and not (readable(aura) and readable(aura.auraInstanceID) and readable(aura.name)) then
+      stale = true
+      return
+    end
+    if not aura then break end
+    auras[i] = aura
+  end
+  -- Nothing at all while I had a buff still running: auras hidden, or all gone (death, cancelled).
+  -- Can't tell: show none, keep what I knew to match them when they read again, silently.
+  if not auras[1] then
+    for _, info in pairs(byInstance) do
+      if info.key and not (info.expires and info.expires < GetTime()) then
+        stale, mine = true, {}
+        return
+      end
+    end
+  end
+  local silent = stale
   local seen = {}
   -- A shapeshift (Ghost Wolf...) can hand every aura a new instance ID: a known buff ending at the
   -- same time is the one I already had, not a new landing to thank.
@@ -366,71 +395,49 @@ local function readMyBuffs()
       if info.giver then had[info.key .. "|" .. info.giver] = info end
     end
   end
-  local hidden = false
-  for i = 1, 40 do
-    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-    -- In combat the call can fail outright ("Auras cannot be accessed when secret", journal
-    -- 2026-11-15): that's hidden auras too, not the end of the list.
-    if not ok then hidden = true break end
-    if not aura then break end
+  for _, aura in ipairs(auras) do
     local id = aura.auraInstanceID
-    local known = readable(id) and readable(aura.name)
-    hidden = hidden or not known
-    if known then
-      local info = byInstance[id]
-      local expires, duration = auraExpires(aura)
-      local key = buffKeyOf(aura.name)
-      local src = aura.sourceUnit
-      local from = not info and key and readable(src) and src and ns.unitName(src)
-      local old = not info and key and (readable(from) and from and had[key .. "|" .. from] or had[key])
-      -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
-      -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
-      local caster = old and readable(src) and src and ns.unitName(src)
-      local sameGiver = not (readable(caster) and caster and old.giver) or caster == old.giver
-      local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
-      -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
-      -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
-      local renewed = info and info.expires and expires and expires > info.expires + 5
-      if not info or renewed then
-        local oldRank = info and info.rank
-        info = info or { key = buffKeyOf(aura.name) }
-        if info.key then
-          local value = auraValue(aura)
-          record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
-          if expires then record("expires", true) else record("expires", false, "time left hidden") end
-          info.rank = value and ns.rankOfValue(BUFFS[info.key], value)
-          local entry = value and logEntry(aura)
-          if entry then entry.value = value end
-        end
-        local oldGiver = info.giver or (same and old.giver)
-        -- Not oldGiver: that one is only for an aura judged the same. prevGiver is who gave this buff
-        -- before, for any landing (unknown giver before: nil, so a renewal then counts as a gift).
-        local prevGiver = info.giver or (old and old.giver)
-        info.giver = nil
-        if ready and not same then onBuffLanded(aura, info, prevGiver) end
-        info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
-        info.rank = info.rank or oldRank -- nothing better known: keep what we had
+    local info = byInstance[id] or lost[id]
+    local expires, duration = auraExpires(aura)
+    local key = buffKeyOf(aura.name)
+    local src = aura.sourceUnit
+    local caster = readable(src) and src and ns.unitName(src)
+    local old = not info and key and (caster and had[key .. "|" .. caster] or had[key])
+    -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
+    -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
+    local sameGiver = not (caster and old and old.giver) or caster == old.giver
+    local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
+    -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
+    -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
+    local renewed = info and info.expires and expires and expires > info.expires + 5
+    if not info or renewed then
+      local oldRank = info and info.rank
+      info = info or { key = buffKeyOf(aura.name) }
+      if info.key then
+        local value = auraValue(aura)
+        record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
+        if expires then record("expires", true) else record("expires", false, "time left hidden") end
+        info.rank = value and ns.rankOfValue(BUFFS[info.key], value)
+        local entry = value and logEntry(aura)
+        if entry then entry.value = value end
       end
-      info.expires, info.duration = expires, duration
-      seen[id] = info
+      local oldGiver = info.giver or (same and old.giver)
+      -- Not oldGiver: that one is only for an aura judged the same. prevGiver is who gave this buff
+      -- before, for any landing (unknown giver before: nil, so a renewal then counts as a gift).
+      local prevGiver = info.giver or (old and old.giver)
+      info.giver = nil
+      if not same then onBuffLanded(aura, info, prevGiver, silent) end
+      info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
+      info.rank = info.rank or oldRank -- nothing better known: keep what we had
     end
+    info.expires, info.duration = expires, duration
+    seen[id] = info
   end
-  -- Some auras secret (in combat): keep what I knew of them. Dropped, they would all come back as new
-  -- landings after the fight and gold "Thank" lines for buffs already thanked (journal, 2026-11-15).
-  -- Not a buff already read under a new ID, nor one past its end: PLAYER_REGEN_ENABLED reads again.
-  if hidden then
-    local keys = {}
-    for _, info in pairs(seen) do if info.key then keys[info.key] = true end end
-    for id, info in pairs(byInstance) do
-      if not seen[id] and not (info.key and keys[info.key]) and not (info.expires and info.expires < GetTime()) then
-        seen[id] = info
-      end
-    end
+  for id, info in pairs(byInstance) do lost[id] = info end
+  for id, info in pairs(lost) do
+    if seen[id] or info.expires and info.expires < GetTime() then lost[id] = nil end
   end
-  -- The first full pass thanks nobody. A /reload in combat reads nothing: wait for a pass that
-  -- sees everything, or every buff I had would be thanked as new after the fight.
-  byInstance = seen
-  if not hidden then ready = true end
+  byInstance, stale = seen, false
   mine = {}
   for _, info in pairs(byInstance) do
     if info.key then
@@ -1010,6 +1017,7 @@ frame:RegisterEvent("CHAT_MSG_SAY")
 frame:RegisterEvent("ADDON_ACTION_BLOCKED")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
+pcall(frame.RegisterEvent, frame, "ADDON_RESTRICTION_STATE_CHANGED") -- Midnight: auras readable again
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 frame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -1110,7 +1118,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- Buffs run out without any event: look again every 30 s (refreshAll is cheap and batched).
     C_Timer.NewTicker(30, ns.refreshAll)
   elseif event == "PLAYER_ENTERING_WORLD" then
-    ready = false
+    stale = true
     readMyBuffs()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
     -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
@@ -1128,7 +1136,13 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if ns.onCombat then ns.onCombat(true) end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if ns.onCombat then ns.onCombat(false) end
-    readMyBuffs() -- auras secret during the fight: what fell off then is only seen now
+    -- Auras secret during the fight: what landed or fell off then is only seen now, or a second later
+    -- (the restriction may lift after this event; nothing says which comes first).
+    readMyBuffs()
+    if stale then C_Timer.After(1, function() readMyBuffs() ns.refreshAll() end) end
+    ns.refreshAll()
+  elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
+    readMyBuffs()
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_ADDED" then
     shownPlates[a1] = true
