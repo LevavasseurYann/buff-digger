@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Thanks are always your click.** The automatic thanks are gone, and so is the *Let me click Thank* box: Buff Digger never thanks anyone on its own. When a buff you asked for lands, that player's line turns gold (Get buffs, or the *Thanks* window); click *Thank* and your /thank and message go out at once, even in /say.
+- **Only what you asked for.** A buff you didn't ask for no longer gets a gold Thank line, and the *Thank the last player who buffed me* key only thanks buffs you asked for. Thanking spontaneous buffs may come back once Buff Digger can tell them apart reliably.
 - **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.
 - **No stray thank-yous.** On a gold line in Get buffs, only the tick and *Thank* thank the player, and only the cross closes it: a click elsewhere on the line, say next to the cross, sends nothing.
 - **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed, for good this time: whenever the game hides your buffs (combat, dungeons, the moment a fight ends), Buff Digger keeps what it knew and, once it can read them again, only thanks a buff you actually asked for. A buff you asked for that lands mid-fight still gets its Thank line after the fight.

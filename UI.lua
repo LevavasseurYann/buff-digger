@@ -142,8 +142,7 @@ local SECTIONS = {
     { key = "gameMenu", label = "Buff requests in the game's right-click menu" },
   }, delay = true, language = true },
   { title = "Thanks", options = {
-    { key = "thankByHand", label = "Let me click Thank (no automatic thanks)" },
-    { key = "thank",   label = "/thank emote when someone buffs me" },
+    { key = "thank",   label = "/thank emote when I click Thank" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
   } },
   { title = "Advanced", options = {
@@ -602,7 +601,6 @@ local function buildMinimapButton()
   function ns.showRequestCount(n) count:SetText(n > 0 and n or "") end
 
   button:SetScript("OnClick", function(_, mouse)
-    ns.flushThanks() -- a real click: waiting thanks can go out
     if mouse ~= "RightButton" then ns.toggleSettings()
     elseif IsShiftKeyDown() then ns.toggleGive()
     elseif IsControlKeyDown() then ns.toggleRequests()
@@ -1031,10 +1029,9 @@ end
 local nearby, give, giveNext, requests, thanksWindow
 
 -- ---------------------------------------------------------------- Thanks window (#21)
--- "Let me click Thank": who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at
--- most 5), when Get buffs can't show them: Get buffs closed, in combat, group folded, line scrolled
--- away. Shown only while someone waits; click = thank them, right click = forget them, close = forget
--- them all. A gift never opens it: it only shows on Get buffs, if they're there.
+-- Who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at most 5), when Get
+-- buffs can't show them: Get buffs closed, in combat, group folded, line scrolled away. Shown only
+-- while someone waits; click = thank them, right click = forget them, close = forget them all.
 -- Nothing secure here, so it also works in combat.
 
 local function buildThanks()
@@ -1057,7 +1054,7 @@ local function buildThanks()
   w:SetScript("OnDragStart", startMove)
   w:SetScript("OnDragStop", stopMove)
   w:Hide()
-  -- Only the lines shown: a gift waiting on Get buffs stays there.
+  -- Only the lines shown: a line on Get buffs stays there.
   w.CloseButton:HookScript("OnClick", function()
     for _, e in ipairs(w.list or {}) do ns.dismissThank(e.name) end
   end)
@@ -1113,11 +1110,10 @@ end
 
 function ns.refreshThanks()
   if not thanksWindow then return end
-  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded). A gift
-  -- (nothing asked) never pops a window up: Get buffs shows it, or the "thank the last" key.
+  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded).
   local list = {}
   for _, e in ipairs(ns.thanksWaiting()) do
-    if e.request and not onGetBuffs(e.name) then list[#list + 1] = e end
+    if not onGetBuffs(e.name) then list[#list + 1] = e end
   end
   thanksWindow.list = list
   for i, row in ipairs(thanksWindow.rows) do
@@ -1260,7 +1256,6 @@ end
 local justCast = {}
 
 function ns.castOn(unit)
-  ns.flushThanks()
   local name = unit and ns.unitName(unit)
   if name then justCast[ns.firstName(name)] = GetTime() end
   C_Timer.After(1, ns.refreshAll)
