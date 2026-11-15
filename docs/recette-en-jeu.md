@@ -1,5 +1,18 @@
 # Recette en jeu — à faire par les testeurs
 
+## Recette courte, à chaque version (10 min)
+
+1. Copier l'addon **et** le journal (README § Développer). Relancer WoW.
+2. `/console scriptErrors 1`, barres de nom alliées allumées (`/bd nameplates`), monde ouvert.
+3. `/bdj clear`. Puis, hors combat, avec un buff sur soi : `/bdj probe`. Attendre « probe OK ».
+4. Demander un buff à un joueur (clic sur l'icône). Quand il l'a donné : clic *Thank* sur sa ligne.
+5. Faire deux combats, le second plus d'une minute après le clic *Thank*. Après chacun, aucune ligne
+   *Thank* ne doit revenir (ni dans Get buffs, ni dans la fenêtre *Thanks*).
+6. `/reload`, puis quitter le jeu.
+7. Dire à Claude de lire le journal (`SavedVariables/BuffDiggerJournal.lua`). Résultat dans l'issue #1.
+
+La suite de ce document est un inventaire : un test ne se joue que quand sa fonction change.
+
 Ce que le test sans le jeu (`tests/run_smoke.py`) ne peut pas prouver : tout ce qui dépend de Blizzard
 (valeurs secrètes, blocages, barres de nom, sorts lancés). Chaque test dit **qui** il faut (quelle
 classe) et **ce qu'on doit voir**. Résultat à reporter dans l'issue #1 (une ligne par test : OK / KO
