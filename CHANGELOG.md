@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Each character asks on its own.** Asking someone with one character no longer stops your alt from asking them too; settings stay shared across the account. Restart the game after updating (a /reload is not enough).
 - **Thanks are always your click.** The automatic thanks are gone, and so is the *Let me click Thank* box: Buff Digger never thanks anyone on its own. When a buff you asked for lands, that player's line turns gold (Get buffs, or the *Thanks* window); click *Thank* and your /thank and message go out at once, even in /say.
 - **Only what you asked for.** A buff you didn't ask for no longer gets a gold Thank line, and the *Thank the last player who buffed me* key only thanks buffs you asked for. Thanking spontaneous buffs may come back once Buff Digger can tell them apart reliably.
 - **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.

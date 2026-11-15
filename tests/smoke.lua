@@ -128,7 +128,7 @@ SlashCmdList.BUFFDIGGER("")
 
 -- 0.2.0 checks
 units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end
-BuffDiggerDB.asked = {}
+BuffDiggerCharDB.asked = {}
 print("offers paladin 25:", table.concat(ns.offers("PALADIN",25), ","))
 ns.request("nameplate1", "wisdom"); print("CHOSEN", sent[#sent])
 print("askedAgo:", ns.askedAgo("Arthas"))
@@ -136,7 +136,7 @@ BuffDiggerDB.prefs.WARRIOR = {"kings","might"}
 print("custom prefs best:", ns.bestBuff("Zed","PALADIN",25))
 
 -- Thanks flow: never on its own, only a Thank click (#37)
-SHIFT=false; BuffDiggerDB.language="en"; BuffDiggerDB.asked={}; BuffDiggerDB.prefs.WARRIOR=nil
+SHIFT=false; BuffDiggerDB.language="en"; BuffDiggerCharDB.asked={}; BuffDiggerDB.prefs.WARRIOR=nil
 units.nameplate4={"Uther","PALADIN",30}
 myAuras={}; fire("UNIT_AURA","player")
 ns.request("nameplate4"); print("REQ", sent[#sent])
@@ -148,19 +148,19 @@ SHIFT=true; units.nameplate5={"Anduin","PRIEST",40}; ns.request("nameplate5"); S
 myAuras[2]={auraInstanceID=21,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit="nameplate5"}
 fire("UNIT_AURA","player"); before=#sent; ns.thankBuffer("Anduin"); assert(sent[before+1]:find("^SAY") and sent[before+2]=="EMOTE THANK Anduin")
 -- Unknown giver, one open Fortitude request: nobody waits (no guessing)
-BuffDiggerDB.asked = { A = {at=time(), key="fortitude", channel="WHISPER"} }
+BuffDiggerCharDB.asked = { A = {at=time(), key="fortitude", channel="WHISPER"} }
 myAuras[3]={auraInstanceID=30,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil}; fire("UNIT_AURA","player")
 assert(#ns.thanksWaiting()==0, "unknown giver must not wait for a thank-you")
 
 print("=== #10")
 units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end
-BuffDiggerDB.asked={}; BuffDiggerDB.peers={}; SHIFT=false; myAuras={}; fire("UNIT_AURA","player"); runTimers()
+BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={}; SHIFT=false; myAuras={}; fire("UNIT_AURA","player"); runTimers()
 units.nameplate6={"Tirion","PALADIN",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate6"); runTimers()
 local b=#sent; ns.request("nameplate6"); for i=b+1,#sent do print("P1", sent[i]) end
 fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Tirion-Realm"); print("peer?", ns.isPeer("Tirion"))
-BuffDiggerDB.asked={}; b=#sent; ns.request("nameplate6"); for i=b+1,#sent do print("P2 before timer", sent[i]) end
+BuffDiggerCharDB.asked={}; b=#sent; ns.request("nameplate6"); for i=b+1,#sent do print("P2 before timer", sent[i]) end
 fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Tirion-Realm"); runTimers(); print("P2 after ACK, new sends:", #sent-b)
-BuffDiggerDB.asked={}; b=#sent; ns.request("nameplate6"); runTimers(); for i=b+1,#sent do print("P3 no ACK", sent[i]) end
+BuffDiggerCharDB.asked={}; b=#sent; ns.request("nameplate6"); runTimers(); for i=b+1,#sent do print("P3 no ACK", sent[i]) end
 -- buffer side
 units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
 b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Bob-Realm"); for i=b+1,#sent do print("BUF", sent[i]) end
@@ -171,7 +171,7 @@ ns.selfTest(); print("SELF", sent[#sent])
 print("plates before:", ns.friendlyPlatesOn()); SlashCmdList.BUFFDIGGER("nameplates"); print("plates after:", ns.friendlyPlatesOn())
 
 print("=== #8 rank from the value on the buff (aura.points)")
-units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end; BuffDiggerDB.asked={}
+units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end; BuffDiggerCharDB.asked={}
 myAuras={}; fire("UNIT_AURA","player")
 -- Login: Might +35 (rank 2) already there, giver unknown.
 ns.__relog=nil
@@ -207,7 +207,7 @@ ns.dismissThank()
 b=#sent; myAuras[1].expirationTime=NOW+1800; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player"); thankWaiting()
 for i=b+1,#sent do print("THANKS", sent[i]) end; assert(#sent>b, "refresh should be thanked")
 -- Recast 20 s after the last one (an upgrade I asked for right after it landed): thanked too.
-BuffDiggerDB.asked.Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}
+BuffDiggerCharDB.asked.Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}
 b=#sent; myAuras[1].expirationTime=myAuras[1].expirationTime+20; fire("UNIT_AURA","player"); thankWaiting()
 print("recast 20 s later:", sent[#sent]); assert(#sent>b and sent[#sent]:find("WHISPER Anduin"), "a quick recast I asked for should be thanked")
 -- Another quick recast, that request already thanked: nothing (a recast alone never thanks).
@@ -226,33 +226,33 @@ myAuras={{auraInstanceID=62,name="Mot de pouvoir : Robustesse",spellId=1243,sour
 fire("PLAYER_ENTERING_WORLD", false)
 k, kind = ns.bestBuff("Anduin","PRIEST",40); print("10 min buff, 290 s left ->", k, kind); assert(kind~="refresh")
 -- Unsolicited renewal: nobody asked -> no thanks.
-BuffDiggerDB.asked={}; local b2=#sent; myAuras[1].expirationTime=NOW+600; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
+BuffDiggerCharDB.asked={}; local b2=#sent; myAuras[1].expirationTime=NOW+600; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
 print("unsolicited renewal sends:", #sent-b2); assert(#sent==b2)
 -- Food from another player (mage food, table): not a buff, no thanks.
 units.nameplate6={"Jaina","MAGE",40}; b2=#sent
 myAuras[#myAuras+1]={auraInstanceID=63,name="Food",spellId=433,sourceUnit="nameplate6"}; fire("UNIT_AURA","player"); thankWaiting()
 print("food sends:", #sent-b2); assert(#sent==b2, "eating must not thank")
 -- Only the buff I asked this player for is thanked (eating, a buff nobody asked for: nothing).
-units.nameplate7={"Tirion","PALADIN",40}; BuffDiggerDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; b2=#sent
+units.nameplate7={"Tirion","PALADIN",40}; BuffDiggerCharDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; b2=#sent
 myAuras[#myAuras+1]={auraInstanceID=64,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate7",expirationTime=NOW+300,duration=300}
 fire("UNIT_AURA","player"); thankWaiting(); print("asked Kings, got Might, sends:", #sent-b2); assert(#sent==b2, "another buff than the one asked must not thank")
-BuffDiggerDB.asked={}; myAuras[#myAuras].auraInstanceID=65; myAuras[#myAuras].expirationTime=NOW+250
+BuffDiggerCharDB.asked={}; myAuras[#myAuras].auraInstanceID=65; myAuras[#myAuras].expirationTime=NOW+250
 units.nameplate7={"Turalyon","PALADIN",40}; fire("UNIT_AURA","player"); thankWaiting()
 print("buff nobody asked for sends:", #sent-b2); assert(#sent==b2, "a buff nobody asked for must not thank")
 table.remove(myAuras); units.nameplate7=nil; fire("UNIT_AURA","player")
 -- Ghost Wolf: my Fortitude comes back with a new instance ID, from a priest I just asked for
 -- something else. Same buff, not a landing: no thanks.
-BuffDiggerDB.asked={Anduin={at=time(), key="spirit", channel="WHISPER", target="Anduin"}}
+BuffDiggerCharDB.asked={Anduin={at=time(), key="spirit", channel="WHISPER", target="Anduin"}}
 local fort=myAuras[1]; b2=#sent
 myAuras[1]={auraInstanceID=99,name=fort.name,spellId=fort.spellId,sourceUnit="nameplate5",points=fort.points,expirationTime=fort.expirationTime,duration=fort.duration}
 fire("UNIT_AURA","player"); thankWaiting(); print("re-indexed aura sends:", #sent-b2); assert(#sent==b2, "a re-indexed aura must not thank")
 -- A stale token pointing at the mage I asked for Intellect, on a real new Fortitude: a mage
 -- can't give it, no thanks either.
-BuffDiggerDB.asked={Jaina={at=time(), key="intellect", channel="WHISPER", target="Jaina"}}
+BuffDiggerCharDB.asked={Jaina={at=time(), key="intellect", channel="WHISPER", target="Jaina"}}
 myAuras[1].sourceUnit="nameplate6"; myAuras[1].auraInstanceID=100; myAuras[1].expirationTime=NOW+3000; fire("UNIT_AURA","player"); thankWaiting()
 print("mage giving Fortitude sends:", #sent-b2); assert(#sent==b2, "wrong-class giver must not thank")
 -- Same stale token, but I did ask a priest for Fortitude: the giver is unknown, so no guessing.
-BuffDiggerDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}
+BuffDiggerCharDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}
 myAuras[1].auraInstanceID=101; myAuras[1].expirationTime=NOW+3500; fire("UNIT_AURA","player"); thankWaiting()
 print("unknown giver, asked priest:", #sent-b2); assert(#sent==b2, "an unknown giver must not thank the player I asked")
 -- No unit token at all: same.
@@ -271,12 +271,12 @@ myAuras[1].sourceUnit="nameplate5"; myAuras[1].expirationTime=NOW+3600; fire("UN
 print("asked priest answers:", sent[#sent]); assert(sent[#sent]:find("WHISPER Anduin"), "the asked player giving the asked buff is thanked")
 units.nameplate8=nil
 -- Time left hidden, aura re-indexed (shapeshift) while a request to its giver is open: no landing.
-BuffDiggerDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}; b2=#sent
+BuffDiggerCharDB.asked={Anduin={at=time(), key="fortitude", channel="WHISPER", target="Anduin"}}; b2=#sent
 myAuras[1].auraInstanceID=105; myAuras[1].expirationTime=nil; myAuras[1].duration=nil; fire("UNIT_AURA","player")
 myAuras[1].auraInstanceID=106; fire("UNIT_AURA","player"); thankWaiting()
 print("hidden time, re-indexed:", #sent-b2); assert(#sent==b2, "a re-indexed aura with hidden time must not thank")
 -- Time hidden, but another priest's cast replaces it (new instance): a landing, Velen asked -> thanked.
-units.nameplate8={"Velen","PRIEST",40}; BuffDiggerDB.asked={Velen={at=time(), key="fortitude", channel="WHISPER", target="Velen"}}; b2=#sent
+units.nameplate8={"Velen","PRIEST",40}; BuffDiggerCharDB.asked={Velen={at=time(), key="fortitude", channel="WHISPER", target="Velen"}}; b2=#sent
 myAuras[1].auraInstanceID=107; myAuras[1].sourceUnit="nameplate8"; fire("UNIT_AURA","player"); thankWaiting()
 print("hidden time, other caster:", sent[b2+1]); assert(#sent>b2 and sent[b2+1]:find("WHISPER Velen"), "a new caster replacing my buff is a landing")
 units.nameplate8=nil
@@ -349,16 +349,16 @@ print("rankOfValue talents OK")
 
 print("=== nameplates: off / hint / best / all")
 units.player={"Yann","SHAMAN",30}; IsPlayerSpell=function() return false end
-myAuras={}; BuffDiggerDB.asked={}; fire("UNIT_AURA","player"); runTimers()
+myAuras={}; BuffDiggerCharDB.asked={}; fire("UNIT_AURA","player"); runTimers()
 local plate, onPlate = {}, {}
 C_NamePlate.GetNamePlateForUnit=function(u) if u=="nameplate1" then return plate end end
 local mk=CreateFrame; CreateFrame=function(t,n,parent,...) local f=mk(t,n,parent,...); if parent==plate then onPlate[#onPlate+1]=f end; return f end
 local function shownKeys() local out={} for _,x in ipairs(onPlate) do if x._shown then out[#out+1]=tostring(rawget(x,"key")) end end return out end
 BuffDiggerDB.plates="all"; ns.refreshAll(); runTimers()
 print("all:", table.concat(shownKeys(), ",")); assert(#shownKeys()==3, "might, kings, wisdom")
-local b=#sent; onPlate[3]._OnClick(onPlate[3], "LeftButton"); print("3rd icon asks:", sent[#sent]); assert(#sent>b and BuffDiggerDB.asked.Arthas.key==onPlate[3].key)
+local b=#sent; onPlate[3]._OnClick(onPlate[3], "LeftButton"); print("3rd icon asks:", sent[#sent]); assert(#sent>b and BuffDiggerCharDB.asked.Arthas.key==onPlate[3].key)
 for _, mode in ipairs({"best","hint"}) do
-  BuffDiggerDB.plates=mode; BuffDiggerDB.asked={}; ns.refreshAll(); runTimers()
+  BuffDiggerDB.plates=mode; BuffDiggerCharDB.asked={}; ns.refreshAll(); runTimers()
   print(mode..":", table.concat(shownKeys(), ",")); assert(#shownKeys()==1 and shownKeys()[1]=="nil")
 end
 BuffDiggerDB.plates="off"; ns.refreshAll(); runTimers(); print("off:", #shownKeys()); assert(#shownKeys()==0)
@@ -373,13 +373,13 @@ print("=== Get buffs: one icon per buff, scrolling")
 local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
 local row=w.rows[1]; print("row 1:", row.text._t or "", "icons shown:", (row.buffs[1]._shown and 1 or 0)+(row.buffs[2]._shown and 1 or 0)+(row.buffs[3]._shown and 1 or 0))
 local first=w.entries[1]; assert(#first.buffs>=1)
-b=#sent; BuffDiggerDB.asked={}; local pick=row.buffs[#first.buffs]
+b=#sent; BuffDiggerCharDB.asked={}; local pick=row.buffs[#first.buffs]
 for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",false) end -- a release: one request
 -- The fix of 2026-11-09: release only, whatever ActionButtonUseKeyDown says.
 for _,sb in ipairs({row, pick, _G.BuffDiggerGiveNext, _G.BuffDiggerGive.rows[1], _G.BuffDiggerGive.rows[1].buffs[1], _G.BuffDiggerRequests.rows[1].buffs[1]}) do
   assert(rawget(sb,"_clicks")=="AnyUp" and sb:GetAttribute("useOnKeyDown")==false, "secure clicks: AnyUp only")
 end
-local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerDB.asked[who].key); assert(BuffDiggerDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
+local who=UnitName(first.unit); print("icon asks", who, "for", BuffDiggerCharDB.asked[who].key); assert(BuffDiggerCharDB.asked[who].key==pick.key); print("sent:", sent[b+1]); assert(#sent==b+2 and sent[b+1]:find("^ADDON"), "one request: addon REQ + whisper")
 -- #14: the name targets them (any modifier), asks nothing; icons target only with targetOnAsk.
 print("name click:", row:GetAttribute("*type1"), row:GetAttribute("macrotext"))
 assert(row:GetAttribute("*type1")=="macro" and row:GetAttribute("macrotext")=="/target "..who)
@@ -388,9 +388,9 @@ assert(pick:GetAttribute("*type1")==nil and pick:GetAttribute("macrotext")==nil,
 BuffDiggerDB.targetOnAsk=true; ns.refreshWindow(); assert(pick:GetAttribute("macrotext")=="/target "..who, "icon targets with the option")
 BuffDiggerDB.targetOnAsk=false; ns.refreshWindow(); assert(pick:GetAttribute("*type1")==nil)
 -- The token went to someone else while the list sat under the cursor: the icon asks nobody.
-local wasP=units[first.unit]; units[first.unit]={"Intrus","PALADIN",30}; b=#sent; BuffDiggerDB.asked={}
+local wasP=units[first.unit]; units[first.unit]={"Intrus","PALADIN",30}; b=#sent; BuffDiggerCharDB.asked={}
 for _,f in ipairs(pick._hooks.PostClick) do f(pick,"LeftButton",false) end; units[first.unit]=wasP
-assert(#sent==b and not BuffDiggerDB.asked.Intrus, "stale token: no request")
+assert(#sent==b and not BuffDiggerCharDB.asked.Intrus, "stale token: no request")
 -- "Only those with something better": the players whose buffs I all have leave the list.
 local realBest, n0 = ns.bestBuff, #w.entries
 ns.bestBuff=function(name, ...) if name==who then return nil end return realBest(name, ...) end -- I have all of who's buffs
@@ -455,19 +455,19 @@ BuffDiggerDB.requestSound=true; ns.showRequestCount=realCount
 
 print("=== #13 silent request, re-ask offered (requester side)")
 units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end
-myAuras={}; fire("UNIT_AURA","player"); runTimers(); BuffDiggerDB.asked={}; BuffDiggerDB.peers={Pal11=time(), Pal13=time()}
+myAuras={}; fire("UNIT_AURA","player"); runTimers(); BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={Pal11=time(), Pal13=time()}
 b=#sent; ns.request("nameplate11"); runTimers()
 for i=b+1,#sent do print("PEER", sent[i]) end
 assert(#sent==b+1 and sent[b+1]:find("^ADDON>Pal11"), "a peer gets only the silent request, no whisper after a while")
-assert(BuffDiggerDB.asked.Pal11.silent and not ns.unanswered("Pal11"))
+assert(BuffDiggerCharDB.asked.Pal11.silent and not ns.unanswered("Pal11"))
 b=#sent; ns.request("nameplate11"); assert(#sent==b, "too early to ask again")
-BuffDiggerDB.asked.Pal11.at=time()-31; ns.refreshWindow()
+BuffDiggerCharDB.asked.Pal11.at=time()-31; ns.refreshWindow()
 local marked; for _,e in ipairs(w.entries) do if e.unit=="nameplate11" then marked=e.text:find("no answer") end end
 print("Get buffs offers a re-ask:", marked ~= nil); assert(marked, "Get buffs proposes the whisper")
 b=#sent; ns.request("nameplate11"); print("re-ask:", sent[#sent])
 assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal11"), "the click re-asks by whisper only")
 assert(not ns.unanswered("Pal11"), "offered once")
-BuffDiggerDB.asked.Pal12={at=time()-31, key="might", silent=true, thanked=true}; assert(not ns.unanswered("Pal12"), "buff came: nothing to offer")
+BuffDiggerCharDB.asked.Pal12={at=time()-31, key="might", silent=true, thanked=true}; assert(not ns.unanswered("Pal12"), "buff came: nothing to offer")
 IsInInstance=function() return true end; b=#sent; ns.request("nameplate13")
 assert(#sent==b+1 and sent[b+1]:find("^WHISPER Pal13"), "in an instance: whisper at once"); IsInInstance=function() return false end
 
@@ -535,7 +535,7 @@ C_UnitAuras.GetAuraDataBySpellName=realAura2; BuffDiggerDB.give=false; ns.applyW
 
 print("=== Forever names: first name + last name, with a space")
 -- In game (2026-11-09) UnitName gives "Jean", "Dupont": the fake API does the same (split above).
-units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerDB.asked={}
+units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end; BuffDiggerCharDB.asked={}
 units.nameplate50={"Jean Dupont","WARRIOR",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate50"); runTimers()
 -- Give buffs: the whole name on the line; the macro targets the first name (what worked in game).
 BuffDiggerDB.give=true; ns.applyWindows(); local gv=_G.BuffDiggerGive
@@ -580,16 +580,16 @@ BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow(); local gt
 for _,e in ipairs(_G.BuffDiggerNearby.entries) do if e.unit=="nameplate51" then gt=e end end
 print("Get buffs line:", gt and gt.text); assert(gt and gt.text:find("Marie Curie", 1, true), "whole name shown in Get buffs")
 BuffDiggerDB.nearby=false; ns.applyWindows()
-BuffDiggerDB.asked={}; BuffDiggerDB.peers={}; b=#sent; ns.request("nameplate51"); print("ask:", sent[b+1], sent[b+2])
+BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={}; b=#sent; ns.request("nameplate51"); print("ask:", sent[b+1], sent[b+2])
 assert(sent[b+1]:find("^ADDON>Marie%-Curie:") and sent[b+2]:find("^WHISPER Marie%-Curie:"), "silent request and whisper to Marie-Curie")
-assert(BuffDiggerDB.asked["Marie Curie"], "request kept under the whole name")
+assert(BuffDiggerCharDB.asked["Marie Curie"], "request kept under the whole name")
 -- Marie buffs me: thanked by the whole name; the emote gets the first name (what worked in game).
 myAuras[#myAuras+1]={auraInstanceID=500,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate51",expirationTime=NOW+600,duration=600}
 b=#sent; fire("UNIT_AURA","player"); thankWaiting(); for i=b+1,#sent do print("thanks:", sent[i]) end
 local emote, whisper; for i=b+1,#sent do emote = emote or sent[i]=="EMOTE THANK Marie"; whisper = whisper or sent[i]:find("^WHISPER Marie%-Curie:") end
 assert(emote and whisper, "Marie Curie thanked: /thank Marie, whisper to Marie-Curie")
 print("=== Group (#16): members first under a header, even without a nameplate")
-units.player={"Yann","WARRIOR",21}; BuffDiggerDB.asked={}; BuffDiggerDB.nearbyUseful=false
+units.player={"Yann","WARRIOR",21}; BuffDiggerCharDB.asked={}; BuffDiggerDB.nearbyUseful=false
 units.party1={"Uther","PALADIN",40}                                          -- no nameplate: far away, or in an instance
 units.party2={"Anduin","PRIEST",40}; units.nameplate70=units.party2; fire("NAME_PLATE_UNIT_ADDED","nameplate70") -- a member's own plate
 IsInGroup=function() return true end; IsInRaid=function() return false end; GetNumSubgroupMembers=function() return 2 end
@@ -610,14 +610,14 @@ units.party3={"Tirion","PALADIN",40}; OFFLINE.party3=true; GetNumSubgroupMembers
 for _,u in ipairs(ns.listUnits()) do assert(u~="party3", "offline member skipped") end
 OFFLINE.party3=nil; local realVis=UnitIsVisible; UnitIsVisible=function(u) return u~="party3" and realVis(u) end
 assert(ns.tooFar(19740,"party3") and not ns.tooFar(19740,"party2"), "member out of sight: too far")
-BuffDiggerDB.asked={}; ns.askBest(); assert(not BuffDiggerDB.asked.Tirion, "the key never asks a member out of sight")
+BuffDiggerCharDB.asked={}; ns.askBest(); assert(not BuffDiggerCharDB.asked.Tirion, "the key never asks a member out of sight")
 -- Get buffs: the far member says so, greyed, after the members in sight; a click asks nothing.
 BuffDiggerDB.nearby=true; ns.applyWindows(); local fe=_G.BuffDiggerNearby.entries; local tir, tirAt, lastNear
 for i,x in ipairs(fe) do if x.unit=="party3" then tir, tirAt = x, i elseif x.group then lastNear = i end end
 print("far member:", tir and tir.text); assert(tir and tir.far and tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member flagged, after")
 for _,r in ipairs(_G.BuffDiggerNearby.rows) do if r._shown and r.entry.buffs[1] then
   assert(r.buffs[1].icon._red == (r.entry.unit=="party3"), "red icons for the far member only") end end
-local b=#sent; ns.request("party3"); assert(#sent==b and not BuffDiggerDB.asked.Tirion, "no whisper to a member out of sight")
+local b=#sent; ns.request("party3"); assert(#sent==b and not BuffDiggerCharDB.asked.Tirion, "no whisper to a member out of sight")
 -- [-] on the Group header folds the members away; the header stays, with its count.
 local nwr=_G.BuffDiggerNearby.rows; assert(nwr[1].entry.fold and nwr[1].fold._shown and nwr[1].line._shown, "Group header: [-] and line")
 assert(not nwr[2].fold._shown and not nwr[2].line._shown, "a member's row: no [-], no line")
@@ -632,7 +632,7 @@ for _,x in ipairs(fe) do assert(not x.group, "folded: no member listed") end
 BuffDiggerDB.hideGroup.nearby=nil; BuffDiggerDB.nearby=false; ns.applyWindows()
 UnitIsVisible=realVis; units.party3=nil; GetNumSubgroupMembers=function() return 2 end
 -- The ask key looks at members too (in a dungeon, the only players it can see).
-BuffDiggerDB.asked={}; local b=#sent; ns.askBest(); print("ask key:", sent[b+1]); assert(BuffDiggerDB.asked.Uther or BuffDiggerDB.asked.Anduin, "the key asks a member")
+BuffDiggerCharDB.asked={}; local b=#sent; ns.askBest(); print("ask key:", sent[b+1]); assert(BuffDiggerCharDB.asked.Uther or BuffDiggerCharDB.asked.Anduin, "the key asks a member")
 -- Give buffs, as a paladin: a far member stays in Group (greyed), the key aims at the first one in range.
 units.player={"Yann","PALADIN",40}; IsPlayerSpell=function(id) return id==19740 or id==20217 end
 units.party1={"Garrosh","WARRIOR",40}; C_UnitAuras.GetAuraDataBySpellName=function() return false end
@@ -660,7 +660,7 @@ local function menu(tag, unit)
   MENUS[tag](nil, root, {unit=unit}); return lines
 end
 local m=menu("MENU_UNIT_PLAYER","target"); print("menu:", m[1], m[2]); assert(m[1]=="Buff Digger" and #m==4, "title + 3 blessings")
-BuffDiggerDB.asked={}; b=#sent; m.click(); assert(BuffDiggerDB.asked.Arthas, "a line asks for that buff")
+BuffDiggerCharDB.asked={}; b=#sent; m.click(); assert(BuffDiggerCharDB.asked.Arthas, "a line asks for that buff")
 assert(#menu("MENU_UNIT_PLAYER","player")==0, "nothing on myself")
 assert(#menu("MENU_UNIT_PLAYER",nil)==0, "nothing without a unit (name in chat)")
 units.target={"Garrosh","WARRIOR",40}; assert(#menu("MENU_UNIT_PARTY","target")==0, "nothing when they can't buff")
@@ -668,12 +668,12 @@ units.target={"Arthas","PALADIN",25}; BuffDiggerDB.gameMenu=false; assert(#menu(
 BuffDiggerDB.gameMenu=true; units.target=nil
 
 print("=== thanks by hand, only what I asked for (#21, #37)")
-BuffDiggerDB.asked={}; myAuras={}; fire("UNIT_AURA","player"); runTimers()
+BuffDiggerCharDB.asked={}; myAuras={}; fire("UNIT_AURA","player"); runTimers()
 units.nameplate30={"Malfurion","DRUID",40}; units.nameplate31={"Benedictus","PRIEST",40}
 local function aura(id, name, spell, src) return {auraInstanceID=id,name=name,spellId=spell,sourceUnit=src,expirationTime=NOW+600,duration=600} end
-local function asked(...) BuffDiggerDB.asked={}; for _,n in ipairs({...}) do BuffDiggerDB.asked[n]={at=time(), key="thorns", channel="WHISPER", target=n} end end
+local function asked(...) BuffDiggerCharDB.asked={}; for _,n in ipairs({...}) do BuffDiggerCharDB.asked[n]={at=time(), key="thorns", channel="WHISPER", target=n} end end
 -- Asked Malfurion for Mark: it lands, nothing goes out, he waits with one row.
-BuffDiggerDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion-Realm"}}
+BuffDiggerCharDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion-Realm"}}
 b=#sent; myAuras[1]=aura(300,"spell1126",1126,"nameplate30"); fire("UNIT_AURA","player"); runTimers()
 assert(#sent==b, "by hand: no automatic thanks"); assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Malfurion")
 -- Then Thorns from him, unasked: not added to his row.
@@ -691,7 +691,7 @@ asked("Whisperwind"); units.nameplate35={"Whisperwind","DRUID",40}; myAuras[#myA
 b=#sent; ns.thankBuffer("Whisperwind", true); print("flipped to say:", sent[#sent]); assert(sent[b+1]:find("^SAY nil: Whisperwind : "), "flip: thanked in /say")
 ns.dismissThank()
 -- Asked again for buffs already on me: a re-read taken for a landing would show a Thank line (#25).
-BuffDiggerDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion"},
+BuffDiggerCharDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion"},
   Whisperwind={at=time(), key="thorns", channel="WHISPER", target="Whisperwind"}}
 -- In combat my auras turn secret, then readable again: a buff I already had is not a new landing.
 local ids={}; for k,a in ipairs(myAuras) do ids[k]=a.auraInstanceID; a.auraInstanceID=SECRET end
@@ -710,7 +710,7 @@ fire("UNIT_AURA","player"); myAuras=saved; C_UnitAuras.GetAuraDataByIndex=realRe
 time=function() return rt()+360 end; fire("PLAYER_REGEN_ENABLED"); time=rt
 assert(#ns.thanksWaiting()==0, "auras missing in combat: no Thank after the fight")
 -- A buff I asked for that lands in combat: nothing then, one Thank line once the fight ends.
-BuffDiggerDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; units.nameplate40={"Tirion","PALADIN",40}; InCombatLockdown=function() return true end
+BuffDiggerCharDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; units.nameplate40={"Tirion","PALADIN",40}; InCombatLockdown=function() return true end
 myAuras[#myAuras+1]=aura(390,"Bénédiction des rois",20217,"nameplate40"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "in combat: not yet")
 InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED")
 assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Tirion", "after the fight: one Thank"); ns.dismissThank(); table.remove(myAuras); fire("UNIT_AURA","player")
@@ -719,7 +719,7 @@ units.nameplate38={"Cecirae","PRIEST",33}; units.nameplate39={"Bismillos","PRIES
 myAuras[#myAuras+1]=aura(380,"Mot de pouvoir : Robustesse",1243,"nameplate38"); myAuras[#myAuras].expirationTime=NOW+1800
 myAuras[#myAuras+1]=aura(381,"Mot de pouvoir : Robustesse",1243,"nameplate39"); myAuras[#myAuras].expirationTime=NOW+1801
 time=function() return rt()+480 end; fire("UNIT_AURA","player"); ns.dismissThank()
-BuffDiggerDB.asked={Cecirae={at=time(), key="fortitude", channel="WHISPER", target="Cecirae"},
+BuffDiggerCharDB.asked={Cecirae={at=time(), key="fortitude", channel="WHISPER", target="Cecirae"},
   Bismillos={at=time(), key="fortitude", channel="WHISPER", target="Bismillos"}} -- asked again: still no landing
 myAuras[#myAuras-1].auraInstanceID=382; myAuras[#myAuras].auraInstanceID=383
 time=function() return rt()+600 end; fire("UNIT_AURA","player"); time=rt
@@ -734,7 +734,7 @@ fire("PLAYER_REGEN_ENABLED"); assert(held()==had-1 and #ns.thanksWaiting()==0, "
 table.insert(myAuras, 1, gone); fire("UNIT_AURA","player"); ns.dismissThank() -- back as it was for what follows
 -- His renewal, unasked: no row; asked in /say: a row, and the click sends it in /say right away.
 myAuras[3].expirationTime=NOW+1800; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "renewal, unasked")
-BuffDiggerDB.asked={Benedictus={at=time(), key="fortitude", channel="SAY", target="Benedictus"}}
+BuffDiggerCharDB.asked={Benedictus={at=time(), key="fortitude", channel="SAY", target="Benedictus"}}
 myAuras[3].expirationTime=NOW+2100; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1, "renewal, asked")
 b=#sent; ns.thankBuffer("Benedictus"); print("say by hand:", sent[b+1]); assert(sent[b+1]:find("^SAY nil: Benedictus : "))
 -- Nothing to send (both boxes off): no row. Rows expire after 5 minutes.
@@ -772,20 +772,20 @@ units.nameplate39={"Keeper","DRUID",40}; myAuras[10]=aura(309,"spell467",467,"na
 BuffDigger.thankLast(); assert(sent[#sent]=="EMOTE THANK Keeper" and ns.thanksWaiting()[1].name=="Naralex")
 BuffDigger.thankLast(); runTimers(); b=#sent; BuffDigger.thankLast(); runTimers(); assert(#sent==b and #ns.thanksWaiting()==0)
 -- Dismissing a line I asked for closes that request.
-units.nameplate40={"Aponi","DRUID",40}; BuffDiggerDB.asked={Aponi={at=time(), key="thorns", channel="WHISPER", target="Aponi"}}
+units.nameplate40={"Aponi","DRUID",40}; BuffDiggerCharDB.asked={Aponi={at=time(), key="thorns", channel="WHISPER", target="Aponi"}}
 myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); assert(ns.thanksWaiting()[1].name=="Aponi")
-ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
+ns.dismissThank("Aponi"); assert(BuffDiggerCharDB.asked.Aponi.thanked, "skipped: request answered")
 print("=== a re-read of my auras never makes a Thank line (#25, #26)")
 do
   ns.dismissThank()
-  local savedAsked, realRead, rt, base = BuffDiggerDB.asked, C_UnitAuras.GetAuraDataByIndex, time, #myAuras
+  local savedAsked, realRead, rt, base = BuffDiggerCharDB.asked, C_UnitAuras.GetAuraDataByIndex, time, #myAuras
   local function at(s) time=function() return rt()+s end end
   local function waiting() return #ns.thanksWaiting() end
   units.party1={"Ilyria","PRIEST",33}; units.party2={"Corwen","PRIEST",35}
   -- (1) Two buffs asked from my group, dismissed, then asked again: same auras, so no new line. A minute
   -- later, out of combat, the read gives nil (auras still secret: restriction lifted after
   -- PLAYER_REGEN_ENABLED, or never announced): nothing comes back.
-  local function askBoth() BuffDiggerDB.asked={Ilyria={at=time(), key="fortitude", channel="WHISPER", target="Ilyria"},
+  local function askBoth() BuffDiggerCharDB.asked={Ilyria={at=time(), key="fortitude", channel="WHISPER", target="Ilyria"},
     Corwen={at=time(), key="spirit", channel="WHISPER", target="Corwen"}} end
   askBoth()
   myAuras[base+1]=aura(9500,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+1800
@@ -810,20 +810,20 @@ do
   print("partial read -> waiting:", waiting()); assert(waiting()==0, "partial read: no Thank line after it")
   table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player"); ns.dismissThank()
   -- An unasked buff landing mid-fight: no row after it.
-  at(285); BuffDiggerDB.asked={}; InCombatLockdown=function() return true end
+  at(285); BuffDiggerCharDB.asked={}; InCombatLockdown=function() return true end
   myAuras[base+1]=aura(9505,"spell14752",14752,"party2"); fire("UNIT_AURA","player")
   InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); runTimers()
   assert(waiting()==0, "unasked, mid-fight: no row"); assert(ns.haveBuff("spirit"))
   table.remove(myAuras); fire("UNIT_AURA","player")
   -- (3) Journal 2026-11-15: two requests, two landings, two thanks, then 12 fights with no new aura.
   units.party1={"Seraphine","PRIEST",33}; units.party2={"Aldric","PRIEST",35}; at(300)
-  BuffDiggerDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
+  BuffDiggerCharDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
     Aldric={at=time(), key="spirit", channel="WHISPER", target="Aldric"}}
   myAuras[base+1]=aura(9510,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+3000
   myAuras[base+2]=aura(9511,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+3001
   fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs: two rows")
   ns.thankBuffer("Seraphine"); ns.thankBuffer("Aldric"); runTimers(); assert(waiting()==0)
-  local function askBoth2() BuffDiggerDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
+  local function askBoth2() BuffDiggerCharDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
     Aldric={at=time(), key="spirit", channel="WHISPER", target="Aldric"}} end
   local inFight={function() error("Auras cannot be accessed when secret") end, function() return nil end,
     function(u,i) if myAuras[i] then return {auraInstanceID=SECRET,name=SECRET} end end}
@@ -837,10 +837,10 @@ do
     assert(waiting()==0, "fight "..cycle..": no Thank line without a new aura")
   end
   table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player")
-  time=rt; units.party1=nil; units.party2=nil; BuffDiggerDB.asked=savedAsked; ns.dismissThank()
+  time=rt; units.party1=nil; units.party2=nil; BuffDiggerCharDB.asked=savedAsked; ns.dismissThank()
 end
 print("=== Get buffs: my request amber, the buff gold (#24)")
-BuffDiggerDB.asked={}; ns.dismissThank()
+BuffDiggerCharDB.asked={}; ns.dismissThank()
 units.nameplate42={"Tyrande","DRUID",40}; units.nameplate43={"Shandris","DRUID",40}
 fire("NAME_PLATE_UNIT_ADDED","nameplate42"); fire("NAME_PLATE_UNIT_ADDED","nameplate43"); runTimers()
 local gw2=_G.BuffDiggerNearby; gw2:Show()
@@ -866,9 +866,9 @@ assert(r.state==nil and not r.close._shown and not r.band._shown and not r.thank
 ns.refreshWindow(); assert(not lineOf("Tyrande"), "thanked: the filter applies again")
 -- The cross on an amber line: nothing sent, the request closed.
 ns.request("nameplate43", "thorns"); ns.refreshWindow(); r=lineOf("Shandris"); assert(r.state=="asked")
-b=#sent; r.close._OnClick(r.close); assert(#sent==b and BuffDiggerDB.asked.Shandris.thanked and r.state==nil, "cross: closed, silent")
+b=#sent; r.close._OnClick(r.close); assert(#sent==b and BuffDiggerCharDB.asked.Shandris.thanked and r.state==nil, "cross: closed, silent")
 -- No buff in time: amber goes on its own.
-BuffDiggerDB.asked.Shandris={at=time()-BuffDiggerDB.delay, key="thorns", channel="WHISPER"}; assert(ns.askState("Shandris")==nil, "expired")
+BuffDiggerCharDB.asked.Shandris={at=time()-BuffDiggerDB.delay, key="thorns", channel="WHISPER"}; assert(ns.askState("Shandris")==nil, "expired")
 -- His buff lands while the cursor is still on Get buffs: gold anyway, never in Thanks.
 units.nameplate44={"Mathrengyl","DRUID",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate44"); runTimers()
 ns.request("nameplate44", "wild"); ns.refreshWindow(); assert(lineOf("Mathrengyl").state=="asked"); gw2.IsMouseOver=function() return true end
@@ -878,8 +878,8 @@ assert(r.state=="thank" and not _G.BuffDiggerThanks._shown, "hovered: gold on Ge
 InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(_G.BuffDiggerThanks._shown, "combat: Thanks")
 InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); gw2:Show(); ns.refreshWindow()
 -- The cross on his gold line, while I asked him for something else since: that request stays open.
-BuffDiggerDB.asked.Mathrengyl={at=time(), key="thorns", channel="WHISPER"}; ns.closeAsk("Mathrengyl")
-assert(not BuffDiggerDB.asked.Mathrengyl.thanked and ns.askState("Mathrengyl")=="asked", "skipping a thank-you keeps the open request")
+BuffDiggerCharDB.asked.Mathrengyl={at=time(), key="thorns", channel="WHISPER"}; ns.closeAsk("Mathrengyl")
+assert(not BuffDiggerCharDB.asked.Mathrengyl.thanked and ns.askState("Mathrengyl")=="asked", "skipping a thank-you keeps the open request")
 -- His thank-you skipped away from his line (closeAsk, like the Thanks window): the Thorns I asked flashes again.
 local flashes=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() flashes=flashes+1 end end
 ns.refreshWindow(); myAuras[#myAuras+1]=aura(316,"spell467",467,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow()
@@ -938,4 +938,27 @@ typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box em
 pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==10, typed)
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
+-- #38: requests are per character. Each character has its own BuffDiggerCharDB (the game swaps it at
+-- login); settings stay in the account-wide BuffDiggerDB. Self-contained: puts back what it changes.
+do
+  local realBuild, savedChar, savedPlayer, savedAuras, savedSpell = ns.buildUI, BuffDiggerCharDB, units.player, myAuras, IsPlayerSpell
+  local function login(charDB) BuffDiggerCharDB = charDB; ns.buildUI = nil; fire("ADDON_LOADED", "BuffDigger"); ns.buildUI = realBuild end
+  -- Migration: the first character loaded takes the old account-wide requests, once.
+  BuffDiggerDB.asked = { Old = { at = time(), key = "kings", channel = "WHISPER", target = "Old" } }
+  login(nil); local first = BuffDiggerCharDB
+  assert(first.asked.Old and BuffDiggerDB.asked == nil, "first character takes the old requests, account key gone")
+  login(nil); local second = BuffDiggerCharDB
+  assert(next(second.asked) == nil, "second character starts empty")
+  login(first); assert(first.asked.Old, "a character keeps its own requests at the next login")
+  -- Two characters: asking with one doesn't block the other.
+  units.player = { "Yann", "WARRIOR", 21 }; IsPlayerSpell = function() return false end; myAuras = {}
+  units.nameplate90 = { "Turalyon", "PALADIN", 40 }; fire("NAME_PLATE_UNIT_ADDED", "nameplate90"); runTimers()
+  first.asked = {}; ns.request("nameplate90")
+  assert(first.asked.Turalyon and ns.askedAgo("Turalyon"), "first character asked")
+  login(second); local b = #sent; ns.request("nameplate90")
+  print("#38 second character asks:", sent[b + 1]); assert(#sent > b and second.asked.Turalyon, "the other character is not blocked")
+  assert(BuffDiggerDB.asked == nil and BuffDiggerDB.delay, "settings shared, no requests in them")
+  fire("NAME_PLATE_UNIT_REMOVED", "nameplate90"); units.nameplate90 = nil
+  login(savedChar); units.player, myAuras, IsPlayerSpell = savedPlayer, savedAuras, savedSpell
+end
 print("SMOKE OK")

@@ -129,10 +129,10 @@ end
 -- ---------------------------------------------------------------- what went out
 
 -- Buff Digger keeps its own copy of the send functions (a hook would miss them): whispers and /say
--- come back as events; requests are read from BuffDiggerDB.asked as they appear (tests 1-4, 17, 38).
+-- come back as events; requests are read from BuffDiggerCharDB.asked as they appear (tests 1-4, 17, 38).
 local lastAsked = {}
 local function snapshotAsked()
-  for name, e in pairs(BuffDiggerDB and BuffDiggerDB.asked or {}) do
+  for name, e in pairs(BuffDiggerCharDB and BuffDiggerCharDB.asked or {}) do
     if type(e) == "table" and lastAsked[name] ~= e.at then
       lastAsked[name] = e.at
       add("request", name, e.key, "channel=" .. show(e.channel), "to=" .. show(e.target), e.silent and "silent" or "")
@@ -435,7 +435,7 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     local db = BuffDiggerDB or {}
     add("settings", "plates=" .. show(db.plates), "nearbyUseful=" .. show(db.nearbyUseful), "targetOnAsk=" .. show(db.targetOnAsk),
       "gameMenu=" .. show(db.gameMenu), "useSay=" .. show(db.useSay), "debug=" .. show(db.debug))
-    for name, e in pairs(db.asked or {}) do if type(e) == "table" then lastAsked[name] = e.at end end
+    for name, e in pairs(BuffDiggerCharDB and BuffDiggerCharDB.asked or {}) do if type(e) == "table" then lastAsked[name] = e.at end end
     C_Timer.NewTicker(2, snapshotWindows)
     C_Timer.NewTicker(1, snapshotAsked)
     C_Timer.NewTicker(1, snapshotThanks)

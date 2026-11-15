@@ -57,7 +57,7 @@ end
 
 -- A silent request with no buff after NO_ANSWER seconds (thanks close it once the buff lands).
 function ns.unanswered(name)
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   local ago = type(e) == "table" and e.silent and not e.thanked and time() - e.at
   return ago and ago >= NO_ANSWER and ago < 600 or false
 end
