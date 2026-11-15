@@ -4,6 +4,7 @@
 ## Author: Yann
 ## Version: @project-version@
 ## SavedVariables: BuffDiggerDB
+## SavedVariablesPerCharacter: BuffDiggerCharDB
 ## IconTexture: Interface\AddOns\BuffDigger\Media\icon
 ## X-Curse-Project-ID: 1792062
 

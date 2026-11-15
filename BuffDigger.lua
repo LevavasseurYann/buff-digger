@@ -166,7 +166,7 @@ end
 -- My open request to this player for this very buff (asked less than 10 minutes ago, not thanked yet).
 -- Nothing else is ever thanked: another buff, a buff nobody asked for, a giver the game doesn't name.
 local function findRequest(name, key)
-  local e = name and key and BuffDiggerDB.asked[name]
+  local e = name and key and BuffDiggerCharDB.asked[name]
   if type(e) == "table" and not e.thanked and e.key == key and time() - e.at < 600 then return e end
 end
 
@@ -212,7 +212,7 @@ local function addToThank(name, class, target, key, request)
   local known = false
   for _, k in ipairs(e.keys) do known = known or k == key end
   if not known then e.keys[#e.keys + 1] = key end
-  e.at, e.request = time(), request -- the latest: the one in BuffDiggerDB.asked
+  e.at, e.request = time(), request -- the latest: the one in BuffDiggerCharDB.asked
   table.insert(toThank, 1, e)
   if #toThank > TO_THANK_MAX then table.remove(toThank) end -- full: the oldest goes
   if ns.refreshThanks then ns.refreshThanks() end
@@ -260,7 +260,7 @@ end
 -- request is open and I can't ask them again yet: BuffDiggerDB.delay), or nil.
 function ns.askState(name)
   for _, x in ipairs(ns.thanksWaiting()) do if x.name == name then return "thank" end end
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   if type(e) == "table" and not e.thanked and time() - e.at < BuffDiggerDB.delay then return "asked" end
 end
 
@@ -269,7 +269,7 @@ end
 -- them then isn't thanked.
 function ns.closeAsk(name)
   if ns.dismissThank(name) then return end
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   if type(e) == "table" then e.thanked = true end
 end
 
@@ -480,7 +480,7 @@ end
 -- Anti-nagging: never ask the same player twice within BuffDiggerDB.delay seconds. Kept in the
 -- saved variables (real clock), so a /reload does not reset it (#6).
 function ns.askedAgo(name)
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   local ago = type(e) == "table" and (time() - e.at)
   if ago and ago < BuffDiggerDB.delay then return ago end
 end
@@ -550,7 +550,7 @@ function ns.request(unit, chosenKey)
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
   local channel, silent = ns.deliver(name, target, key, text, useSay, kind, reask)
-  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
+  BuffDiggerCharDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -945,7 +945,7 @@ BuffDigger = {
     end
     local spellIDs = {}
     for key, b in pairs(BUFFS) do spellIDs[key] = { b.id, unpack(b.group or {}) } end
-    return { toThank = copy(toThank), mine = copy(mine), asked = copy(BuffDiggerDB and BuffDiggerDB.asked), spellIDs = spellIDs }
+    return { toThank = copy(toThank), mine = copy(mine), asked = copy(BuffDiggerCharDB and BuffDiggerCharDB.asked), spellIDs = spellIDs }
   end,
 }
 _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
@@ -1069,11 +1069,15 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
     BuffDiggerDB.custom = BuffDiggerDB.custom or {} -- my own phrases (#20)
     BuffDiggerDB.customText = BuffDiggerDB.customText or {}
-    BuffDiggerDB.asked = BuffDiggerDB.asked or {}
+    -- My requests are per character (#38). Up to 1.0.0 they were shared by the whole account: the
+    -- first character loaded takes them once, the others start empty (entries live an hour anyway).
+    BuffDiggerCharDB = BuffDiggerCharDB or {}
+    BuffDiggerCharDB.asked = BuffDiggerCharDB.asked or BuffDiggerDB.asked or {}
+    BuffDiggerDB.asked = nil
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
-    for name, e in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour (or old format)
-      if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerDB.asked[name] = nil end
+    for name, e in pairs(BuffDiggerCharDB.asked) do -- forget requests older than an hour (or old format)
+      if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerCharDB.asked[name] = nil end
     end
     hookTooltip()
     if ns.buildUI then ns.buildUI() end

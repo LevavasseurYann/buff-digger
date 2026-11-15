@@ -164,3 +164,9 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
 | 68 | Get buffs : clic sur une icône d'un buffeur, attendre son buff, cliquer la ligne | Attente : nom couleur de classe, bandeau ambre qui s'efface vers la droite, icône « ? » du ready check, croix. Buff reçu : bandeau doré qui clignote 2 fois, coche verte, « Thank » doré, nom jamais caché dessous. Pas de carré vert (sinon : `/dump GetFileIDFromPath("Interface\\RaidFrame\\ReadyCheck-Ready")`). Le titre de section (Group / Around) : ligne dorée, un peu plus vive qu'avant |
+
+## Anti-relance par personnage (#38) — deux personnages du même compte
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 69 | Après la mise à jour, **relancer WoW** (`.toc` modifié). Perso A : demander un buff à X. Se déconnecter, perso B : demander à X | B demande sans « Already asked ». Retour sur A (moins d'une heure) : X compte toujours comme demandé. `/dump BuffDiggerCharDB.asked` propre à chaque perso, `/dump BuffDiggerDB.asked` = nil |
