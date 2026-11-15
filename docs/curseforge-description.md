@@ -2,7 +2,7 @@
 
 You know the drill. You zone into Stormwind, three paladins and a priest run past, and you're spamming "BoM pls" in /say hoping somebody notices. Buff Digger puts a little icon next to every friendly player who can actually give you something you're missing. Click it and a polite whisper goes out, with the spell linked. When the buff lands, the line lights up gold: one click and the thanks go out.
 
-*Alpha for WoW Forever. It works, but expect rough edges. Feedback very welcome.*
+*Made for WoW Forever. Feedback very welcome.*
 
 ---
 
