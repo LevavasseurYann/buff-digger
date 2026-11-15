@@ -137,6 +137,7 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 |---|---|---|
 | 54 | Demander un buff, le recevoir | Rien ne part tout seul ; une petite fenêtre *Thanks* apparaît avec le donneur (icône du buff, nom en couleur de classe) |
 | 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne disparaît, la fenêtre se cache si vide |
+| 56 | *Retiré (#37) : un buff non demandé ne donne plus de ligne, voir 42* | — |
 | 57 | Demander la Marque à un druide, qui pose Marque puis Épines | Une seule ligne, une icône (Marque) : Épines n'était pas demandée |
 | 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 5 min une ligne | Ligne retirée sans rien envoyer ; les lignes affichées vidées (un doré dans Get buffs reste) ; la ligne s'efface seule (au plus 5 s après) |
 | 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Fenêtre affichée : remercie sa ligne du haut ; sinon le dernier buff demandé reçu ; sans personne, « Nobody to thank right now. » |

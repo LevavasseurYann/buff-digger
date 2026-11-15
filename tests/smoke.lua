@@ -690,10 +690,13 @@ runTimers(); assert(#sent==b+2, "nothing left for later")
 asked("Whisperwind"); units.nameplate35={"Whisperwind","DRUID",40}; myAuras[#myAuras+1]=aura(399,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
 b=#sent; ns.thankBuffer("Whisperwind", true); print("flipped to say:", sent[#sent]); assert(sent[b+1]:find("^SAY nil: Whisperwind : "), "flip: thanked in /say")
 ns.dismissThank()
+-- Asked again for buffs already on me: a re-read taken for a landing would show a Thank line (#25).
+BuffDiggerDB.asked={Malfurion={at=time(), key="wild", channel="WHISPER", target="Malfurion"},
+  Whisperwind={at=time(), key="thorns", channel="WHISPER", target="Whisperwind"}}
 -- In combat my auras turn secret, then readable again: a buff I already had is not a new landing.
 local ids={}; for k,a in ipairs(myAuras) do ids[k]=a.auraInstanceID; a.auraInstanceID=SECRET end
 fire("UNIT_AURA","player"); for k,a in ipairs(myAuras) do a.auraInstanceID=ids[k] end
-local rt=time; time=function() return rt()+120 end -- past THANK_GAP: only the fix keeps them out
+local rt=time; time=function() return rt()+120 end
 fire("UNIT_AURA","player"); print("after combat:", #ns.thanksWaiting()); assert(#ns.thanksWaiting()==0, "secret in combat: no Thank after the fight"); time=rt
 -- In combat the read can also throw instead of returning secrets: same thing, nothing forgotten.
 local realRead=C_UnitAuras.GetAuraDataByIndex; C_UnitAuras.GetAuraDataByIndex=function() error("Auras cannot be accessed when secret") end
@@ -716,6 +719,8 @@ units.nameplate38={"Cecirae","PRIEST",33}; units.nameplate39={"Bismillos","PRIES
 myAuras[#myAuras+1]=aura(380,"Mot de pouvoir : Robustesse",1243,"nameplate38"); myAuras[#myAuras].expirationTime=NOW+1800
 myAuras[#myAuras+1]=aura(381,"Mot de pouvoir : Robustesse",1243,"nameplate39"); myAuras[#myAuras].expirationTime=NOW+1801
 time=function() return rt()+480 end; fire("UNIT_AURA","player"); ns.dismissThank()
+BuffDiggerDB.asked={Cecirae={at=time(), key="fortitude", channel="WHISPER", target="Cecirae"},
+  Bismillos={at=time(), key="fortitude", channel="WHISPER", target="Bismillos"}} -- asked again: still no landing
 myAuras[#myAuras-1].auraInstanceID=382; myAuras[#myAuras].auraInstanceID=383
 time=function() return rt()+600 end; fire("UNIT_AURA","player"); time=rt
 print("two Forts, new IDs:", #ns.thanksWaiting()); assert(#ns.thanksWaiting()==0, "two Forts, new IDs: no Thank")
@@ -818,10 +823,12 @@ do
   myAuras[base+2]=aura(9511,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+3001
   fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs: two rows")
   ns.thankBuffer("Seraphine"); ns.thankBuffer("Aldric"); runTimers(); assert(waiting()==0)
+  local function askBoth2() BuffDiggerDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
+    Aldric={at=time(), key="spirit", channel="WHISPER", target="Aldric"}} end
   local inFight={function() error("Auras cannot be accessed when secret") end, function() return nil end,
     function(u,i) if myAuras[i] then return {auraInstanceID=SECRET,name=SECRET} end end}
   for cycle=1,12 do
-    at(300+70*cycle); InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED")
+    at(300+70*cycle); askBoth2() -- asked again each fight: only a real new aura could make a line InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED")
     InCombatLockdown=function() return false end -- what the read gives when the lockdown check misses it
     C_UnitAuras.GetAuraDataByIndex=inFight[cycle%3+1]; fire("UNIT_AURA","player")
     if cycle%2==0 then C_UnitAuras.GetAuraDataByIndex=function() return nil end else C_UnitAuras.GetAuraDataByIndex=realRead end

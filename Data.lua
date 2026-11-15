@@ -97,7 +97,7 @@ ns.PREFERENCES = {
 -- A request is built from three parts: hello .. ask .. bye (hello ends with a space, bye starts with
 -- one; "" means "none"). Each part is drawn from a shuffled bag: every line comes out once before any
 -- comes back, so a dozen asks in a row never read like a bot. %s (only in the asks) is the spell link.
--- No "thanks" in a request: the thank-you comes on its own once the buff lands (ns.THANKS).
+-- No "thanks" in a request: the thank-you comes with a Thank click once the buff lands (ns.THANKS).
 ns.MESSAGES = {
   fr = {
     -- The spell goes in brackets or after a colon: French needs ta/ton/tes depending on the spell.

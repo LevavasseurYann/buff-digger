@@ -211,7 +211,7 @@ local function addToThank(name, class, target, key, request)
   local known = false
   for _, k in ipairs(e.keys) do known = known or k == key end
   if not known then e.keys[#e.keys + 1] = key end
-  e.at, e.request = time(), e.request or request
+  e.at, e.request = time(), request -- the latest: the one in BuffDiggerDB.asked
   table.insert(toThank, 1, e)
   if #toThank > TO_THANK_MAX then table.remove(toThank) end -- full: the oldest goes
   if ns.refreshThanks then ns.refreshThanks() end
@@ -1100,7 +1100,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
-    readMyBuffs() -- not in combat: buffs received then are read (and thanked) on PLAYER_REGEN_ENABLED
+    readMyBuffs() -- not in combat: buffs received then are read (a Thank line if asked) on PLAYER_REGEN_ENABLED
     ns.refreshAll()
   elseif event == "UNIT_SPELLCAST_SENT" then
     -- a2 = target name, a4 = spell ID
