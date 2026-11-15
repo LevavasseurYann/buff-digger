@@ -277,6 +277,98 @@ local function snapshotState()
   end
 end
 
+-- ---------------------------------------------------------------- /bdj probe (#29)
+
+-- Answers the audit's open questions (docs/audit, § 1.7) in a few seconds, out of combat: which aura
+-- APIs work, nil, go secret or raise an error, before / under / after the forced combat restriction.
+-- Result: BuffDiggerJournalDB.probe (after /reload).
+local CVAR = "addonCombatRestrictionsForced"
+local probing -- events received while the probe runs, in order
+
+local function auraIDs(r)
+  local ids = {}
+  for _, a in ipairs(r.auras) do
+    if type(a) == "table" and type(a.auraInstanceID) == "number" then ids[#ids + 1] = a.auraInstanceID end
+  end
+  table.sort(ids)
+  return ids
+end
+
+local function readAll(ids, spells)
+  local r = snapshot()
+  r.byID, r.caster, r.bySpellID, r.byName = {}, {}, {}, {}
+  for _, id in ipairs(ids) do
+    r.byID[id] = try(C_UnitAuras.GetAuraDataByAuraInstanceID, "player", id)
+    r.caster[id] = try(C_UnitAuras.GetAuraCasterGUID, "player", id)
+  end
+  for _, sid in ipairs(spells) do
+    r.bySpellID[sid] = try(C_UnitAuras.GetPlayerAuraBySpellID, sid)
+    local ok, name = pcall(C_Spell.GetSpellName, sid)
+    r.byName[sid] = (ok and type(name) == "string") and try(C_UnitAuras.GetAuraDataBySpellName, "player", name, "HELPFUL") or "<no name>"
+  end
+  r.ids = auraIDs(r)
+  return r
+end
+
+-- Puts the CVar back as it was; kept in the file until it worked, so a /reload mid-probe still restores it.
+local function restoreCVar()
+  local p = BuffDiggerJournalDB and BuffDiggerJournalDB.probe
+  if not (p and p.restore) then return end
+  p.restored = try(C_CVar.SetCVar, CVAR, p.restore)
+  local ok, now = pcall(C_CVar.GetCVar, CVAR)
+  if ok and now == p.restore then p.restore = nil
+  else print("|cff66ccff[Buff Digger Journal]|r Could not put " .. CVAR .. " back: type /console " .. CVAR .. " " .. p.restore) end
+end
+
+local function finishProbe(p)
+  probing = nil
+  p.running = nil
+  print("|cff66ccff[Buff Digger Journal]|r probe OK, /reload to save it (BuffDiggerJournalDB.probe).")
+end
+
+local function startProbe()
+  local p = BuffDiggerJournalDB.probe
+  if p and p.running then print("|cff66ccff[Buff Digger Journal]|r A probe is already running.") return end
+  if InCombatLockdown() then print("|cff66ccff[Buff Digger Journal]|r In combat: try again after.") return end
+  if p and p.restore then restoreCVar() if p.restore then return end end -- never take a forced value as the original
+  p = { running = true, at = date("%Y-%m-%d %H:%M:%S"), build = ser({ GetBuildInfo() }), secrecy = {} }
+  BuffDiggerJournalDB.probe = p
+  -- The spells: every ID in Buff Digger's Data.lua (rank 1 and group), then whatever I wear now.
+  local spells, seen = {}, {}
+  local function addSpell(id) if type(id) == "number" and not seen[id] then seen[id] = true spells[#spells + 1] = id end end
+  local ok, st = pcall(BuffDigger.debugState)
+  for _, list in pairs(ok and st.spellIDs or {}) do for _, id in ipairs(list) do addSpell(id) end end
+  local worn = myAuras()
+  for _, a in ipairs(worn) do if type(a) == "table" then addSpell(a.spellId) end end
+  local ids = auraIDs({ auras = worn })
+  for _, sid in ipairs(spells) do
+    p.secrecy[sid] = { should = try(C_Secrets and C_Secrets.ShouldSpellAuraBeSecret, sid),
+      level = try(C_Secrets and C_Secrets.GetSpellAuraSecrecy, sid) }
+  end
+  p.before = readAll(ids, spells)
+  local okInfo, value, _, _, _, _, isSecure = pcall(C_CVar.GetCVarInfo, CVAR)
+  if not (okInfo and type(value) == "string") then
+    p.cvar = okInfo and "<missing>" or { err = tostring(value) }
+    return finishProbe(p)
+  end
+  p.cvar, p.restore, p.cvarSecure = value, value, ser(isSecure)
+  probing = {}
+  p.events = probing
+  p.set = try(C_CVar.SetCVar, CVAR, "1")
+  C_Timer.After(1, function()
+    pcall(function() p.forced = readAll(ids, spells) end)
+    restoreCVar()
+    C_Timer.After(1, function()
+      pcall(function()
+        p.after = readAll(ids, spells)
+        p.sameIDs = same(ids, p.after.ids)
+        p.sameIDsForced = p.forced and same(ids, p.forced.ids)
+      end)
+      finishProbe(p)
+    end)
+  end)
+end
+
 -- ---------------------------------------------------------------- events
 
 local f = CreateFrame("Frame")
@@ -310,18 +402,25 @@ local function onRawEvent(event, a1, a2)
     record(event, { login = ser(a1), reload = ser(a2), units = { player = ident("player") } })
   elseif event == "GROUP_ROSTER_UPDATE" then recordGroup()
   elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
-    record(event, { unit = ser(a1), units = type(a1) == "string" and { [a1] = ident(a1) } or nil })
+    local unit = ser(a1)
+    record(event, { unit = unit, units = type(unit) == "string" and not unit:find("^<") and { [unit] = ident(unit) } or nil })
   end
 end
 
 local rosterPending = false
 f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   pcall(onRawEvent, event, a1, a2)
+  -- A restore that failed (combat, restriction): tried again once the probe is over.
+  if (event == "PLAYER_REGEN_ENABLED" or event == "ADDON_RESTRICTION_STATE_CHANGED") and log and log.probe
+    and log.probe.restore and not log.probe.running then pcall(restoreCVar) end
+  if probing then pcall(function() probing[#probing + 1] = { t = GetTime(), ev = event, a1 = ser(a1), a2 = ser(a2) } end) end
   if event == "ADDON_LOADED" and a1 == "BuffDiggerJournal" then
     BuffDiggerJournalDB = BuffDiggerJournalDB or {}
     log = BuffDiggerJournalDB
     log.events = log.events or {}
     events = log.events
+    local p = log.probe
+    if p then p.running = nil restoreCVar() end -- a /reload in the middle of a probe
     pcall(record, "SESSION", { time = time(), build = ser({ GetBuildInfo() }), units = { player = ident("player") } })
     add("session", GetBuildInfo(), UnitName("player"), select(2, UnitClass("player")), UnitLevel("player"))
   elseif event == "PLAYER_LOGIN" then
@@ -378,10 +477,21 @@ end)
 
 SLASH_BUFFDIGGERJOURNAL1 = "/bdj"
 SlashCmdList.BUFFDIGGERJOURNAL = function(msg)
+  if msg == "probe" then
+    local ok, err = pcall(startProbe)
+    if not ok then
+      probing = nil
+      local p = BuffDiggerJournalDB.probe
+      if p then p.running, p.err = nil, tostring(err) end
+      restoreCVar()
+      print("|cff66ccff[Buff Digger Journal]|r probe failed: " .. tostring(err))
+    end
+    return
+  end
   if msg == "clear" then
     for i = #log, 1, -1 do log[i] = nil end
     wipe(events)
     add("session", "cleared")
   end
-  print("|cff66ccff[Buff Digger Journal]|r " .. #log .. " lines, " .. #events .. " events (saved on /reload or logout). /bdj clear to start over.")
+  print("|cff66ccff[Buff Digger Journal]|r " .. #log .. " lines, " .. #events .. " events (saved on /reload or logout). /bdj clear to start over, /bdj probe to test the aura APIs.")
 end

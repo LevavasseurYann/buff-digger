@@ -12,6 +12,11 @@ alliées allumées (`/bd nameplates`), monde ouvert ou capitale (pas d'instance)
 pendant la partie. Une fois le jeu fermé, Claude lit `SavedVariables/BuffDiggerJournal.lua` et remplit
 les tests qui ne demandent pas de regarder l'écran.
 
+**`/bdj probe`** (journal installé, hors combat, avec n'importe quel buff sur soi, 2 s) : teste les API
+d'auras avant, pendant et après la restriction de combat forcée (CVar `addonCombatRestrictionsForced`,
+toujours remise à sa valeur d'origine). Puis `/reload` : le résultat est dans
+`SavedVariables/BuffDiggerJournal.lua`, sous `BuffDiggerJournalDB.probe` (les événements bruts sous `.events`).
+
 **L'aide-mémoire, c'est `/bd`** : chaque pari affiche `YES` / `NO` / `not seen yet`, et le premier
 `YES` reste noté avec sa date (« confirmed 2026-11-08 ») d'une session à l'autre. Un testeur peut
 jouer normalement puis coller `/bd` : la plupart des lignes se remplissent toutes seules.
