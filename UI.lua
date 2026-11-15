@@ -1250,14 +1250,15 @@ local function buffsToGive(unit, theirClass, myBuffs)
   return list
 end
 
--- Players I just buffed with the next-player key: name -> GetTime(). They stay out of the list a
--- few seconds, so pressing the key again moves on to someone else, even when the game can't show me
--- their new buff yet or the cast failed (line of sight). A click in the window passes no unit.
+-- Players I just buffed with the next-player key: "First Last" (ns.unitName) -> GetTime(). They
+-- stay out of the list a few seconds, so pressing the key again moves on to someone else, even when
+-- the game can't show me their new buff yet or the cast failed (line of sight). A click in the
+-- window passes no unit.
 local justCast = {}
 
 function ns.castOn(unit)
   local name = unit and ns.unitName(unit)
-  if name then justCast[ns.firstName(name)] = GetTime() end
+  if name then justCast[name] = GetTime() end
   C_Timer.After(1, ns.refreshAll)
 end
 
@@ -1273,7 +1274,7 @@ local function giveEntries(myBuffs)
   local entries, myLevel = {}, UnitLevel("player")
   for _, unit in ipairs(ns.listUnits()) do
     local name, class, level = ns.identity(unit)
-    local cast = name and justCast[ns.firstName(name)]
+    local cast = name and justCast[name]
     if cast and GetTime() - cast < SKIP_AFTER_CAST then name = nil end
     local keys = name and buffsToGive(unit, class, myBuffs) or {}
     if #keys > 0 then
@@ -1305,10 +1306,9 @@ end
 
 -- I cast at someone (macro or by hand): skip them for a few seconds, the macro moves to the next one.
 function ns.onSpellSent(target)
-  -- nil for a spell with no target (an attack, a self buff). Keyed by first name: whether the game
-  -- gives "Raide", "Raide-Boule" or "Raide Boule" here is not known yet (recette 45).
-  -- ponytail: two players sharing a first name are both skipped for SKIP_AFTER_CAST seconds.
-  local name = type(target) == "string" and ns.firstName(ns.chatName(target)) -- "" -> nil
+  -- nil for a spell with no target (an attack, a self buff). The game gives "Raide Boule" (seen in
+  -- game, recette 45); chatName also turns "Raide-Boule" into it. Keyed by the whole name (#33).
+  local name = type(target) == "string" and target ~= "" and ns.chatName(target)
   if not name then return end
   justCast[name] = GetTime()
   C_Timer.After(1, ns.refreshAll)

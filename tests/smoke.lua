@@ -559,11 +559,11 @@ UIErrorsFrame=nil; ns.nearbyUnits=realNearby; CVARS.nameplateShowFriendlyPlayers
 -- A cast sent at "Jean-Dupont" skips them for a while.
 fire("UNIT_SPELLCAST_SENT","player","Jean-Dupont","guid",1243); ns.refreshWindow()
 for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "just buffed: skipped") end
--- Same if the game names the target "Jean" only (format not known yet, recette 45).
+-- Same with "Jean Dupont", the form the game gives (seen in game, recette 45).
 NOW=NOW+60; ns.refreshWindow(); local back; for _,e in ipairs(_G.BuffDiggerGive.entries) do back = back or e.unit=="nameplate50" end
 assert(back, "listed again once the skip is over")
-fire("UNIT_SPELLCAST_SENT","player","Jean","guid",1243); ns.refreshWindow()
-for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "spell sent at \"Jean\": skipped too") end
+fire("UNIT_SPELLCAST_SENT","player","Jean Dupont","guid",1243); ns.refreshWindow()
+for _,e in ipairs(_G.BuffDiggerGive.entries) do assert(e.unit~="nameplate50", "spell sent at \"Jean Dupont\": skipped too") end
 BuffDiggerDB.give=false; ns.applyWindows()
 -- A request from "Jean-Dupont": shown as "Jean Dupont", in sight, ACK back to "Jean-Dupont".
 BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
@@ -938,6 +938,24 @@ typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box em
 pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==10, typed)
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
+print("=== Two players, one first name: each keyed by the whole name (#33)")
+do
+  NOW=NOW+60; units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 end
+  units.nameplate71={"Raide Boule","WARRIOR",40}; units.nameplate72={"Raide Tartempion","WARRIOR",40}
+  fire("NAME_PLATE_UNIT_ADDED","nameplate71"); fire("NAME_PLATE_UNIT_ADDED","nameplate72"); runTimers()
+  BuffDiggerDB.give=true; ns.applyWindows()
+  local function listed(u) for _,e in ipairs(_G.BuffDiggerGive.entries) do if e.unit==u then return true end end end
+  ns.refreshWindow(); assert(listed("nameplate71") and listed("nameplate72"), "both listed")
+  -- The spell target arrives as "Raide Boule" (seen in game): only Boule is skipped.
+  fire("UNIT_SPELLCAST_SENT","player","Raide Boule","guid",1243); ns.refreshWindow()
+  assert(not listed("nameplate71"), "Boule just buffed: skipped")
+  assert(listed("nameplate72"), "Tartempion not blocked by Boule")
+  -- A click on a Give buffs icon (castOn) on Tartempion does not hide Boule.
+  NOW=NOW+60; ns.castOn("nameplate72"); ns.refreshWindow()
+  assert(listed("nameplate71") and not listed("nameplate72"), "castOn skips Tartempion only")
+  BuffDiggerDB.give=false; ns.applyWindows(); NOW=NOW+60
+  fire("NAME_PLATE_UNIT_REMOVED","nameplate71"); fire("NAME_PLATE_UNIT_REMOVED","nameplate72"); units.nameplate71=nil; units.nameplate72=nil
+end
 print("SMOKE OK")
 print("=== buffKeyOf: spell names not loaded yet (#34)")
 do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.
