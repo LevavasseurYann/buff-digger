@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.
+- **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed.
+
 ## 1.0.0
 
 - **Out of beta.** Buff Digger is now a regular release, so the CurseForge app offers it and keeps it up to date with its default settings, no need to opt in to betas. Same addon as 0.6.0-beta: see what each friendly player can probably give you, ask in one click or key, thank them when it lands, give your own buffs from Give buffs, and let two Buff Digger users talk to each other without a whisper.

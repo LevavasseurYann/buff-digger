@@ -277,11 +277,15 @@ function ns.dismissThank(name)
 end
 
 -- Called from a click or a key: emote and message (as ticked) now, in my request's channel if
--- I asked them, in a whisper otherwise.
-function ns.thankBuffer(name)
+-- I asked them, in a whisper otherwise. flip (Shift/Ctrl-click): the other channel, like asking.
+function ns.thankBuffer(name, flip)
   local e = ns.dismissThank(name)
   if not e then return end
-  thank(e.name, e.request or { channel = "WHISPER", target = e.target }, true)
+  local request = e.request or { channel = "WHISPER", target = e.target }
+  if flip then
+    request = { channel = request.channel == "SAY" and "WHISPER" or "SAY", target = request.target or e.target }
+  end
+  thank(e.name, request, true)
   lastThank[e.name] = time()
   ns.flushThanks()
 end
@@ -352,11 +356,14 @@ local function readMyBuffs()
   -- same time is the one I already had, not a new landing to thank.
   local had = {}
   for _, info in pairs(byInstance) do if info.key then had[info.key] = info end end
+  local hidden = false
   for i = 1, 40 do
     local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
     if not ok or not aura then break end
     local id = aura.auraInstanceID
-    if readable(id) and readable(aura.name) then
+    local known = readable(id) and readable(aura.name)
+    hidden = hidden or not known
+    if known then
       local info = byInstance[id]
       local expires, duration = auraExpires(aura)
       local old = not info and had[buffKeyOf(aura.name) or false]
@@ -391,6 +398,18 @@ local function readMyBuffs()
       end
       info.expires, info.duration = expires, duration
       seen[id] = info
+    end
+  end
+  -- Some auras secret (in combat): keep what I knew of them. Dropped, they would all come back as new
+  -- landings after the fight and gold "Thank" lines for buffs already thanked (journal, 2026-11-15).
+  -- Not a buff already read under a new ID, nor one past its end: PLAYER_REGEN_ENABLED reads again.
+  if hidden then
+    local keys = {}
+    for _, info in pairs(seen) do if info.key then keys[info.key] = true end end
+    for id, info in pairs(byInstance) do
+      if not seen[id] and not (info.key and keys[info.key]) and not (info.expires and info.expires < GetTime()) then
+        seen[id] = info
+      end
     end
   end
   byInstance, ready = seen, true -- the first pass thanks nobody
@@ -1091,6 +1110,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if ns.onCombat then ns.onCombat(true) end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if ns.onCombat then ns.onCombat(false) end
+    readMyBuffs() -- auras secret during the fight: what fell off then is only seen now
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_ADDED" then
     shownPlates[a1] = true

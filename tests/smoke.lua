@@ -35,6 +35,7 @@ GetBuildInfo=function() return "1.60.1",1,"",16001 end; CVARS={nameplateShowFrie
 GetCursorPosition=function() return 0,0 end; IsPlayerSpell=function() return false end
 DoEmote=function(e,n) sent[#sent+1]="EMOTE "..e.." "..n end
 local NAMES={[19740]="Bénédiction de puissance",[20217]="Bénédiction des rois",[19742]="Bénédiction de sagesse",[1243]="Mot de pouvoir : Robustesse"}
+SECRET={}; issecretvalue=function(v) return v==SECRET end
 SHIFT=false; IsShiftKeyDown=function() return SHIFT end; IsControlKeyDown=function() return false end
 C_Spell={GetSpellLink=function(id) return "|cff71d5ff|Hspell:"..id..":0|h["..(NAMES[id] or "x").."]|h|r" end, GetSpellName=function(id) return NAMES[id] or ("spell"..id) end, GetSpellTexture=function() return 1 end}
 local myAuras={}
@@ -697,6 +698,22 @@ myAuras[3].expirationTime=NOW+1200; fire("UNIT_AURA","player"); assert(#ns.thank
 units.nameplate32={"Moira","PRIEST",40}; local realName=UnitName; UnitName=function(u) if u=="nameplate32" then return "Moira","Ironforge" end return realName(u) end; myAuras[3].sourceUnit="nameplate32"; myAuras[3].expirationTime=NOW+1500; fire("UNIT_AURA","player")
 assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Moira Ironforge")
 b=#sent; ns.thankBuffer("Moira Ironforge"); assert(sent[b+1]:find("^WHISPER Moira%-Ironforge: "), "unasked: a whisper, to her realm"); UnitName=realName
+-- Shift/Ctrl-click on a Thank line: the other channel. A gift goes to /say, a /say ask to a whisper.
+units.nameplate35={"Whisperwind","DRUID",40}; myAuras[#myAuras+1]=aura(399,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
+b=#sent; ns.thankBuffer("Whisperwind", true); print("flipped to say:", sent[#sent]); assert(sent[#sent]:find("^SAY nil: Whisperwind : ") and not sent[b+1]:find("^WHISPER"), "flip: gift thanked in /say")
+ns.dismissThank()
+-- In combat my auras turn secret, then readable again: a buff I already had is not a new landing.
+local ids={}; for k,a in ipairs(myAuras) do ids[k]=a.auraInstanceID; a.auraInstanceID=SECRET end
+fire("UNIT_AURA","player"); for k,a in ipairs(myAuras) do a.auraInstanceID=ids[k] end
+local rt=time; time=function() return rt()+120 end -- past THANK_GAP: only the fix keeps them out
+fire("UNIT_AURA","player"); print("after combat:", #ns.thanksWaiting()); assert(#ns.thanksWaiting()==0, "secret in combat: no Thank after the fight"); time=rt
+-- A buff that falls off while my auras are secret is gone once the fight ends.
+local idOf={}; for _,a in ipairs(myAuras) do idOf[a]=a.auraInstanceID; a.auraInstanceID=SECRET end
+local function held() local n=0 for k in pairs(ns.BUFFS) do if ns.haveBuff(k) then n=n+1 end end return n end
+local had=held(); local gone=table.remove(myAuras, 1); fire("UNIT_AURA","player") -- Mark (1126): the only one
+for a,id in pairs(idOf) do a.auraInstanceID=id end
+fire("PLAYER_REGEN_ENABLED"); assert(held()==had-1 and #ns.thanksWaiting()==0, "the buff that fell off in combat is gone")
+table.insert(myAuras, 1, gone); fire("UNIT_AURA","player"); ns.dismissThank() -- back as it was for what follows
 -- In an instance: unasked gives no row, asked does.
 IsInInstance=function() return true end
 myAuras[3].sourceUnit="nameplate31"; myAuras[3].expirationTime=NOW+1800; fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "instance, unasked")

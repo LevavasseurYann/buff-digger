@@ -780,7 +780,7 @@ local function makeWindow(globalName, title, setting, cast, point)
       if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit)
       -- A gold line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
       elseif mouse == "LeftButton" and self.state == "thank" then
-        ns.thankBuffer(self.entry.who)
+        ns.thankBuffer(self.entry.who, IsShiftKeyDown() or IsControlKeyDown())
         if not InCombatLockdown() then w.fill() end
       end
     end)
@@ -1060,7 +1060,7 @@ local function buildThanks()
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row:SetScript("OnClick", function(self, mouse)
-      if mouse == "RightButton" then ns.dismissThank(self.name) else ns.thankBuffer(self.name) end
+      if mouse == "RightButton" then ns.dismissThank(self.name) else ns.thankBuffer(self.name, IsShiftKeyDown() or IsControlKeyDown()) end
     end)
     -- The lines fill the window: dragging one moves the window (a drag is not a click, nothing sent).
     row:RegisterForDrag("LeftButton")
