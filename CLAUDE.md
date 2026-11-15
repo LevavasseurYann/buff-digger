@@ -34,6 +34,10 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
 - Test sans le jeu (fausse API WoW + scénarios dans `tests/smoke.lua`) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
   Il ne remplace pas le jeu : tout ce qui touche à Blizzard (secrets, blocages, barres de nom) se
   confirme en jeu, par Yann. Ce qu'il reste à vérifier en jeu : `docs/recette-en-jeu.md` (résultats dans l'issue #1).
+  La CI (`.github/workflows/test.yml`) le lance à chaque push et PR.
+- API contre la doc Blizzard de Forever (`Gethe/wow-ui-source`, branche `forever`, cache `tests/.apidoc/`) :
+  `python -I tests/check_api.py` (supprimer le cache pour suivre la branche, la CI la reprend à chaque fois).
+  Échoue si un `C_X.Y` ou un événement n'existe pas ; liste ceux marqués secrets.
 - Installer en jeu : voir README § Développer (copie vers `_forever_\Interface\AddOns\BuffDigger`).
   Nouveau fichier ou `.toc` modifié → relancer WoW (`/reload` ne suffit pas).
 - Chaque lot de changements : relecture par un sous-agent `agent-skills:code-reviewer`, puis

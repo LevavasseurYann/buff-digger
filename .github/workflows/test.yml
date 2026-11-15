@@ -1,0 +1,21 @@
+# Runs the no-game smoke test on every push and pull request (tags go through release.yml).
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Smoke test
+        run: uv run --no-project -q --with "lupa>=2,<3" python -I tests/run_smoke.py
+      - name: API check (Blizzard docs for Forever)
+        run: python3 -I tests/check_api.py
