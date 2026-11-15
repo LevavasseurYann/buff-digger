@@ -1,7 +1,9 @@
 -- Buff Digger Journal: dev only (dev/ is never packaged, see .pkgmeta). During a play session it
 -- writes what Buff Digger does into BuffDiggerJournalDB (saved when the game closes or on /reload),
 -- so the in-game test checklist (docs/recette-en-jeu.md) can be filled from the file afterwards.
--- /bdj = how many lines; /bdj clear = start over. Only watches: never calls Buff Digger itself.
+-- Two parts: text lines (BuffDiggerJournalDB[1..n]) for a human, and raw events (BuffDiggerJournalDB.events)
+-- for a replay off the game (#27). /bdj = how many; /bdj clear = start over.
+-- Only watches: reads Buff Digger through BuffDigger.debugState() (copies), never changes it.
 -- Install: copy this folder next to BuffDigger in Interface/AddOns (restart WoW the first time).
 
 local MAX = 800
@@ -157,6 +159,124 @@ if geterrorhandler and seterrorhandler then
   end)
 end
 
+-- ---------------------------------------------------------------- raw events, to replay off the game (#27)
+
+-- BuffDiggerJournalDB.events: { t = GetTime(), ev = "UNIT_AURA", ... }, the last MAX_EVENTS only.
+local MAX_EVENTS = 5000
+local events
+
+-- A copy that the SavedVariables file can hold and dofile read back: a secret becomes "<secret>", a
+-- table we may not read "<locked>", an error { err = msg }, a function or frame its tostring.
+local function ser(v, depth)
+  if issecretvalue and issecretvalue(v) then return "<secret>" end
+  local tv = type(v)
+  if tv == "number" and (v ~= v or v == math.huge or v == -math.huge) then return tostring(v) end
+  if tv == "nil" or tv == "number" or tv == "string" or tv == "boolean" then return v end
+  if tv ~= "table" then return tostring(v) end
+  if canaccesstable and not canaccesstable(v) then return "<locked>" end
+  depth = (depth or 0) + 1
+  if depth > 6 then return "<deep>" end
+  local ok, out = pcall(function()
+    local t = {}
+    for k, x in pairs(v) do
+      local key = ser(k, 6)
+      if type(key) == "table" then key = "<table key>" end
+      t[key] = ser(x, depth)
+    end
+    return t
+  end)
+  if ok then return out end
+  return { err = tostring(out) }
+end
+
+-- One call, whatever happens: its result, "<nil>", "<secret>", { err = msg } or "<missing>".
+local function try(fn, ...)
+  if not fn then return "<missing>" end
+  local ok, v = pcall(fn, ...)
+  if not ok then return { err = tostring(v) } end
+  v = ser(v)
+  if v == nil then return "<nil>" end
+  return v
+end
+
+local function ident(unit)
+  local name, last = UnitName(unit)
+  local _, class = UnitClass(unit)
+  return ser({ name = name, last = last, class = class, level = UnitLevel(unit) })
+end
+
+local function record(ev, e)
+  if not events then return end
+  e = e or {}
+  e.t, e.ev = GetTime(), ev
+  events[#events + 1] = e
+  if #events > MAX_EVENTS then table.remove(events, 1) end
+end
+
+local function restrictions()
+  local r = {}
+  local get = C_RestrictedActions and C_RestrictedActions.GetAddOnRestrictionState
+  for name, v in pairs(get and Enum and Enum.AddOnRestrictionType or {}) do r[name] = try(get, v) end
+  return r
+end
+
+-- All my helpful auras by index, stopping at the first nil, secret or error (each kept as such).
+local function myAuras()
+  local list = {}
+  for i = 1, 40 do
+    local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+    if not ok then list[i] = { err = tostring(a) } break end
+    a = ser(a)
+    if a == nil then list[i] = "<nil>" break end
+    list[i] = a
+    if a == "<secret>" or a == "<locked>" then break end
+  end
+  return list
+end
+
+local function snapshot()
+  return { secret = try(C_Secrets and C_Secrets.ShouldAurasBeSecret), lockdown = try(InCombatLockdown),
+    restrictions = restrictions(), auras = myAuras() }
+end
+
+local function recordAura(unit, info)
+  local e = { unit = unit, info = ser(info), units = {} }
+  local added = type(e.info) == "table" and e.info.addedAuras
+  for _, a in pairs(type(added) == "table" and added or {}) do
+    local src = type(a) == "table" and a.sourceUnit
+    if type(src) == "string" and not src:find("^<") then e.units[src] = ident(src) end
+  end
+  record("UNIT_AURA", e)
+end
+
+local function recordGroup()
+  local raid = IsInRaid()
+  local e = { raid = raid, units = {} }
+  for i = 1, math.min(raid and GetNumGroupMembers() or GetNumSubgroupMembers(), 40) do
+    local unit = (raid and "raid" or "party") .. i
+    e.units[unit] = ident(unit)
+  end
+  record("GROUP_ROSTER_UPDATE", e)
+end
+
+-- What Buff Digger itself holds (toThank, mine, asked), logged when it changes.
+local function same(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+  for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+  for k in pairs(b) do if a[k] == nil then return false end end
+  return true
+end
+local lastState
+local function snapshotState()
+  if not (BuffDigger and BuffDigger.debugState) then return end
+  local s = BuffDigger.debugState()
+  s = { toThank = ser(s.toThank), mine = ser(s.mine), asked = ser(s.asked) }
+  if not same(s, lastState) then
+    lastState = s
+    record("STATE", { state = s })
+  end
+end
+
 -- ---------------------------------------------------------------- events
 
 local f = CreateFrame("Frame")
@@ -177,12 +297,32 @@ f:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
 f:RegisterUnitEvent("UNIT_AURA", "player")
+f:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+f:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+f:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+
+-- The raw events (#27): never an error, in combat or not.
+local function onRawEvent(event, a1, a2)
+  if event == "UNIT_AURA" then recordAura(a1, a2)
+  elseif event == "ADDON_RESTRICTION_STATE_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+    record(event, { type = ser(a1), state = ser(a2), snapshot = snapshot() })
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    record(event, { login = ser(a1), reload = ser(a2), units = { player = ident("player") } })
+  elseif event == "GROUP_ROSTER_UPDATE" then recordGroup()
+  elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
+    record(event, { unit = ser(a1), units = type(a1) == "string" and { [a1] = ident(a1) } or nil })
+  end
+end
 
 local rosterPending = false
 f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
+  pcall(onRawEvent, event, a1, a2)
   if event == "ADDON_LOADED" and a1 == "BuffDiggerJournal" then
     BuffDiggerJournalDB = BuffDiggerJournalDB or {}
     log = BuffDiggerJournalDB
+    log.events = log.events or {}
+    events = log.events
+    pcall(record, "SESSION", { time = time(), build = ser({ GetBuildInfo() }), units = { player = ident("player") } })
     add("session", GetBuildInfo(), UnitName("player"), select(2, UnitClass("player")), UnitLevel("player"))
   elseif event == "PLAYER_LOGIN" then
     for _, name in ipairs({ "BuffDiggerNearby", "BuffDiggerGive", "BuffDiggerRequests", "BuffDiggerGiveNext" }) do
@@ -200,6 +340,7 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     C_Timer.NewTicker(2, snapshotWindows)
     C_Timer.NewTicker(1, snapshotAsked)
     C_Timer.NewTicker(1, snapshotThanks)
+    C_Timer.NewTicker(1, function() pcall(snapshotState) end)
   elseif event == "PLAYER_ENTERING_WORLD" then
     snapshotGroup("entering world")
   elseif event == "GROUP_ROSTER_UPDATE" then
@@ -239,7 +380,8 @@ SLASH_BUFFDIGGERJOURNAL1 = "/bdj"
 SlashCmdList.BUFFDIGGERJOURNAL = function(msg)
   if msg == "clear" then
     for i = #log, 1, -1 do log[i] = nil end
+    wipe(events)
     add("session", "cleared")
   end
-  print("|cff66ccff[Buff Digger Journal]|r " .. #log .. " lines (saved on /reload or logout). /bdj clear to start over.")
+  print("|cff66ccff[Buff Digger Journal]|r " .. #log .. " lines, " .. #events .. " events (saved on /reload or logout). /bdj clear to start over.")
 end
