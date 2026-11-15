@@ -777,12 +777,9 @@ local function makeWindow(globalName, title, setting, cast, point)
     ns.secureClicks(row)
     row:HookScript("PostClick", function(self, mouse)
       if cast then return end
-      if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit)
-      -- A gold line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
-      elseif mouse == "LeftButton" and self.state == "thank" then
-        ns.thankBuffer(self.entry.who, IsShiftKeyDown() or IsControlKeyDown())
-        if not InCombatLockdown() then w.fill() end
-      end
+      -- A gold line (#24) does nothing on its own: only its tick + "Thank" (row.thankButton) thanks,
+      -- a click next to the cross must not whisper anyone.
+      if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
     end)
     -- Get buffs (#24): a cross ends the wait (amber) or skips the thank-you (gold), sending nothing.
     -- A plain button on the secure row, like the fold: nothing secure to set.
@@ -819,6 +816,21 @@ local function makeWindow(globalName, title, setting, cast, point)
       row.thank = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall") -- gold, like a button label
       row.thank:SetPoint("RIGHT", -20, 0)
       row.thank:SetText(L["Thank"])
+      -- The tick and "Thank" are the button (a real click: /say goes too); Shift/Ctrl: other channel.
+      row.thankButton = CreateFrame("Button", nil, row)
+      row.thankButton:SetPoint("TOPLEFT", row.status, "TOPLEFT", -2, 2)
+      row.thankButton:SetPoint("BOTTOMRIGHT", row.thank, "BOTTOMRIGHT", 2, -2)
+      row.thankButton:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+      row.thankButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+      row.thankButton:SetScript("OnClick", function(_, mouse)
+        if mouse == "RightButton" then -- the player's menu, as anywhere else on the line
+          if not gone() then ns.openMenu(row, row.unit) end
+          return
+        end
+        ns.thankBuffer(row.entry.who, IsShiftKeyDown() or IsControlKeyDown())
+        if not InCombatLockdown() then w.fill() end
+      end)
+      row.thankButton:Hide()
       -- The buff just landed: the band and its edge flash twice.
       row.pulse = row:CreateAnimationGroup()
       for k = 1, 4 do
@@ -949,6 +961,7 @@ local function fill(w, list, emptyMessage)
         row.edge:SetShown(state ~= nil)
         row.status:SetShown(state ~= nil)
         row.thank:SetShown(state == "thank")
+        row.thankButton:SetShown(state == "thank")
         if state == "thank" then
           fadeRight(row.band, 1, 0.82, 0, 0.35)
           row.edge:SetColorTexture(1, 0.82, 0, 0.9)

@@ -351,11 +351,21 @@ local function onBuffLanded(aura, info, prevGiver)
 end
 
 local function readMyBuffs()
+  -- In combat my auras can be secret, missing from the list, or the call can fail: none of that is
+  -- reliable to tell apart (journal 2026-11-15, Thank lines after every fight). Don't read them
+  -- then: PLAYER_REGEN_ENABLED reads again, and what landed in the fight is seen there.
+  if InCombatLockdown() then return end
   local seen = {}
   -- A shapeshift (Ghost Wolf...) can hand every aura a new instance ID: a known buff ending at the
   -- same time is the one I already had, not a new landing to thank.
+  -- By buff, and by buff and giver: two priests' Fortitude on me must not be mixed up.
   local had = {}
-  for _, info in pairs(byInstance) do if info.key then had[info.key] = info end end
+  for _, info in pairs(byInstance) do
+    if info.key then
+      had[info.key] = info
+      if info.giver then had[info.key .. "|" .. info.giver] = info end
+    end
+  end
   local hidden = false
   for i = 1, 40 do
     local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
@@ -369,10 +379,12 @@ local function readMyBuffs()
     if known then
       local info = byInstance[id]
       local expires, duration = auraExpires(aura)
-      local old = not info and had[buffKeyOf(aura.name) or false]
+      local key = buffKeyOf(aura.name)
+      local src = aura.sourceUnit
+      local from = not info and key and readable(src) and src and ns.unitName(src)
+      local old = not info and key and (readable(from) and from and had[key .. "|" .. from] or had[key])
       -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
       -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
-      local src = aura.sourceUnit
       local caster = old and readable(src) and src and ns.unitName(src)
       local sameGiver = not (readable(caster) and caster and old.giver) or caster == old.giver
       local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
@@ -1126,7 +1138,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
-    readMyBuffs() -- buffs received in combat are still recorded and thanked
+    readMyBuffs() -- not in combat: buffs received then are read (and thanked) on PLAYER_REGEN_ENABLED
     ns.refreshAll()
   elseif event == "UNIT_SPELLCAST_SENT" then
     -- a2 = target name, a4 = spell ID

@@ -712,6 +712,26 @@ local realRead=C_UnitAuras.GetAuraDataByIndex; C_UnitAuras.GetAuraDataByIndex=fu
 fire("UNIT_AURA","player"); C_UnitAuras.GetAuraDataByIndex=realRead
 time=function() return rt()+240 end; fire("UNIT_AURA","player"); time=rt
 assert(#ns.thanksWaiting()==0, "read error in combat: no Thank after the fight")
+-- In combat my auras can also be missing from the list: not read at all then, nothing forgotten.
+InCombatLockdown=function() return true end; local saved=myAuras; myAuras={}
+C_UnitAuras.GetAuraDataByIndex=function(u,i) if u=="player" then return myAuras[i] end end
+fire("UNIT_AURA","player"); myAuras=saved; C_UnitAuras.GetAuraDataByIndex=realRead; InCombatLockdown=function() return false end
+time=function() return rt()+360 end; fire("PLAYER_REGEN_ENABLED"); time=rt
+assert(#ns.thanksWaiting()==0, "auras missing in combat: no Thank after the fight")
+-- A buff I asked for that lands in combat: nothing then, one Thank line once the fight ends.
+BuffDiggerDB.asked={Tirion={at=time(), key="kings", channel="WHISPER", target="Tirion"}}; units.nameplate40={"Tirion","PALADIN",40}; InCombatLockdown=function() return true end
+myAuras[#myAuras+1]=aura(390,"Bénédiction des rois",20217,"nameplate40"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "in combat: not yet")
+InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED")
+assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Tirion", "after the fight: one Thank"); ns.dismissThank(); table.remove(myAuras); fire("UNIT_AURA","player")
+-- Two priests' Fortitude on me (journal 2026-11-15), new instance IDs after the fight: neither is a new gift.
+units.nameplate38={"Cecirae","PRIEST",33}; units.nameplate39={"Bismillos","PRIEST",35}
+myAuras[#myAuras+1]=aura(380,"Mot de pouvoir : Robustesse",1243,"nameplate38"); myAuras[#myAuras].expirationTime=NOW+1800
+myAuras[#myAuras+1]=aura(381,"Mot de pouvoir : Robustesse",1243,"nameplate39"); myAuras[#myAuras].expirationTime=NOW+1801
+time=function() return rt()+480 end; fire("UNIT_AURA","player"); ns.dismissThank()
+myAuras[#myAuras-1].auraInstanceID=382; myAuras[#myAuras].auraInstanceID=383
+time=function() return rt()+600 end; fire("UNIT_AURA","player"); time=rt
+print("two Forts, new IDs:", #ns.thanksWaiting()); assert(#ns.thanksWaiting()==0, "two Forts, new IDs: no Thank")
+table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player")
 -- A buff that falls off while my auras are secret is gone once the fight ends.
 local idOf={}; for _,a in ipairs(myAuras) do idOf[a]=a.auraInstanceID; a.auraInstanceID=SECRET end
 local function held() local n=0 for k in pairs(ns.BUFFS) do if ns.haveBuff(k) then n=n+1 end end return n end
@@ -752,11 +772,13 @@ units.nameplate46={"Elune","DRUID",40}; myAuras[#myAuras+1]=aura(318,"spell467",
 for _,f in ipairs(tw.CloseButton._hooks.OnClick) do f() end; assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Elune" and not tw._shown, "close forgets the lines shown, not the gift")
 ns.dismissThank()
 -- The key with the window shown: its top line, not a newer gift it doesn't show.
-asked("Cenarius"); units.nameplate35={"Cenarius","DRUID",40}; myAuras[#myAuras+1]=aura(319,"spell467",467,"nameplate35"); fire("UNIT_AURA","player")
+asked("Cenarius"); units.nameplate35={"Cenarius","DRUID",40}; myAuras[#myAuras+1]=aura(319,"spell467",467,"nameplate35"); myAuras[#myAuras].expirationTime=NOW+900 -- his recast ends later
+fire("UNIT_AURA","player")
 units.nameplate47={"Ysera","DRUID",40}; myAuras[#myAuras+1]=aura(320,"spell467",467,"nameplate47"); fire("UNIT_AURA","player")
 assert(tw._shown and ns.thanksWaiting()[1].name=="Ysera"); BuffDigger.thankLast(); assert(sent[#sent]=="EMOTE THANK Cenarius", "key: the window's line")
 -- Full list: the oldest gift goes, never the buff I asked for.
-asked("Remulos"); units.nameplate34={"Remulos","DRUID",40}; myAuras[#myAuras+1]=aura(321,"spell467",467,"nameplate34"); fire("UNIT_AURA","player")
+asked("Remulos"); units.nameplate34={"Remulos","DRUID",40}; myAuras[#myAuras+1]=aura(321,"spell467",467,"nameplate34"); myAuras[#myAuras].expirationTime=NOW+900 -- his recast ends later
+fire("UNIT_AURA","player")
 for i=1,5 do units["nameplate"..(47+i)]={"Gift"..i,"DRUID",40}; myAuras[#myAuras+1]=aura(321+i,"spell467",467,"nameplate"..(47+i)); fire("UNIT_AURA","player") end
 local names={}; for _,x in ipairs(ns.thanksWaiting()) do names[x.name]=true end
 assert(#ns.thanksWaiting()==5 and names.Remulos and not names.Ysera and not names.Gift1, "asked one kept")
@@ -792,6 +814,8 @@ local plays=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() plays=
 ns.refreshWindow(); assert(plays==0, "already flashed: no flash on refresh")
 assert(not _G.BuffDiggerThanks._shown, "on Get buffs: no Thanks window")
 b=#sent; for _,f in ipairs(r._hooks.PostClick) do f(r,"LeftButton",false) end
+assert(#sent==b and r.state=="thank", "a click on the gold line itself sends nothing")
+assert(r.thankButton._shown); r.thankButton._OnClick(r.thankButton)
 assert(#sent==b+2 and sent[b+1]:find("^WHISPER Tyrande") and sent[b+2]=="EMOTE THANK Tyrande", "gold click thanks at once")
 assert(r.state==nil and not r.close._shown and not r.band._shown and not r.thank._shown and r:GetAttribute("macrotext")=="/target Tyrande", "back to normal")
 ns.refreshWindow(); assert(not lineOf("Tyrande"), "thanked: the filter applies again")

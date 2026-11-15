@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.
+- **No stray thank-yous.** On a gold line in Get buffs, only the tick and *Thank* thank the player, and only the cross closes it: a click elsewhere on the line, say next to the cross, sends nothing.
 - **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed.
 
 ## 1.0.0
