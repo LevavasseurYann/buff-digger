@@ -62,6 +62,49 @@ local function snapshotWindows()
   end
 end
 
+-- ---------------------------------------------------------------- who waits for a thank-you (#21, #24)
+
+-- The Thanks window's lines and the gold/amber Get buffs lines, logged when they change: which aura
+-- (aura-in, just before) put someone there.
+local lastThanks
+local function snapshotThanks()
+  local items = {}
+  local tw = _G.BuffDiggerThanks
+  if tw and tw:IsShown() then
+    for _, e in ipairs(tw.list or {}) do items[#items + 1] = "window:" .. show(e.name) end
+  end
+  local gw = _G.BuffDiggerNearby
+  if gw and gw:IsShown() then
+    for _, row in ipairs(gw.rows or {}) do
+      if row:IsShown() and row.state and row.entry then items[#items + 1] = row.state .. ":" .. show(row.entry.who) end
+    end
+  end
+  local sig = table.concat(items, ", ")
+  if sig ~= lastThanks then
+    lastThanks = sig
+    add("to-thank", sig == "" and "nobody" or sig)
+  end
+end
+
+-- Every helpful aura landing on me (new or refreshed), with who cast it: what made Buff Digger
+-- offer a thank-you.
+local function auraIn(id, how)
+  local ok, aura = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, "player", id)
+  if not (ok and aura) or not aura.isHelpful then return end
+  local src = aura.sourceUnit
+  local readable = not (issecretvalue and issecretvalue(src))
+  if readable and src == "player" then return end -- my own (Lightning Shield charges): noise
+  local who = src and readable and UnitName(src)
+  add("aura-in", how, aura.name, aura.spellId, "source=" .. show(src), show(who))
+end
+
+local function onAura(info)
+  if type(info) ~= "table" then return end
+  if info.isFullUpdate then add("aura-in", "full update (zoning, shapeshift?)") return end
+  for _, aura in ipairs(info.addedAuras or {}) do auraIn(aura.auraInstanceID, "new") end
+  for _, id in ipairs(info.updatedAuraInstanceIDs or {}) do auraIn(id, "update") end
+end
+
 -- ---------------------------------------------------------------- group (tests 47-50, 49 = dungeon)
 
 local function snapshotGroup(why)
@@ -133,6 +176,7 @@ f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
+f:RegisterUnitEvent("UNIT_AURA", "player")
 
 local rosterPending = false
 f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
@@ -155,6 +199,7 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     for name, e in pairs(db.asked or {}) do if type(e) == "table" then lastAsked[name] = e.at end end
     C_Timer.NewTicker(2, snapshotWindows)
     C_Timer.NewTicker(1, snapshotAsked)
+    C_Timer.NewTicker(1, snapshotThanks)
   elseif event == "PLAYER_ENTERING_WORLD" then
     snapshotGroup("entering world")
   elseif event == "GROUP_ROSTER_UPDATE" then
@@ -182,6 +227,9 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     add("spell-sent", a4 and C_Spell.GetSpellName(a4), a4, "target=" .. show(a2))
   elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
     add("spell-done", a3 and C_Spell.GetSpellName(a3), a3)
+  elseif event == "UNIT_AURA" then
+    -- In combat (a duel too) the game hides aura details (secret values): nothing logged then.
+    pcall(onAura, a2)
   elseif event == "UNIT_SPELLCAST_FAILED" then
     add("spell-failed", a3 and C_Spell.GetSpellName(a3), a3)
   end
