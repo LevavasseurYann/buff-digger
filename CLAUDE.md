@@ -31,10 +31,14 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   (UNIT_SPELLCAST_SENT) arrive en « Prénom Nom ».
 
 ## Vérifier
-- Test sans le jeu (fausse API WoW + scénarios dans `tests/smoke.lua`) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
+- Test sans le jeu (fausse API `tests/fakewow.lua`, scénarios `tests/smoke.lua`, rejeu des journaux
+  `tests/fixtures/*.lua` par `tests/replay.lua` avec ses invariants I1-I3) : `uv run --no-project -q --with lupa python -I tests/run_smoke.py`.
   Il ne remplace pas le jeu : tout ce qui touche à Blizzard (secrets, blocages, barres de nom) se
   confirme en jeu, par Yann. Ce qu'il reste à vérifier en jeu : `docs/recette-en-jeu.md` (résultats dans l'issue #1).
   La CI (`.github/workflows/test.yml`) le lance à chaque push et PR.
+- Un bug vu en jeu = d'abord une fixture rejouée qui échoue (`tests/fixtures/`). Journal → fixture :
+  `uv run --no-project -q --with lupa python -I tests/journal_to_fixture.py <SavedVariables/BuffDiggerJournal.lua> tests/fixtures/<date-quoi>.lua`
+  (garde les événements bruts, remplace les noms vus par Player1, Player2… ; relire avant de commiter).
 - API contre la doc Blizzard de Forever (`Gethe/wow-ui-source`, branche `forever`, cache `tests/.apidoc/`) :
   `python -I tests/check_api.py` (supprimer le cache pour suivre la branche, la CI la reprend à chaque fois).
   Échoue si un `C_X.Y` ou un événement n'existe pas ; liste ceux marqués secrets.
