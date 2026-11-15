@@ -7,7 +7,10 @@
 --   I2  a fight without a readable addedAuras adds no Thank line (except an open request honored);
 --   I3  no Lua error.
 -- What the journal can't give is approximated: the player's clicks come from its STATE events (a new
--- request, a line gone from toThank = Thank clicked), and an updated aura keeps its old end time.
+-- request; a line gone from toThank = Thank clicked, even if it was dismissed or ran out), and an updated
+-- aura keeps its old end time. One fixture = one client session: exactly one SESSION, no /reload (split
+-- the journal there); the auras I already had come from the PLAYER_ENTERING_WORLD snapshot (journals
+-- from before that snapshot existed: auras held at the start look like gifts, cut them out).
 dofile(DIR .. "tests/fakewow.lua")
 reset(); wipe(units) -- only the players the journal names
 dofile(FIXTURE)
@@ -64,7 +67,15 @@ local function apply(snap)
   end
 end
 
-local epoch, t0 = os.time(), 0
+-- time() from GetTime(), through the session's one SESSION event: requests keep their real age.
+local epoch, t0
+for _, e in ipairs(events) do
+  if e.ev == "SESSION" then
+    assert(not epoch, fixture .. ": two SESSION events (a /reload or a restart): split the journal there")
+    epoch, t0 = e.time, e.t
+  end
+end
+assert(type(epoch) == "number", fixture .. ": no SESSION event (cut by the ring?): time() can't be rebuilt")
 time = function() return math.floor(epoch + NOW - t0) end
 
 local live = {}          -- giver -> t of the last readable pose of a Data.lua buff from them (I1)
@@ -81,9 +92,8 @@ local function step(e)
   NOW = e.t
   learn(e.units)
   local ev = e.ev
-  if ev == "SESSION" then
-    if type(e.time) == "number" then epoch, t0 = e.time, e.t end
-  elseif ev == "STATE" then
+  if ev ~= "UNIT_AURA" then apply(e.snapshot) end
+  if ev == "STATE" then
     local s = e.state or {}
     for who, r in pairs(type(s.asked) == "table" and s.asked or {}) do
       local mine = BuffDiggerDB.asked[who]
@@ -114,7 +124,6 @@ local function step(e)
     end
     fire(ev, e.unit, info)
   elseif ev == "PLAYER_REGEN_DISABLED" or ev == "PLAYER_REGEN_ENABLED" or ev == "ADDON_RESTRICTION_STATE_CHANGED" then
-    apply(e.snapshot)
     fire(ev, de(e.type), de(e.state))
   elseif ev == "GROUP_ROSTER_UPDATE" then
     for token in pairs(units) do
@@ -150,7 +159,8 @@ for _, e in ipairs(events) do -- who I am, before the addon loads
 end
 fire("ADDON_LOADED", "BuffDigger"); fire("PLAYER_LOGIN"); runTimers()
 local before = thanks()
-for _, e in ipairs(events) do
+for i, e in ipairs(events) do
+  if i > 1 and e.t < events[i - 1].t then fail(e, "order", "time goes backwards (a restart?): split the journal there") end
   local ok, err = pcall(step, e)
   if not ok then fail(e, "I3 Lua error", tostring(err)) end
   local after = thanks()

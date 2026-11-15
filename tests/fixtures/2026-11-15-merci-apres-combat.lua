@@ -5,7 +5,7 @@ BuffDiggerJournalDB = {
   events = {
     -- 15:17:50, after a /reload: Pebble (shaman 32) in a group with two priests, open world.
     { t = 4990, ev = "SESSION", time = 1794752270, build = { "1.60.1", "1", "", 16001 }, units = { player = { name = "Pebble", class = "SHAMAN", level = 32 } } },
-    { t = 4990, ev = "PLAYER_ENTERING_WORLD", login = false, reload = true, units = { player = { name = "Pebble", class = "SHAMAN", level = 32 } } },
+    { t = 4990, ev = "PLAYER_ENTERING_WORLD", login = false, reload = true, units = { player = { name = "Pebble", class = "SHAMAN", level = 32 } }, snapshot = { secret = false, lockdown = false, restrictions = { Combat = 0 }, auras = { "<nil>" } } },
     { t = 4991, ev = "GROUP_ROSTER_UPDATE", raid = false, units = { party1 = { name = "Mirelle", last = "Ashdown", class = "PRIEST", level = 34 }, party2 = { name = "Dovran", last = "Kell", class = "PRIEST", level = 33 } } },
     -- 15:18:22-29: two requests, two poses seen live (UNIT_AURA addedAuras), two Thank lines.
     { t = 5022, ev = "STATE", state = { toThank = {}, mine = {}, asked = { ["Mirelle Ashdown"] = { at = 1794752302, key = "fortitude", channel = "WHISPER", target = "Mirelle-Ashdown", silent = false } } } },
