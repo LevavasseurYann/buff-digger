@@ -399,7 +399,7 @@ local function onRawEvent(event, a1, a2)
   elseif event == "ADDON_RESTRICTION_STATE_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
     record(event, { type = ser(a1), state = ser(a2), snapshot = snapshot() })
   elseif event == "PLAYER_ENTERING_WORLD" then
-    record(event, { login = ser(a1), reload = ser(a2), units = { player = ident("player") } })
+    record(event, { login = ser(a1), reload = ser(a2), units = { player = ident("player") }, snapshot = snapshot() })
   elseif event == "GROUP_ROSTER_UPDATE" then recordGroup()
   elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
     local unit = ser(a1)
