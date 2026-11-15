@@ -115,14 +115,14 @@ myAuras={}; fire("UNIT_AURA","player")
 -- Login: Might +35 (rank 2) already there, giver unknown.
 ns.__relog=nil
 myAuras={{auraInstanceID=50,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={35},expirationTime=NOW+3000,duration=3600}}
-fire("PLAYER_ENTERING_WORLD", false)
+fire("PLAYER_ENTERING_WORLD", true) -- a login
 units.nameplate7={"Bolvar","PALADIN",40}
 BuffDiggerDB.prefs.WARRIOR={"might"} -- only Might matters here: a missing buff would come first
 local k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("rank known at login -> paladin 40 offers:", k, kind)
 assert(k=="might" and kind=="upgrade", "rank 2 from points should allow an upgrade")
 -- Value not in Data.lua: rank unknown, no upgrade offered (old behaviour), and /bd log flags it.
 myAuras={{auraInstanceID=51,name="Bénédiction de puissance",spellId=19834,sourceUnit=nil,points={30},expirationTime=NOW+3000,duration=3600}}
-fire("PLAYER_ENTERING_WORLD", false)
+fire("PLAYER_ENTERING_WORLD", true) -- a login
 k, kind = ns.bestBuff("Bolvar","PALADIN",40); print("unknown value ->", k, kind)
 assert(not (k=="might" and kind=="upgrade"))
 SlashCmdList.BUFFDIGGER("log")
@@ -131,7 +131,7 @@ BuffDiggerDB.prefs.WARRIOR=nil
 print("=== refresh before it runs out")
 BuffDiggerDB.refreshBefore=300
 myAuras={{auraInstanceID=60,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,points={8},expirationTime=NOW+1000,duration=3600}}
-fire("PLAYER_ENTERING_WORLD", false)
+fire("PLAYER_ENTERING_WORLD", true) -- a login
 units.player={"Yann","WARLOCK",30}  -- Fortitude is a warlock's top pick
 k, kind = ns.bestBuff("Anduin","PRIEST",40); print("16 min left ->", k, kind); assert(k~="fortitude" or kind~="refresh")
 NOW=NOW+800  -- 3 min 20 left
@@ -158,11 +158,11 @@ b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Z
 
 -- Unknown rank (value hidden): no refresh asked, it could lower the rank.
 myAuras={{auraInstanceID=61,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,expirationTime=NOW+100,duration=3600}}
-units.player={"Yann","WARLOCK",30}; IsPlayerSpell=function() return false end; fire("PLAYER_ENTERING_WORLD", false)
+units.player={"Yann","WARLOCK",30}; IsPlayerSpell=function() return false end; fire("PLAYER_ENTERING_WORLD", true) -- a login
 k, kind = ns.bestBuff("Anduin","PRIEST",40); print("unknown rank, 100 s left ->", k, kind); assert(kind~="refresh")
 -- Short buff: a 10 min buff with 5 min left is NOT running out (last quarter only).
 myAuras={{auraInstanceID=62,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit=nil,points={32},expirationTime=NOW+290,duration=600}}
-fire("PLAYER_ENTERING_WORLD", false)
+fire("PLAYER_ENTERING_WORLD", true) -- a login
 k, kind = ns.bestBuff("Anduin","PRIEST",40); print("10 min buff, 290 s left ->", k, kind); assert(kind~="refresh")
 -- Unsolicited renewal: nobody asked -> no thanks.
 BuffDiggerCharDB.asked={}; local b2=#sent; myAuras[1].expirationTime=NOW+600; myAuras[1].sourceUnit="nameplate5"; fire("UNIT_AURA","player")
@@ -795,8 +795,17 @@ do
   myAuras={fort}; fire("UNIT_AURA","player"); runTimers(); reads=0
   -- Ghost Wolf while I asked him to refresh it: a new ID, same buff, same end. Not his answer: no line.
   ask("Mograine","fortitude")
-  fort.auraInstanceID=6001; fire("UNIT_AURA","player")
+  local function giver() return BuffDigger.debugState().mine.fortitude.giver end
+  fort.auraInstanceID=6001; fort.sourceUnit=nil; fire("UNIT_AURA","player")
   assert(waiting()==0, "Ghost Wolf: a new ID for the buff I had is not a landing")
+  assert(giver()=="Mograine", "Ghost Wolf: the giver is kept, even when the new aura doesn't name him")
+  -- The same in two payloads (removed, then added): its start, an hour before, still says it is old.
+  fort.sourceUnit="nameplate60"; local keep=table.remove(myAuras, 1); fire("UNIT_AURA","player")
+  keep.auraInstanceID=6011; myAuras[1]=keep; fire("UNIT_AURA","player")
+  assert(waiting()==0, "Ghost Wolf in two payloads: no line")
+  -- A zone change: a full read that keeps what I knew by ID (his unit token is gone by then).
+  fort.sourceUnit=nil; fire("PLAYER_ENTERING_WORLD", false, false); assert(giver()=="Mograine", "zone change: giver kept")
+  fort.sourceUnit="nameplate60"; fire("UNIT_AURA","player"); reads=0
   -- He recasts it (same ID, end an hour away): the refresh I asked for, a Thank line.
   fort.expirationTime=NOW+3600; fire("UNIT_AURA","player")
   assert(waiting()==1 and ns.thanksWaiting()[1].name=="Mograine", "a refresh I asked for is thanked")
@@ -822,7 +831,13 @@ do
   ask("Saidan","kings"); fire("UNIT_AURA","player"); assert(waiting()==0 and not ns.haveBuff("kings"), "restricted: nothing yet")
   SECRET_AURAS=false; fire("ADDON_RESTRICTION_STATE_CHANGED", 4, 0)
   assert(ns.haveBuff("kings") and waiting()==1, "readable again: the asked Kings is honored")
-  ns.dismissThank(); C_UnitAuras.GetAuraDataByIndex=realRead; BuffDiggerCharDB.asked={}
+  ns.dismissThank()
+  -- A line left to run out (not clicked): its request is answered, Ghost Wolf doesn't bring it back.
+  ask("Saidan","kings"); NOW=NOW+30; local kings={auraInstanceID=6005,name="Bénédiction des rois",spellId=20217,sourceUnit="nameplate61",expirationTime=NOW+600,duration=600}
+  myAuras[4]=kings; fire("UNIT_AURA","player"); assert(waiting()==1)
+  local rt=time; time=function() return rt()+301 end; assert(waiting()==0, "ran out")
+  kings.auraInstanceID=6006; fire("UNIT_AURA","player"); assert(waiting()==0, "Ghost Wolf after a line ran out: no line again"); time=rt
+  C_UnitAuras.GetAuraDataByIndex=realRead; BuffDiggerCharDB.asked={}
   myAuras=savedAuras; fire("UNIT_AURA","player"); units.nameplate60=nil; units.nameplate61=nil; runTimers()
 end
 print("=== Get buffs: my request amber, the buff gold (#24)")

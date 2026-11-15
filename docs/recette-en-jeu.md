@@ -183,3 +183,11 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
 | 69 | Après la mise à jour, **relancer WoW** (`.toc` modifié). Perso A : demander un buff à X. Se déconnecter, perso B : demander à X | B demande sans « Already asked ». Retour sur A (moins d'une heure) : X compte toujours comme demandé. `/dump BuffDiggerCharDB.asked` propre à chaque perso, `/dump BuffDiggerDB.asked` = nil |
+
+## Suivi par `UNIT_AURA` updateInfo (#30) — un chaman, un prêtre croisé, le journal actif
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 70 | Avoir la Robustesse d'un prêtre, lui demander une relance, puis Loup fantôme avant qu'il relance | Aucune ligne Thank. Journal : le retrait et l'ajout arrivent-ils dans **un seul** `UNIT_AURA` ou deux ? Fin (`expirationTime`) et durée lisibles sur l'aura ajoutée ? |
+| 71 | Il relance ensuite la Robustesse demandée | Une ligne dorée Thank, une seule |
+| 72 | En combat, il me donne le buff demandé ; attendre la fin du combat | La ligne Thank arrive à la fin du combat (ou dans les 30 s). Noter s'il était encore en vue à ce moment-là (sinon : pas de ligne, limite connue) |

@@ -127,6 +127,9 @@ local byInstance = {}
 -- What I know may be wrong (combat, restricted map, a payload I couldn't read, a full update, login):
 -- the next full read, once my auras are readable, is silent: it only honors an open request (#25).
 local stale = true
+-- Running buffs missing from the last full read: maybe only hidden (a partial list while the restriction
+-- lifts). Back under the same ID, they keep what I knew (giver, rank).
+local lost = {}
 
 -- What the buff gives (+55 attack power -> 55), or nil when the game hides it.
 local function auraValue(aura)
@@ -221,7 +224,8 @@ end
 -- Who is waiting for a thank-you (expired ones dropped).
 function ns.thanksWaiting()
   for i = #toThank, 1, -1 do
-    if time() - toThank[i].at > THANK_KEEP then table.remove(toThank, i) end
+    -- Ran out unclicked: that request counts as answered, or Ghost Wolf or a /reload would bring it back.
+    if time() - toThank[i].at > THANK_KEEP then table.remove(toThank, i).request.thanked = true end
   end
   return toThank
 end
@@ -283,6 +287,15 @@ end
 local function heldFrom(info, giver)
   for _, x in pairs(byInstance) do
     if x ~= info and x.key == info.key and x.giver == giver then return true end
+  end
+end
+
+-- The aura I had for this buff with the same end: a new ID for it is the same buff (Ghost Wolf), which
+-- keeps its giver and rank (the new aura may not name the giver).
+local function twin(info)
+  if not (info.key and info.expires) then return end
+  for _, x in pairs(byInstance) do
+    if x ~= info and x.key == info.key and x.expires and math.abs(x.expires - info.expires) < 2 then return x end
   end
 end
 
@@ -390,12 +403,13 @@ local function reconcile()
   local seen, missing = {}, false
   for _, aura in ipairs(auras) do
     local id = aura.auraInstanceID
-    local info = byInstance[id] or {}
+    local info = byInstance[id] or lost[id] or {}
     if track(aura, info) then onBuffLanded(aura, info, "read") end
     seen[id] = info
   end
+  lost = {}
   for id, info in pairs(byInstance) do
-    if not seen[id] and info.key and not (info.expires and info.expires < GetTime()) then missing = true end
+    if not seen[id] and info.key and not (info.expires and info.expires < GetTime()) then missing, lost[id] = true, info end
   end
   if not auras[1] and missing then -- nothing at all: show none, keep what I knew
     stale, mine = true, {}
@@ -422,7 +436,10 @@ local function applyUpdate(u)
     local helpful = aura.isHelpful
     if not (readable(helpful) and helpful == false) then
       local info = {}
-      if track(aura, info) then onBuffLanded(aura, info, "new") end
+      local landing = track(aura, info)
+      local old = twin(info)
+      if old then info.giver, info.rank = old.giver, info.rank or old.rank end
+      if landing then onBuffLanded(aura, info, "new") end
       byInstance[aura.auraInstanceID] = info
       moved = moved or info.key ~= nil
     end
@@ -1144,10 +1161,12 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     hookTooltip()
     if ns.buildUI then ns.buildUI() end
     -- Buffs run out without any event: look again every 30 s (refreshAll is cheap and batched).
-    C_Timer.NewTicker(30, ns.refreshAll)
+    -- Also a full read while stale: the restriction may lift with no event to say so (#30).
+    C_Timer.NewTicker(30, function() if stale then reconcile() end ns.refreshAll() end)
   elseif event == "PLAYER_ENTERING_WORLD" then
-    -- Login, /reload, zone change: start from a full read (nothing missing from it is suspicious).
-    byInstance, stale = {}, true
+    -- Login or /reload: start from a full read. A zone change keeps what I knew (giver, rank) by ID.
+    if a1 or a2 then byInstance, lost = {}, {} end
+    stale = true
     reconcile()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
     -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
