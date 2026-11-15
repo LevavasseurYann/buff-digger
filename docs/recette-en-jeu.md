@@ -191,3 +191,11 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 70 | Avoir la Robustesse d'un prêtre, lui demander une relance, puis Loup fantôme avant qu'il relance | Aucune ligne Thank. Journal : le retrait et l'ajout arrivent-ils dans **un seul** `UNIT_AURA` ou deux ? Fin (`expirationTime`) et durée lisibles sur l'aura ajoutée ? |
 | 71 | Il relance ensuite la Robustesse demandée | Une ligne dorée Thank, une seule |
 | 72 | En combat, il me donne le buff demandé ; attendre la fin du combat | La ligne Thank arrive à la fin du combat (ou dans les 30 s). Noter s'il était encore en vue à ce moment-là (sinon : pas de ligne, limite connue) |
+
+## Plusieurs buffs en une demande (#39) — un mage ou un démoniste, un prêtre 40+ croisé (ou deux testeurs)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 73 | Sans Robustesse ni Esprit divin, clic sur l'icône du prêtre (barre de nom en « Best buff ») | Un petit « +1 » bleu sur l'icône. **Une seule** MP, avec les deux liens cliquables (« [Robustesse] and [Esprit divin] ») ; la MP part bien (le serveur accepte deux liens) |
+| 74 | Il lance la Robustesse seule | La ligne dorée Thank arrive. Il lance ensuite l'Esprit : toujours une seule ligne, deux icônes. Un clic *Thank* : un seul merci |
+| 75 | Deux Buff Digger : le prêtre a la fenêtre Requests ouverte | Une ligne pour le mage, deux icônes ; chaque clic lance son sort, la ligne part quand les deux sont posés |

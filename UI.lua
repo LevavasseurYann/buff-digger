@@ -51,10 +51,17 @@ end
 -- what a click does. No name: it is on the line (or above the nameplate) already.
 function ns.buffTooltip(owner, unit, key)
   if not (key and unit) or InCombatLockdown() then return end
-  local name, _, level = ns.identity(unit)
+  local name, class, level = ns.identity(unit)
   if not name then return end
   local buff = BUFFS[key]
   spellLines(owner, key, level)
+  -- The best one asks for the others too, in the same message (#39).
+  local best, kind = ns.bestBuff(name, class, level)
+  if best == key then
+    local more = ns.moreBuffs(class, level, key, kind)
+    for i, k in ipairs(more) do more[i] = spellName(k) end
+    if #more > 0 then GameTooltip:AddLine(L["Also asks for: %s"]:format(table.concat(more, ", ")), 0.4, 0.8, 1, true) end
+  end
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
   if his == key then
@@ -135,6 +142,7 @@ local SECTIONS = {
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
+    { key = "multiAsk", label = "Ask for all their buffs at once (one message)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
     { key = "requestSound", label = "Sound when a request arrives" },
@@ -1002,6 +1010,7 @@ local function fill(w, list, emptyMessage)
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
           b.rank:SetText(buff.rank or "")
+          ns.showMore(b, buff.more)
           -- Green: higher than the one I have, like an upgrade in a loot tooltip.
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
           if w.cast then
@@ -1153,11 +1162,12 @@ local function nearbyEntries()
       local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
       local buffs = {}
+      local more = key and #ns.moreBuffs(class, level, key, kind) or 0 -- asked along with the best one (#39)
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", best = key, his = his,
+          upgrade = k == key and kind == "upgrade", best = key, his = his, more = k == key and more or 0,
         }
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]

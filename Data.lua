@@ -103,6 +103,14 @@ ns.MESSAGES = {
     -- The spell goes in brackets or after a colon: French needs ta/ton/tes depending on the spell.
     hello = { "Salut ! ", "Hello ! ", "Coucou ! ", "Yo ! ", "Bonjour ! ", "Hey ! ", "Salut toi ! ", "" },
     bye = { "", "", " :)", " :D", " Bonne aventure !", " Bon jeu !", " Bonne route !" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Tu pourrais me buff stp ? (%s)",
+      "Si t'as deux secondes : %s stp.",
+      "Possible d'avoir quelques buffs stp ? (%s)",
+      "Je ne dirais pas non à quelques buffs : %s",
+      "Des buffs pour un voyageur fatigué ? (%s)",
+    },
     new = {
       "Tu pourrais me buff stp ? (%s)",
       "Un petit buff en passant ? %s",
@@ -140,6 +148,15 @@ ns.MESSAGES = {
   en = {
     hello = { "Hi! ", "Hey! ", "Hello! ", "Hey there! ", "Heya! ", "Greetings! ", "Hi there! ", "Yo! ", "" },
     bye = { "", "", " :)", " :D", " Have a good one!", " Good luck out there!", " Safe travels!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Could I get %s please?",
+      "Mind sparing me %s?",
+      "Any chance of %s?",
+      "If you've got a sec, %s would be amazing.",
+      "Could you throw %s my way?",
+      "Would you mind casting %s on me?",
+    },
     new = {
       "Could I get %s please?",
       "Mind sparing me %s?",
@@ -178,6 +195,13 @@ ns.MESSAGES = {
     -- Like French: the spell goes in brackets or after a colon, no article to agree with.
     hello = { "Hallo! ", "Hey! ", "Hi! ", "Grüß dich! ", "Moin! ", "Servus! ", "" },
     bye = { "", "", " :)", " Viel Erfolg noch!", " Gute Reise!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Hättest du ein paar Buffs für mich? (%s)",
+      "Wenn du kurz Zeit hast: %s bitte.",
+      "Über ein paar Buffs würde ich mich sehr freuen: %s",
+      "Magst du mich kurz buffen? (%s)",
+    },
     new = {
       "Hättest du einen Buff für mich? (%s)",
       "Wenn du kurz Zeit hast: %s bitte.",
@@ -208,6 +232,12 @@ ns.MESSAGES = {
   es = {
     hello = { "¡Hola! ", "¡Buenas! ", "¡Hey! ", "¡Saludos! ", "" },
     bye = { "", "", " :)", " ¡Buena suerte!", " ¡Buen viaje!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "¿Me podrías dar unos buffs? (%s)",
+      "Si tienes un momento: %s, por favor.",
+      "¿Unos buffs para un viajero cansado? (%s)",
+    },
     new = {
       "¿Me podrías dar un buff? (%s)",
       "Si tienes un segundo: %s, por favor.",
@@ -234,6 +264,12 @@ ns.MESSAGES = {
   it = {
     hello = { "Ciao! ", "Ehi! ", "Salve! ", "Ciao a te! ", "" },
     bye = { "", "", " :)", " Buona avventura!", " Buon gioco!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Mi daresti qualche buff? (%s)",
+      "Se hai un attimo: %s, per favore.",
+      "Qualche buff per un viaggiatore stanco? (%s)",
+    },
     new = {
       "Mi faresti un buff? (%s)",
       "Se hai un attimo: %s, per favore.",
@@ -260,6 +296,12 @@ ns.MESSAGES = {
   pt = { -- Brazilian: WoW's only Portuguese client is ptBR
     hello = { "Oi! ", "E aí! ", "Olá! ", "Saudações! ", "" },
     bye = { "", "", " :)", " Boa aventura!", " Bom jogo!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Pode me dar uns buffs? (%s)",
+      "Se tiver um tempinho: %s, por favor.",
+      "Uns buffs para um viajante cansado? (%s)",
+    },
     new = {
       "Você poderia me dar um buff? (%s)",
       "Se tiver um segundinho: %s, por favor.",
@@ -286,6 +328,12 @@ ns.MESSAGES = {
   ru = {
     hello = { "Привет! ", "Здравствуй! ", "Хай! ", "Приветствую! ", "" },
     bye = { "", "", " :)", " Удачи!", " Хорошей игры!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Можешь бафнуть, пожалуйста? (%s)",
+      "Если не трудно: %s, пожалуйста.",
+      "Бафы для уставшего путника? (%s)",
+    },
     new = {
       "Можно баф, пожалуйста? (%s)",
       "Если есть секунда: %s, пожалуйста.",
@@ -312,6 +360,12 @@ ns.MESSAGES = {
   pl = {
     hello = { "Cześć! ", "Hej! ", "Witaj! ", "Siema! ", "" },
     bye = { "", "", " :)", " Powodzenia!", " Miłej gry!" },
+    -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
+    multi = {
+      "Możesz mnie zbuffować? (%s)",
+      "Jak masz chwilę: %s, proszę.",
+      "Buffy dla zmęczonego podróżnika? (%s)",
+    },
     new = {
       "Dasz mi buffa? (%s)",
       "Jeśli masz chwilkę: %s, proszę.",
@@ -336,6 +390,9 @@ ns.MESSAGES = {
     },
   },
 }
+
+-- How each language joins several spell links (#39): "A and B", "A, B and C".
+ns.AND = { en = " and ", fr = " et ", de = " und ", es = " y ", it = " e ", pt = " e ", ru = " и ", pl = " i " }
 
 -- Sent in the same channel as the request, once the buff lands: one of `thanks`, then one of `bye`
 -- (same shuffled bags as requests).
@@ -471,14 +528,22 @@ function ns.thanks(lang)
   return pick(t.thanks) .. pick(t.bye)
 end
 
-function ns.message(kind, key, lang)
+-- keys: one buff key, or a list of them (#39): "[A] and [B]", "[A], [B] and [C]", in our `multi`
+-- lines, or in the player's own lines for `kind` (their {spell} then stands for every link).
+function ns.message(kind, keys, lang)
   if not ns.MESSAGES[lang] then lang = "en" end
+  if type(keys) ~= "table" then keys = { keys } end
+  local links = {}
+  for i, key in ipairs(keys) do links[i] = spellText(ns.BUFFS[key], lang) end
+  local spells = links[#links]
+  if #links > 1 then spells = table.concat(links, ", ", 1, #links - 1) .. ns.AND[lang] .. spells end
   local list = custom(kind)
   if list then -- a function replacement: a % in the link or the line can't break anything
-    return (pick(list):gsub("{spell}", function() return spellText(ns.BUFFS[key], lang) end))
+    return (pick(list):gsub("{spell}", function() return spells end))
   end
   local m = ns.MESSAGES[lang]
-  return pick(m.hello) .. pick(m[kind]):format(spellText(ns.BUFFS[key], lang)) .. pick(m.bye)
+  local line = pick(#keys > 1 and m.multi or m[kind])
+  return pick(m.hello) .. line:format(spells) .. pick(m.bye)
 end
 
 -- Our own lines for one case, written the way the Phrases box takes them ({spell}, no hello/bye):
