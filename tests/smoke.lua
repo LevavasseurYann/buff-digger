@@ -707,6 +707,11 @@ local ids={}; for k,a in ipairs(myAuras) do ids[k]=a.auraInstanceID; a.auraInsta
 fire("UNIT_AURA","player"); for k,a in ipairs(myAuras) do a.auraInstanceID=ids[k] end
 local rt=time; time=function() return rt()+120 end -- past THANK_GAP: only the fix keeps them out
 fire("UNIT_AURA","player"); print("after combat:", #ns.thanksWaiting()); assert(#ns.thanksWaiting()==0, "secret in combat: no Thank after the fight"); time=rt
+-- In combat the read can also throw instead of returning secrets: same thing, nothing forgotten.
+local realRead=C_UnitAuras.GetAuraDataByIndex; C_UnitAuras.GetAuraDataByIndex=function() error("Auras cannot be accessed when secret") end
+fire("UNIT_AURA","player"); C_UnitAuras.GetAuraDataByIndex=realRead
+time=function() return rt()+240 end; fire("UNIT_AURA","player"); time=rt
+assert(#ns.thanksWaiting()==0, "read error in combat: no Thank after the fight")
 -- A buff that falls off while my auras are secret is gone once the fight ends.
 local idOf={}; for _,a in ipairs(myAuras) do idOf[a]=a.auraInstanceID; a.auraInstanceID=SECRET end
 local function held() local n=0 for k in pairs(ns.BUFFS) do if ns.haveBuff(k) then n=n+1 end end return n end

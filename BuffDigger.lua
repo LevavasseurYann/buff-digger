@@ -359,7 +359,10 @@ local function readMyBuffs()
   local hidden = false
   for i = 1, 40 do
     local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-    if not ok or not aura then break end
+    -- In combat the call can fail outright ("Auras cannot be accessed when secret", journal
+    -- 2026-11-15): that's hidden auras too, not the end of the list.
+    if not ok then hidden = true break end
+    if not aura then break end
     local id = aura.auraInstanceID
     local known = readable(id) and readable(aura.name)
     hidden = hidden or not known
@@ -412,7 +415,10 @@ local function readMyBuffs()
       end
     end
   end
-  byInstance, ready = seen, true -- the first pass thanks nobody
+  -- The first full pass thanks nobody. A /reload in combat reads nothing: wait for a pass that
+  -- sees everything, or every buff I had would be thanked as new after the fight.
+  byInstance = seen
+  if not hidden then ready = true end
   mine = {}
   for _, info in pairs(byInstance) do
     if info.key then
