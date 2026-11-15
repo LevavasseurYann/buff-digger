@@ -120,13 +120,13 @@ ns.buffKeyOf = buffKeyOf
 -- The rank comes from the value the buff gives (aura.points, #8), else from the giver's level when it
 -- lands. Neither known (value hidden or not in Data.lua, giver unknown): unknown rank, never "upgraded".
 local mine = {}
-local byInstance = {} -- auraInstanceID -> { key, rank, giver, expires }
--- A read I couldn't trust (combat, restricted map, error, secrets, at login): the next full read is
--- silent, it only honors an open request (#25, journal 2026-11-15).
+-- My auras by instance ID, kept up to date by UNIT_AURA's updateInfo (#30): the game names what was
+-- added, updated or removed, and a removed ID can't be read any more.
+-- auraInstanceID -> { name, key, rank, giver, expires, duration }
+local byInstance = {}
+-- What I know may be wrong (combat, restricted map, a payload I couldn't read, a full update, login):
+-- the next full read, once my auras are readable, is silent: it only honors an open request (#25).
 local stale = true
--- Missing from a read but not run out: maybe only hidden (a partial list under restriction). Back
--- under the same instance ID, it is the same aura, not a landing.
-local lost = {}
 
 -- What the buff gives (+55 attack power -> 55), or nil when the game hides it.
 local function auraValue(aura)
@@ -273,8 +273,24 @@ function ns.closeAsk(name)
   if type(e) == "table" then e.thanked = true end
 end
 
--- silent: after a read I couldn't trust; learn the giver, don't count an unknown one.
-local function onBuffLanded(aura, info, silent)
+-- Did this buff start after my request? nil when its time is hidden. time() counts whole seconds: 2 s slack.
+local function startedAfter(info, request)
+  if not info.expires then return end
+  return time() - (GetTime() - (info.expires - info.duration)) >= request.at - 2
+end
+
+-- Another aura of mine, this buff from this giver: a new ID for it is the same buff (Ghost Wolf).
+local function heldFrom(info, giver)
+  for _, x in pairs(byInstance) do
+    if x ~= info and x.key == info.key and x.giver == giver then return true end
+  end
+end
+
+-- A Data.lua buff landed on me: learn its giver (and rank from their level if the value is hidden).
+-- kind: "new" (added, live), "renew" (its end moved later, live) or "read" (a full read, silent).
+-- A Thank line only for my open request to this very giver for this very buff (#37), and only for a
+-- buff given after that request: a full read or a new ID (Ghost Wolf) for a buff I already had is not.
+local function onBuffLanded(aura, info, kind)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name, class, level, target, _
@@ -286,116 +302,162 @@ local function onBuffLanded(aura, info, silent)
     if not (name and readable(class) and readable(level)) then record("source", false, "giver secret") return end
   end
   -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
-  if name and info.key and BUFFS[info.key].class ~= class then
+  if name and BUFFS[info.key].class ~= class then
     debug("Ignored: " .. name .. " can't give " .. show(aura.name))
     name = nil
   elseif name then
     record("source", true, name .. " → " .. show(aura.name))
     info.giver = name
     -- The value read on the buff wins; the giver's level is only a guess at what they bought.
-    if info.key and not info.rank then info.rank = rankAt(BUFFS[info.key], level) end
+    if not info.rank then info.rank = rankAt(BUFFS[info.key], level) end
 
     local entry = logEntry(aura)
     local seen = entry.classes[class]
     entry.classes[class] = seen and math.min(seen, level) or level
-  elseif not silent then
+  elseif kind ~= "read" then
     -- A stranger outside the group does not always have a unit token: count those cases.
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
   end
 
-  -- Only the buff I asked this player for, from this very player, waits for a Thank click (#37).
   -- Giver unknown (no unit token, stale token): no guessing — guessing thanked people who gave nothing.
   local request = findRequest(name, info.key)
-  if request and (BuffDiggerDB.thank or BuffDiggerDB.thankMessage) then
-    addToThank(name, class, target, info.key, request)
-  end
+  if not request or not (BuffDiggerDB.thank or BuffDiggerDB.thankMessage) then return end
+  local after = kind == "renew" or startedAfter(info, request)
+  if after == nil and kind == "new" then after = not heldFrom(info, name) end -- time hidden
+  if after then addToThank(name, class, target, info.key, request) end
 end
 
-local function readMyBuffs()
-  -- In combat or on a restricted map my auras can be secret, missing from the list (nil), or the call
-  -- can fail: none of that is reliable to tell apart (journal 2026-11-15, Thank lines after every
-  -- fight). Don't trust such a read: keep what I knew; the next good read is silent.
-  local secret = C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret()
-  if InCombatLockdown() or not readable(secret) or secret then stale = true return end
-  local auras = {}
-  for i = 1, 40 do
-    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-    if not ok or aura and not (readable(aura) and readable(aura.auraInstanceID) and readable(aura.name)) then
-      stale = true
-      return
-    end
-    if not aura then break end
-    auras[i] = aura
+-- Learns what a readable aura is now. True when it is a landing of a Data.lua buff: new to me, or its
+-- end moved later by more than 5 s (someone recast it, even right after the first cast).
+local function track(aura, info)
+  local expires, duration = auraExpires(aura)
+  local landing = info.name == nil or expires and info.expires and expires > info.expires + 5
+  info.name = aura.name
+  info.key = info.key or buffKeyOf(aura.name)
+  if landing and info.key then
+    local value = auraValue(aura)
+    record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
+    if expires then record("expires", true) else record("expires", false, "time left hidden") end
+    info.rank = value and ns.rankOfValue(BUFFS[info.key], value) or info.rank
+    local entry = value and logEntry(aura)
+    if entry then entry.value = value end
   end
-  -- Nothing at all while I had a buff still running: auras hidden, or all gone (death, cancelled).
-  -- Can't tell: show none, keep what I knew to match them when they read again, silently.
-  if not auras[1] then
-    for _, info in pairs(byInstance) do
-      if info.key and not (info.expires and info.expires < GetTime()) then
-        stale, mine = true, {}
-        return
-      end
-    end
-  end
-  local silent = stale
-  local seen = {}
-  -- A shapeshift (Ghost Wolf...) can hand every aura a new instance ID: a known buff ending at the
-  -- same time is the one I already had, not a new landing to thank.
-  -- By buff, and by buff and giver: two priests' Fortitude on me must not be mixed up.
-  local had = {}
-  for _, info in pairs(byInstance) do
-    if info.key then
-      had[info.key] = info
-      if info.giver then had[info.key .. "|" .. info.giver] = info end
-    end
-  end
-  for _, aura in ipairs(auras) do
-    local id = aura.auraInstanceID
-    local info = byInstance[id] or lost[id]
-    local expires, duration = auraExpires(aura)
-    local key = buffKeyOf(aura.name)
-    if info and not info.key then info.key = key end -- read before its name loaded (#34)
-    local src = aura.sourceUnit
-    local caster = readable(src) and src and ns.unitName(src)
-    local old = not info and key and (caster and had[key .. "|" .. caster] or had[key])
-    -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
-    -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
-    local sameGiver = not (caster and old and old.giver) or caster == old.giver
-    local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
-    -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
-    -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
-    local renewed = info and info.expires and expires and expires > info.expires + 5
-    if not info or renewed then
-      local oldRank = info and info.rank
-      info = info or { key = buffKeyOf(aura.name) }
-      if info.key then
-        local value = auraValue(aura)
-        record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
-        if expires then record("expires", true) else record("expires", false, "time left hidden") end
-        info.rank = value and ns.rankOfValue(BUFFS[info.key], value)
-        local entry = value and logEntry(aura)
-        if entry then entry.value = value end
-      end
-      local oldGiver = info.giver or (same and old.giver)
-      info.giver = nil
-      if not same then onBuffLanded(aura, info, silent) end
-      info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
-      info.rank = info.rank or oldRank -- nothing better known: keep what we had
-    end
-    info.expires, info.duration = expires, duration
-    seen[id] = info
-  end
-  for id, info in pairs(byInstance) do lost[id] = info end
-  for id, info in pairs(lost) do
-    if seen[id] or info.expires and info.expires < GetTime() then lost[id] = nil end
-  end
-  byInstance, stale = seen, false
+  info.expires, info.duration = expires, duration
+  return landing and info.key ~= nil
+end
+
+-- mine from byInstance. True when a buff read before its name loaded is known now (#34).
+local function rebuildMine()
+  local found = false
   mine = {}
   for _, info in pairs(byInstance) do
+    if not info.key and info.name then
+      info.key = buffKeyOf(info.name)
+      found = found or info.key ~= nil
+    end
     if info.key then
       mine[info.key] = { rank = info.rank, giver = info.giver, expires = info.expires, duration = info.duration }
     end
   end
+  return found
+end
+
+-- In combat or on a restricted map my auras can be secret, missing from the list (nil), or the call
+-- can fail (journal 2026-11-15): don't read them then.
+local function aurasReadable()
+  local secret = C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret()
+  return not InCombatLockdown() and readable(secret) and not secret
+end
+
+local function readableAura(aura)
+  return readable(aura) and type(aura) == "table" and readable(aura.auraInstanceID) and readable(aura.name)
+end
+
+-- A full read of my auras, once they are readable: after `stale` only, and silent (#25). Returns true
+-- when it read them.
+local function reconcile()
+  if not aurasReadable() then stale = true return false end
+  local auras = {}
+  for i = 1, 40 do
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+    if not ok or aura and not readableAura(aura) then stale = true return false end
+    if not aura then break end
+    auras[i] = aura
+  end
+  -- A buff of mine still running and missing from the read: hidden (a nil or partial list while the
+  -- restriction lifts), or really gone (fell off, death). Read again at the next chance; the start
+  -- time keeps a buff coming back from looking new.
+  local seen, missing = {}, false
+  for _, aura in ipairs(auras) do
+    local id = aura.auraInstanceID
+    local info = byInstance[id] or {}
+    if track(aura, info) then onBuffLanded(aura, info, "read") end
+    seen[id] = info
+  end
+  for id, info in pairs(byInstance) do
+    if not seen[id] and info.key and not (info.expires and info.expires < GetTime()) then missing = true end
+  end
+  if not auras[1] and missing then -- nothing at all: show none, keep what I knew
+    stale, mine = true, {}
+    return true
+  end
+  byInstance, stale = seen, missing
+  rebuildMine()
+  return true
+end
+
+-- One UNIT_AURA payload (#30). Returns true when a Data.lua buff moved, false when none did, nil when
+-- the payload can't be trusted (full update, secret or unreadable part).
+local function applyUpdate(u)
+  if not readable(u) or type(u) ~= "table" then return end
+  local full, added, updated, removed = u.isFullUpdate, u.addedAuras, u.updatedAuraInstanceIDs, u.removedAuraInstanceIDs
+  if not readable(full) or full then return end
+  for _, list in ipairs({ added or {}, updated or {}, removed or {} }) do
+    if not readable(list) or type(list) ~= "table" then return end
+  end
+  local moved = false
+  -- Added before removed: a new ID for a buff I had (Ghost Wolf) still finds the old one (heldFrom).
+  for _, aura in ipairs(added or {}) do
+    if not readableAura(aura) then return end
+    local helpful = aura.isHelpful
+    if not (readable(helpful) and helpful == false) then
+      local info = {}
+      if track(aura, info) then onBuffLanded(aura, info, "new") end
+      byInstance[aura.auraInstanceID] = info
+      moved = moved or info.key ~= nil
+    end
+  end
+  for _, id in ipairs(updated or {}) do
+    if not readable(id) then return end
+    local info = byInstance[id]
+    if info then
+      local aura = C_UnitAuras.GetAuraDataByAuraInstanceID("player", id)
+      if aura then -- nil: gone already, its removal follows
+        if not readableAura(aura) then return end
+        if track(aura, info) then onBuffLanded(aura, info, "renew") end
+        moved = moved or info.key ~= nil
+      end
+    end
+  end
+  for _, id in ipairs(removed or {}) do
+    if not readable(id) then return end
+    local info = byInstance[id]
+    byInstance[id] = nil
+    moved = moved or info ~= nil and info.key ~= nil
+  end
+  return moved
+end
+
+-- UNIT_AURA on me: follow the payload; a full read only after `stale` (combat, full update, secrets).
+-- Returns true when what I have may have changed.
+local function onUnitAura(updateInfo)
+  if not stale and aurasReadable() then
+    local ok, moved = pcall(applyUpdate, updateInfo)
+    if ok and moved ~= nil then return rebuildMine() or moved end
+    if not ok then debug("UNIT_AURA: " .. tostring(moved)) end
+    stale = true
+  end
+  return reconcile()
 end
 
 -- ---------------------------------------------------------------- decision tree
@@ -1084,8 +1146,9 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- Buffs run out without any event: look again every 30 s (refreshAll is cheap and batched).
     C_Timer.NewTicker(30, ns.refreshAll)
   elseif event == "PLAYER_ENTERING_WORLD" then
-    stale = true
-    readMyBuffs()
+    -- Login, /reload, zone change: start from a full read (nothing missing from it is suspicious).
+    byInstance, stale = {}, true
+    reconcile()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
     -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
     if a1 then
@@ -1104,11 +1167,11 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if ns.onCombat then ns.onCombat(false) end
     -- Auras secret during the fight: what landed or fell off then is only seen now, or a second later
     -- (the restriction may lift after this event; nothing says which comes first).
-    readMyBuffs()
-    if stale then C_Timer.After(1, function() readMyBuffs() ns.refreshAll() end) end
+    if stale then reconcile() end
+    if stale then C_Timer.After(1, function() if stale then reconcile() end ns.refreshAll() end) end
     ns.refreshAll()
   elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
-    readMyBuffs()
+    if stale then reconcile() end
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_ADDED" then
     shownPlates[a1] = true
@@ -1118,8 +1181,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
-    readMyBuffs() -- not in combat: buffs received then are read (a Thank line if asked) on PLAYER_REGEN_ENABLED
-    ns.refreshAll()
+    -- In combat the payload is secret: what landed then is read once the fight ends (a Thank line if asked).
+    if onUnitAura(a2) then ns.refreshAll() end
   elseif event == "UNIT_SPELLCAST_SENT" then
     -- a2 = target name, a4 = spell ID
     local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)

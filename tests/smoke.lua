@@ -655,8 +655,8 @@ InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED")
 assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Tirion", "after the fight: one Thank"); ns.dismissThank(); table.remove(myAuras); fire("UNIT_AURA","player")
 -- Two priests' Fortitude on me (journal 2026-11-15), new instance IDs after the fight: neither is a new landing.
 units.nameplate38={"Cecirae","PRIEST",33}; units.nameplate39={"Bismillos","PRIEST",35}
-myAuras[#myAuras+1]=aura(380,"Mot de pouvoir : Robustesse",1243,"nameplate38"); myAuras[#myAuras].expirationTime=NOW+1800
-myAuras[#myAuras+1]=aura(381,"Mot de pouvoir : Robustesse",1243,"nameplate39"); myAuras[#myAuras].expirationTime=NOW+1801
+myAuras[#myAuras+1]=aura(380,"Mot de pouvoir : Robustesse",1243,"nameplate38"); myAuras[#myAuras].expirationTime=NOW+1800; myAuras[#myAuras].duration=3600 -- landed half an hour ago
+myAuras[#myAuras+1]=aura(381,"Mot de pouvoir : Robustesse",1243,"nameplate39"); myAuras[#myAuras].expirationTime=NOW+1801; myAuras[#myAuras].duration=3600 -- landed half an hour ago
 time=function() return rt()+480 end; fire("UNIT_AURA","player"); ns.dismissThank()
 BuffDiggerCharDB.asked={Cecirae={at=time(), key="fortitude", channel="WHISPER", target="Cecirae"},
   Bismillos={at=time(), key="fortitude", channel="WHISPER", target="Bismillos"}} -- asked again: still no landing
@@ -718,7 +718,8 @@ print("=== a re-read of my auras never makes a Thank line (#25, #26)")
 do
   ns.dismissThank()
   local savedAsked, realRead, rt, base = BuffDiggerCharDB.asked, C_UnitAuras.GetAuraDataByIndex, time, #myAuras
-  local function at(s) time=function() return rt()+s end end
+  -- s seconds later, both clocks: a buff's start (GetTime) is compared with my request's time() (#30).
+  local now0=NOW; local function at(s) time=function() return rt()+s end; NOW=now0+s end
   local function waiting() return #ns.thanksWaiting() end
   units.party1={"Ilyria","PRIEST",33}; units.party2={"Corwen","PRIEST",35}
   -- (1) Two buffs asked from my group, dismissed, then asked again: same auras, so no new line. A minute
@@ -729,7 +730,9 @@ do
   askBoth()
   myAuras[base+1]=aura(9500,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+1800
   myAuras[base+2]=aura(9501,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+1801
-  fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs seen live: two rows"); ns.dismissThank(); askBoth()
+  fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs seen live: two rows"); ns.dismissThank(); at(30); askBoth()
+  -- A fight (the payload is secret), then a read that gives nil when it ends.
+  at(60); InCombatLockdown=function() return true end; fire("UNIT_AURA","player"); InCombatLockdown=function() return false end
   at(120); C_UnitAuras.GetAuraDataByIndex=function() return nil end
   fire("PLAYER_REGEN_ENABLED"); runTimers(); assert(not ns.haveBuff("spirit"), "nothing read: no buff shown")
   C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
@@ -758,8 +761,8 @@ do
   units.party1={"Seraphine","PRIEST",33}; units.party2={"Aldric","PRIEST",35}; at(300)
   BuffDiggerCharDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
     Aldric={at=time(), key="spirit", channel="WHISPER", target="Aldric"}}
-  myAuras[base+1]=aura(9510,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+3000
-  myAuras[base+2]=aura(9511,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+3001
+  myAuras[base+1]=aura(9510,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+3000; myAuras[base+1].duration=3000
+  myAuras[base+2]=aura(9511,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+3001; myAuras[base+2].duration=3001
   fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs: two rows")
   ns.thankBuffer("Seraphine"); ns.thankBuffer("Aldric"); runTimers(); assert(waiting()==0)
   local function askBoth2() BuffDiggerCharDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
@@ -769,7 +772,8 @@ do
   for cycle=1,12 do
     at(300+70*cycle); askBoth2() -- asked again each fight: only a real new aura could make a line InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED")
     InCombatLockdown=function() return false end -- what the read gives when the lockdown check misses it
-    C_UnitAuras.GetAuraDataByIndex=inFight[cycle%3+1]; fire("UNIT_AURA","player")
+    -- The payload is secret in a fight (#30): the full read comes after it, and gives what inFight gives.
+    C_UnitAuras.GetAuraDataByIndex=inFight[cycle%3+1]; fire("UNIT_AURA","player",SECRET)
     if cycle%2==0 then C_UnitAuras.GetAuraDataByIndex=function() return nil end else C_UnitAuras.GetAuraDataByIndex=realRead end
     fire("PLAYER_REGEN_ENABLED"); runTimers()
     C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
@@ -777,6 +781,49 @@ do
   end
   table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player")
   time=rt; units.party1=nil; units.party2=nil; BuffDiggerCharDB.asked=savedAsked; ns.dismissThank()
+end
+print("=== my buffs followed by UNIT_AURA's updateInfo (#30)")
+do
+  ns.dismissThank(); BuffDiggerCharDB.asked={}
+  local realRead, reads, savedAuras = C_UnitAuras.GetAuraDataByIndex, 0, myAuras
+  C_UnitAuras.GetAuraDataByIndex=function(...) reads=reads+1 return realRead(...) end
+  local function waiting() return #ns.thanksWaiting() end
+  local function ask(n, key) BuffDiggerCharDB.asked[n]={at=time(), key=key, channel="WHISPER", target=n} end
+  units.nameplate60={"Mograine","PRIEST",40}
+  -- Fortitude from him, half an hour ago (end and duration readable, as out of combat).
+  local fort={auraInstanceID=6000,name="Mot de pouvoir : Robustesse",spellId=1243,sourceUnit="nameplate60",points={32},expirationTime=NOW+1800,duration=3600}
+  myAuras={fort}; fire("UNIT_AURA","player"); runTimers(); reads=0
+  -- Ghost Wolf while I asked him to refresh it: a new ID, same buff, same end. Not his answer: no line.
+  ask("Mograine","fortitude")
+  fort.auraInstanceID=6001; fire("UNIT_AURA","player")
+  assert(waiting()==0, "Ghost Wolf: a new ID for the buff I had is not a landing")
+  -- He recasts it (same ID, end an hour away): the refresh I asked for, a Thank line.
+  fort.expirationTime=NOW+3600; fire("UNIT_AURA","player")
+  assert(waiting()==1 and ns.thanksWaiting()[1].name=="Mograine", "a refresh I asked for is thanked")
+  ns.thankBuffer("Mograine")
+  -- Unasked recast: nothing. None of the above read all my auras.
+  NOW=NOW+60; fort.expirationTime=NOW+3600; fire("UNIT_AURA","player")
+  assert(waiting()==0 and reads==0, "ordinary UNIT_AURA: no full read")
+  -- Food (not a Data.lua buff): nothing to refresh.
+  runTimers(); myAuras[2]={auraInstanceID=6002,name="Food",spellId=433,sourceUnit="nameplate60"}; fire("UNIT_AURA","player")
+  assert(#TIMERS==0, "an aura that isn't a buff of Data.lua refreshes nothing")
+  -- A full update: one silent full read. It honors the buff I asked for that started after my request,
+  -- not the one I already had.
+  ask("Mograine","fortitude"); units.nameplate61={"Saidan","PALADIN",40}; ask("Saidan","kings"); NOW=NOW+30
+  myAuras[3]={auraInstanceID=6003,name="Bénédiction des rois",spellId=20217,sourceUnit="nameplate61",expirationTime=NOW+600,duration=600}
+  fire("UNIT_AURA","player",{isFullUpdate=true})
+  assert(reads>0 and waiting()==1 and ns.thanksWaiting()[1].name=="Saidan", "full update: only the asked buff given after the request")
+  ns.dismissThank(); reads=0
+  -- Kings removed: gone at once.
+  table.remove(myAuras, 3); fire("UNIT_AURA","player"); assert(not ns.haveBuff("kings") and ns.haveBuff("fortitude") and reads==0)
+  -- A restricted map while the payload still reads (nothing says it can't): stale, a full read once readable.
+  C_Secrets={ShouldAurasBeSecret=function() return SECRET_AURAS end} -- an earlier scenario removed it
+  SECRET_AURAS=true; myAuras[3]={auraInstanceID=6004,name="Bénédiction des rois",spellId=20217,sourceUnit="nameplate61",expirationTime=NOW+600,duration=600}
+  ask("Saidan","kings"); fire("UNIT_AURA","player"); assert(waiting()==0 and not ns.haveBuff("kings"), "restricted: nothing yet")
+  SECRET_AURAS=false; fire("ADDON_RESTRICTION_STATE_CHANGED", 4, 0)
+  assert(ns.haveBuff("kings") and waiting()==1, "readable again: the asked Kings is honored")
+  ns.dismissThank(); C_UnitAuras.GetAuraDataByIndex=realRead; BuffDiggerCharDB.asked={}
+  myAuras=savedAuras; fire("UNIT_AURA","player"); units.nameplate60=nil; units.nameplate61=nil; runTimers()
 end
 print("=== Get buffs: my request amber, the buff gold (#24)")
 BuffDiggerCharDB.asked={}; ns.dismissThank()

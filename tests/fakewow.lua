@@ -41,7 +41,9 @@ SHIFT=false; IsShiftKeyDown=function() return SHIFT end; IsControlKeyDown=functi
 C_Spell={GetSpellLink=function(id) return "|cff71d5ff|Hspell:"..id..":0|h["..(NAMES[id] or "x").."]|h|r" end, GetSpellName=function(id) return NAMES[id] or ("spell"..id) end, GetSpellTexture=function() return 1 end}
 myAuras={} -- a function in it stands for a read that fails: it is called (it raises the error)
 C_UnitAuras={GetAuraDataByIndex=function(u,i) if u=="player" then local a=myAuras[i]; if type(a)=="function" then return a() end; return a end end,
-  GetAuraDataBySpellName=function() return nil end}
+  GetAuraDataBySpellName=function() return nil end,
+  GetAuraDataByAuraInstanceID=function(u,id) if u~="player" then return end
+    for _,a in ipairs(myAuras) do if type(a)=="function" then return a() end; if a.auraInstanceID==id then return a end end end}
 units={}
 -- Forever: "Jean Dupont" comes back as "Jean", "Dupont" (the last name where WoW puts the realm).
 local function split(n) if not n then return nil end local f, l = n:match("^(%S+) (.+)$") if f then return f, l end return n end
@@ -73,4 +75,43 @@ function reset()
 end
 reset()
 for _,f in ipairs{"Locales","Data","BuffDigger","UI","Comm"} do assert(setfenv(loadfile(DIR..f..".lua"), addonEnv))("BuffDigger", ns) end
-function fire(ev,...) for _,f in ipairs(events) do if f._OnEvent then f._OnEvent(f,ev,...) end end end
+-- UNIT_AURA's updateInfo as the game sends it (#30), from what changed in myAuras since the last one:
+-- an aura table new or with another ID -> addedAuras (and its old ID removed), its end or caster changed
+-- -> updatedAuraInstanceIDs. A secret ID or a failing read in myAuras: the whole payload is secret (combat).
+-- Auras are followed by table, so a test can hide an ID (SECRET) and put it back without any change.
+local lastAuras = {} -- aura table -> { id, expirationTime, duration, sourceUnit }
+local function snap(a, id) return { id = id, expirationTime = a.expirationTime, duration = a.duration, sourceUnit = a.sourceUnit } end
+function auraUpdate()
+  local info, now, secret = { isFullUpdate = false }, {}, false
+  for _, a in ipairs(myAuras) do
+    if type(a) == "table" then
+      local was, id = lastAuras[a], a.auraInstanceID
+      if id == SECRET or a.name == SECRET then secret = true; now[a] = was
+      elseif not was or was.id ~= id then
+        info.addedAuras = info.addedAuras or {}; table.insert(info.addedAuras, a); now[a] = snap(a, id)
+      else
+        if was.expirationTime ~= a.expirationTime or was.duration ~= a.duration or was.sourceUnit ~= a.sourceUnit then
+          info.updatedAuraInstanceIDs = info.updatedAuraInstanceIDs or {}; table.insert(info.updatedAuraInstanceIDs, id)
+        end
+        now[a] = snap(a, id)
+      end
+    else secret = true end
+  end
+  for a, was in pairs(lastAuras) do
+    if not now[a] or now[a].id ~= was.id then
+      info.removedAuraInstanceIDs = info.removedAuraInstanceIDs or {}; table.insert(info.removedAuraInstanceIDs, was.id)
+    end
+  end
+  lastAuras = now
+  return secret and SECRET or info
+end
+-- The game state the addon reads in full at login: no payload for it.
+function auraBaseline() lastAuras = {}; auraUpdate() end
+function fire(ev,...)
+  local args = { n = select("#", ...), ... }
+  if ev == "UNIT_AURA" and args[1] == "player" then -- a payload given by the test: the game state moves on all the same
+    local info = auraUpdate(); if args.n == 1 then args = { n = 2, "player", info } end
+  end
+  if ev == "PLAYER_ENTERING_WORLD" then auraBaseline() end
+  for _,f in ipairs(events) do if f._OnEvent then f._OnEvent(f,ev,unpack(args,1,args.n)) end end
+end
