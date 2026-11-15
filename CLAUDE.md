@@ -21,7 +21,9 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   (buffs, rangs Forever, préférences par classe, phrases), `BuffDigger.lua` (logique, arbre de
   décision, demandes, remerciements, barres de nom, `/bd`), `UI.lua` (minimap, réglages, Nearby,
   Give buffs, menu clic droit), `Comm.lua` (messages d'addon entre deux Buff Digger, fenêtre
-  Requests). `Bindings.xml` : raccourcis.
+  Requests). `Bindings.xml` : raccourcis. `dev/BuffDiggerJournal/` : addon de recette (dev seul,
+  exclu par `.pkgmeta`), écrit ce qu'il observe dans ses SavedVariables, c'est « le journal ».
+  `dist/` (ignoré par git) : zips et HTML de la description CurseForge générés.
 - Le suivi est dans les issues GitHub (`gh issue list`) ; idée et paris : `docs/ideas/demande-de-buffs.md`.
 - Groupe (constaté en jeu le 2026-11-11, journal) : `UnitIsUnit(nameplateN, partyN)` ne reconnaît
   pas le même joueur → comparer aussi le nom (`ns.unitName`). Buffs des membres secrets en combat,
