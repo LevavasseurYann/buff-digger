@@ -794,6 +794,66 @@ myAuras[11]=aura(311,"spell467",467,"nameplate40"); fire("UNIT_AURA","player"); 
 ns.dismissThank("Aponi"); assert(BuffDiggerDB.asked.Aponi.thanked, "skipped: request answered")
 units.nameplate41={"Sunwalker","DRUID",40}; myAuras[12]=aura(312,"spell467",467,"nameplate41"); fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==1)
 BuffDiggerDB.thankByHand=false; assert(#ns.thanksWaiting()==0, "option off: list emptied")
+print("=== a re-read of my auras never makes a gift (#25, #26)")
+do
+  BuffDiggerDB.thankByHand=true; ns.dismissThank()
+  local savedAsked, realRead, rt, base = BuffDiggerDB.asked, C_UnitAuras.GetAuraDataByIndex, time, #myAuras
+  local function at(s) time=function() return rt()+s end end
+  local function waiting() return #ns.thanksWaiting() end
+  units.party1={"Ilyria","PRIEST",33}; units.party2={"Corwen","PRIEST",35}
+  -- (1) Two gifts from my group, dismissed. A minute later, out of combat, the read gives nil (auras still
+  -- secret: restriction lifted after PLAYER_REGEN_ENABLED, or never announced): nothing comes back.
+  BuffDiggerDB.asked={}
+  myAuras[base+1]=aura(9500,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+1800
+  myAuras[base+2]=aura(9501,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+1801
+  fire("UNIT_AURA","player"); assert(waiting()==2, "two gifts seen live: two rows"); ns.dismissThank()
+  at(120); C_UnitAuras.GetAuraDataByIndex=function() return nil end
+  fire("PLAYER_REGEN_ENABLED"); runTimers(); assert(not ns.haveBuff("spirit"), "nothing read: no buff shown")
+  C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
+  assert(ns.haveBuff("spirit"), "read again: shown again")
+  print("nil read, no lockdown -> waiting:", waiting()); assert(waiting()==0, "nil read out of lockdown: no Thank line after it")
+  -- (2) Restricted map (dungeon, out of combat): C_Secrets says auras are secret, the read only gives the
+  -- auras flagged non-secret. Still nothing once readable again.
+  at(240); C_Secrets={ShouldAurasBeSecret=function() return true end}
+  C_UnitAuras.GetAuraDataByIndex=function(u,i) if u=="player" and i<=base then return myAuras[i] end end
+  fire("UNIT_AURA","player"); runTimers()
+  C_Secrets=nil; C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
+  print("restricted map -> waiting:", waiting()); assert(waiting()==0, "restricted map: no Thank line after it")
+  -- Same partial list, nothing says it is partial (no C_Secrets): the missing buffs come back as the same auras.
+  at(270); C_UnitAuras.GetAuraDataByIndex=function(u,i) if u=="player" and i<=base then return myAuras[i] end end
+  fire("PLAYER_REGEN_ENABLED"); runTimers()
+  C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
+  print("partial read -> waiting:", waiting()); assert(waiting()==0, "partial read: no Thank line after it")
+  table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player"); ns.dismissThank()
+  -- An unasked buff landing mid-fight: no row after it, but its giver is known, so his renewal is no gift.
+  at(285); InCombatLockdown=function() return true end
+  myAuras[base+1]=aura(9505,"spell14752",14752,"party2"); fire("UNIT_AURA","player")
+  InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); runTimers()
+  assert(waiting()==0, "unasked, mid-fight: no row"); assert(ns.haveBuff("spirit"))
+  myAuras[base+1].expirationTime=NOW+1500; fire("UNIT_AURA","player"); assert(waiting()==0, "renewal by the giver learned silently")
+  table.remove(myAuras); fire("UNIT_AURA","player")
+  -- (3) Journal 2026-11-15: two requests, two landings, two thanks, then 12 fights with no new aura.
+  units.party1={"Seraphine","PRIEST",33}; units.party2={"Aldric","PRIEST",35}; at(300)
+  BuffDiggerDB.asked={Seraphine={at=time(), key="fortitude", channel="WHISPER", target="Seraphine"},
+    Aldric={at=time(), key="spirit", channel="WHISPER", target="Aldric"}}
+  myAuras[base+1]=aura(9510,"Mot de pouvoir : Robustesse",1243,"party1"); myAuras[base+1].expirationTime=NOW+3000
+  myAuras[base+2]=aura(9511,"spell14752",14752,"party2"); myAuras[base+2].expirationTime=NOW+3001
+  fire("UNIT_AURA","player"); assert(waiting()==2, "two asked buffs: two rows")
+  ns.thankBuffer("Seraphine"); ns.thankBuffer("Aldric"); runTimers(); assert(waiting()==0)
+  local inFight={function() error("Auras cannot be accessed when secret") end, function() return nil end,
+    function(u,i) if myAuras[i] then return {auraInstanceID=SECRET,name=SECRET} end end}
+  for cycle=1,12 do
+    at(300+70*cycle); InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED")
+    InCombatLockdown=function() return false end -- what the read gives when the lockdown check misses it
+    C_UnitAuras.GetAuraDataByIndex=inFight[cycle%3+1]; fire("UNIT_AURA","player")
+    if cycle%2==0 then C_UnitAuras.GetAuraDataByIndex=function() return nil end else C_UnitAuras.GetAuraDataByIndex=realRead end
+    fire("PLAYER_REGEN_ENABLED"); runTimers()
+    C_UnitAuras.GetAuraDataByIndex=realRead; fire("UNIT_AURA","player"); runTimers()
+    assert(waiting()==0, "fight "..cycle..": no Thank line without a new aura")
+  end
+  table.remove(myAuras); table.remove(myAuras); fire("UNIT_AURA","player")
+  time=rt; units.party1=nil; units.party2=nil; BuffDiggerDB.asked=savedAsked; ns.dismissThank(); BuffDiggerDB.thankByHand=false
+end
 print("=== Get buffs: my request amber, the buff gold (#24)")
 BuffDiggerDB.thankByHand=true; BuffDiggerDB.asked={}; ns.dismissThank()
 units.nameplate42={"Tyrande","DRUID",40}; units.nameplate43={"Shandris","DRUID",40}
