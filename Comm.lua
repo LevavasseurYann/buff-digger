@@ -10,7 +10,9 @@
 --   * On "REQ", if I accept requests and know that spell, I answer "ACK", a sound plays, and the
 --     request joins the Requests window (UI.lua, opened by the player, never by itself) and the
 --     count on the minimap button: their name and the requested buff's icon. Clicking the icon casts it.
---   * Requests expire after REQUEST_TTL seconds, or as soon as the player has the buff.
+--   * "ADD:<buff key>:<kind>" right after a "REQ": one more buff of the same request (#39), one more
+--     icon on its line, each cast on its own click.
+--   * Requests expire after REQUEST_TTL seconds, or as soon as the player has the buffs.
 -- Blizzard blocks addon messages between players inside instances: there, plain chat only.
 -- Anyone who answers or asks is remembered as a Buff Digger user (star on their icon).
 
@@ -44,13 +46,18 @@ function ns.isPeer(name) return name and BuffDiggerDB.peers[name] ~= nil end
 
 -- Sends the request; returns the channel the thank-you should use later ("SAY" or "WHISPER"), and
 -- true when it went out silently (addon message only). `reask`: a whisper whatever the peer (#13).
-function ns.deliver(name, target, key, text, useSay, kind, reask)
+-- `keys`: the buffs asked for, best first (#39). The first goes as "REQ", the others as "ADD" right
+-- after it: an older Buff Digger ignores "ADD" and still gets the first one.
+function ns.deliver(name, target, keys, text, useSay, kind, reask)
   local function visible()
     if useSay then sendChat(name .. " : " .. text, "SAY") else sendChat(text, "WHISPER", nil, target) end
   end
   if reask or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
 
-  sendAddon(PREFIX, "REQ:" .. key .. ":" .. (kind or "new"), "WHISPER", target)
+  sendAddon(PREFIX, "REQ:" .. keys[1] .. ":" .. (kind or "new"), "WHISPER", target)
+  for i = 2, #keys do
+    sendAddon(PREFIX, "ADD:" .. keys[i] .. ":" .. (ns.haveBuff(keys[i]) and "refresh" or "new"), "WHISPER", target)
+  end
   if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
   return "WHISPER", true
 end
@@ -64,7 +71,14 @@ end
 
 -- ---------------------------------------------------------------- buffer side
 
-local incoming = {} -- { name, full, key, at }
+-- { name, full, at, buffs = { { key, kind }, ... }, key, kind (the first buff's, for the marker) }
+local incoming = {}
+
+local function drop(req)
+  for i, r in ipairs(incoming) do
+    if r == req then tremove(incoming, i) break end
+  end
+end
 
 -- A click on a Requests icon (makeWindow's own hook casts, thanks and refreshes): a higher-rank or
 -- refresh request can't close itself (they already have the buff), so the click closes it. A normal
@@ -72,11 +86,11 @@ local incoming = {} -- { name, full, key, at }
 function ns.onRequestClick(self) -- self: the buff icon of a Requests line
   local entry = self:GetParent().entry
   local req = entry and entry.request
-  if req and req.kind ~= "new" and self:GetAttribute("type") then
-    for i, r in ipairs(incoming) do
-      if r == req then tremove(incoming, i) break end
-    end
+  if not (req and self:GetAttribute("type")) then return end
+  for i, b in ipairs(req.buffs) do
+    if b.key == self.key and b.kind ~= "new" then tremove(req.buffs, i) break end
   end
+  if #req.buffs == 0 then drop(req) end
 end
 
 -- The unit of a player around me (by "Name-Realm"), or nil if out of sight.
@@ -108,10 +122,16 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
     req.unit = unitOf(req.full, plates) -- for the marker above their nameplate (#15)
     -- "Has it already" only closes a request for a buff they lacked: a higher-rank request
     -- is for a buff they already have. My own (/bd selftest) is never closed this way.
-    local done = req.kind == "new" and unit and unit ~= "player"
-      and ns.unitHas and ns.unitHas(unit, BUFFS[req.key])
-    if time() - req.at > REQUEST_TTL or done then
+    for j = #req.buffs, 1, -1 do
+      local b = req.buffs[j]
+      if b.kind == "new" and unit and unit ~= "player" and ns.unitHas and ns.unitHas(unit, BUFFS[b.key]) then
+        tremove(req.buffs, j)
+      end
+    end
+    if time() - req.at > REQUEST_TTL or #req.buffs == 0 then
       tremove(incoming, i)
+    else
+      req.key, req.kind = req.buffs[1].key, req.buffs[1].kind
     end
   end
   if ns.showRequestCount then ns.showRequestCount(#incoming) end -- not secure: in combat too
@@ -127,11 +147,15 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
     local member = unit and ns.isMember(unit)
     local far = member and ns.tooFar(buff.id, unit)
     local castable = unit and not far
-    -- The requested buff is the line's icon (its name in the tooltip), like Give buffs.
+    -- The requested buffs are the line's icons (names in the tooltip), like Give buffs.
+    local icons = {}
+    for j, b in ipairs(req.buffs) do
+      local spell = BUFFS[b.key]
+      icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = ns.rankAt(spell, myLevel),
+        spell = castable and C_Spell.GetSpellName(spell.id) or nil }
+    end
     local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req,
-      group = member,
-      buffs = { { key = req.key, icon = C_Spell.GetSpellTexture(buff.id), rank = ns.rankAt(buff, myLevel),
-        spell = castable and C_Spell.GetSpellName(buff.id) or nil } },
+      group = member, buffs = icons,
       text = far and req.name .. L[" (too far)"] or unit and req.name or L["%s (out of sight)"]:format(req.name) }
     -- Group members first, even far away (#16); like Give buffs: castable first, red icons after.
     tinsert(parts[(member and 0 or 2) + (castable and 1 or 2)], e)
@@ -155,11 +179,28 @@ local function onRequest(full, key, kind)
   for i, req in ipairs(incoming) do
     if req.name == name then tremove(incoming, i) break end
   end
-  incoming[#incoming + 1] = { name = name, full = full, key = key, kind = kind, at = time() }
+  incoming[#incoming + 1] = { name = name, full = full, key = key, kind = kind, at = time(),
+    buffs = { { key = key, kind = kind } } }
   -- Its own sound, not a whisper's (a party invite's chime); off in the settings.
   local sound = SOUNDKIT and (SOUNDKIT.IG_PLAYER_INVITE or SOUNDKIT.TELL_MESSAGE)
   if BuffDiggerDB.requestSound and sound then PlaySound(sound) end
   ns.refreshIncoming()
+end
+
+-- One more buff of the request that just came (#39). Its first buff refused (a spell I don't know):
+-- this one is the request.
+local function onAdd(full, key, kind)
+  local name, buff = ns.chatName(full), BUFFS[key]
+  if not BuffDiggerDB.acceptRequests or not buff or not IsPlayerSpell(buff.id) then return end
+  for _, req in ipairs(incoming) do
+    if req.name == name and time() - req.at < SENDER_GAP then
+      for _, b in ipairs(req.buffs) do if b.key == key then return end end
+      req.buffs[#req.buffs + 1] = { key = key, kind = kind }
+      ns.refreshIncoming()
+      return
+    end
+  end
+  onRequest(full, key, kind)
 end
 
 local function onAck(full)
@@ -183,9 +224,10 @@ frame:SetScript("OnEvent", function(_, event, prefix, message, _, sender)
     local myName, realm = UnitFullName("player")
     if sender == fullName(myName, realm) and message == "ACK" then return end -- my own self-test answer
     -- Only well-formed messages count; anything else is ignored (and never stored).
-    local key, kind = message:match("^REQ:(%a+):(%a+)$")
-    if key and (kind == "new" or kind == "refresh" or kind == "replace" or kind == "upgrade") then
-      onRequest(sender, key, kind)
+    local verb, key, kind = message:match("^(%u+):(%a+):(%a+)$")
+    if not (kind == "new" or kind == "refresh" or kind == "replace" or kind == "upgrade") then verb = nil end
+    if verb == "REQ" then onRequest(sender, key, kind)
+    elseif verb == "ADD" then onAdd(sender, key, kind)
     elseif message == "ACK" then onAck(sender) end
   end
 end)

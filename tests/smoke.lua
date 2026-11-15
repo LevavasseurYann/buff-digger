@@ -1003,6 +1003,91 @@ do
   assert(all:find("debug mode only") and all:find("refreshIncoming") and all:find("refreshWindow"), "/bd perf lists the refreshes")
 end
 print("PERF OK")
+print("=== Several buffs from one player, one request (#39)")
+do
+  NOW=NOW+3600; units.player={"Yann","MAGE",40}; IsPlayerSpell=function() return false end
+  BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={}; BuffDiggerDB.language="en"; BuffDiggerDB.multiAsk=true
+  BuffDiggerDB.prefs.MAGE=nil; ns.dismissThank(); myAuras={}; fire("UNIT_AURA","player")
+  units.nameplate80={"Anduin","PRIEST",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate80"); runTimers()
+  local function whispers(from) local n=0; for i=from+1,#sent do if sent[i]:find("^WHISPER") then n=n+1 end end return n end
+  local function last(prefix) for i=#sent,1,-1 do if sent[i]:find(prefix) then return sent[i] end end end
+  -- Priest 40, mage with neither Fort nor Spirit: one whisper naming both, one REQ + one ADD.
+  local b=#sent; ns.request("nameplate80")
+  for i=b+1,#sent do print("#39 sent:", sent[i]) end
+  assert(whispers(b)==1, "one whisper"); local w=last("^WHISPER")
+  assert(w:find("Hspell:1243") and w:find("Hspell:14752") and w:find("|r and |c"), "both links, joined by 'and': "..w)
+  assert(sent[b+1]=="ADDON>Anduin: REQ:fortitude:new" and sent[b+2]=="ADDON>Anduin: ADD:spirit:new", "REQ first, then ADD")
+  local e=BuffDiggerCharDB.asked.Anduin; assert(e.key=="fortitude" and #e.keys==2 and e.keys[2]=="spirit")
+  -- Anti-nagging buff by buff: both just asked, nothing goes out.
+  b=#sent; ns.request("nameplate80"); assert(#sent==b, "both asked a moment ago: nothing")
+  -- Fort lands: a Thank line right away, Spirit still asked.
+  myAuras[1]=aura(3901,"Mot de pouvoir : Robustesse",1243,"nameplate80"); fire("UNIT_AURA","player")
+  assert(#ns.thanksWaiting()==1 and ns.askState("Anduin")=="thank" and not e.thanked, "one landed: Thank line")
+  assert(ns.askedAgo("Anduin","spirit"), "Spirit still asked")
+  -- Spirit lands too: the same line, both icons; one click thanks once.
+  myAuras[2]=aura(3902,"spell14752",14752,"nameplate80"); fire("UNIT_AURA","player")
+  local t=ns.thanksWaiting(); assert(#t==1 and #t[1].keys==2, "one Thank line for both")
+  b=#sent; ns.thankBuffer("Anduin"); assert(whispers(b)==1 and e.thanked, "one thank-you for both")
+  -- Only Spirit lands: still a Thank line; Fort stays asked and joins the line if it comes.
+  NOW=NOW+3600; BuffDiggerCharDB.asked={}; myAuras={}; fire("UNIT_AURA","player"); ns.request("nameplate80")
+  myAuras[1]=aura(3903,"spell14752",14752,"nameplate80"); fire("UNIT_AURA","player")
+  assert(#ns.thanksWaiting()==1 and ns.askedAgo("Anduin","fortitude") and not BuffDiggerCharDB.asked.Anduin.thanked, "Fort still asked")
+  ns.dismissThank()
+  -- The "+1": on the best icon only, in Get buffs and on the nameplate; the tooltip names the other one.
+  NOW=NOW+3600; BuffDiggerCharDB.asked={}; myAuras={}; fire("UNIT_AURA","player")
+  BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow()
+  local ge; for _,x in ipairs(_G.BuffDiggerNearby.entries) do if x.unit=="nameplate80" then ge=x end end
+  for _,bf in ipairs(ge.buffs) do assert(bf.more==(bf.key=="fortitude" and 1 or 0), bf.key) end
+  BuffDiggerDB.nearby=false; ns.applyWindows()
+  local tip={}; GameTooltip.AddLine=function(_,x) tip[#tip+1]=x end
+  ns.buffTooltip(CreateFrame(),"nameplate80","fortitude"); GameTooltip.AddLine=nil
+  assert(table.concat(tip,"\n"):find("Also asks for: spell14752"), table.concat(tip," / "))
+  -- A paladin: always one blessing, even with Might, Kings and Wisdom all missing.
+  units.player={"Yann","WARRIOR",40}; units.nameplate81={"Tirion","PALADIN",40}
+  assert(#ns.moreBuffs("PALADIN",40,"might","new")==0)
+  b=#sent; ns.request("nameplate81"); assert(whispers(b)==1 and not last("^WHISPER"):find("|r and |c") and not last("^ADDON"):find("ADD:"), "one blessing")
+  -- Setting off: one buff per request, as before.
+  units.player={"Yann","MAGE",40}; BuffDiggerDB.multiAsk=false; BuffDiggerCharDB.asked={}
+  b=#sent; ns.request("nameplate80"); assert(#sent==b+2 and not sent[b+2]:find("14752") and #BuffDiggerCharDB.asked.Anduin.keys==1, "one buff")
+  BuffDiggerDB.multiAsk=true
+  -- A custom phrase: its {spell} stands for every link.
+  ns.setCustom("new","Buffs please: {spell}!"); BuffDiggerCharDB.asked={}; b=#sent; ns.request("nameplate80")
+  assert(last("^WHISPER"):find("Buffs please: |c.-1243.- and |c.-14752.-!$"), last("^WHISPER")); ns.setCustom("new","")
+  -- Every language: a multi line with %s once, and its own "and".
+  for _,lang in ipairs(ns.LANGUAGES) do
+    for _,m in ipairs(ns.MESSAGES[lang[1]].multi) do assert(select(2, m:gsub("%%s",""))==1, m) end
+    local m=ns.message("new",{"fortitude","spirit","shadow"},lang[1]); assert(m:find(ns.AND[lang[1]],1,true) and m:find(", |c"), m)
+    print("#39", lang[1], (m:gsub("|c%x+|H.-|h",""):gsub("|h|r","")))
+  end
+  -- Between two Buff Digger users: the priest's Requests line shows both icons, cast one by one.
+  units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 or id==14752 end; BuffDiggerDB.acceptRequests=true
+  units.nameplate82={"Kael","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate82"); runTimers()
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Kael-Realm")
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:spirit:new","WHISPER","Kael-Realm")
+  BuffDiggerDB.requests=true; ns.applyWindows()
+  local kr; for _,x in ipairs(_G.BuffDiggerRequests.entries) do if x.request and x.request.name=="Kael" then kr=x end end
+  assert(kr and #kr.buffs==2 and kr.buffs[1].key=="fortitude" and kr.buffs[2].key=="spirit", "both icons")
+  -- A refresh extra can't close by itself (they have it): a click on its icon, the second one, does.
+  units.nameplate84={"Rhonin","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate84"); runTimers()
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:refresh","WHISPER","Rhonin-Realm")
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:spirit:refresh","WHISPER","Rhonin-Realm"); ns.refreshIncoming()
+  local function rhonin() for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request and r.entry.request.name=="Rhonin" then return r end end end
+  click(rhonin().buffs[2], false); ns.refreshIncoming(); assert(#rhonin().entry.buffs==1 and rhonin().entry.buffs[1].key=="fortitude", "second icon: Spirit closed")
+  click(rhonin().buffs[1], false); ns.refreshIncoming(); assert(not rhonin(), "both clicked: request gone")
+  fire("NAME_PLATE_UNIT_REMOVED","nameplate84"); units.nameplate84=nil
+  -- An older Buff Digger reads only REQ:<key>:<kind> (its pattern): it still gets Fort, ignores ADD.
+  assert(("ADD:spirit:new"):match("^REQ:(%a+):(%a+)$")==nil and ("REQ:fortitude:new"):match("^REQ:(%a+):(%a+)$")=="fortitude")
+  -- First buff unknown to me (no Fort): the ADD alone is the request.
+  IsPlayerSpell=function(id) return id==14752 end; NOW=NOW+60
+  units.nameplate83={"Ilya","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate83"); runTimers()
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Ilya-Realm")
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:spirit:new","WHISPER","Ilya-Realm"); ns.refreshIncoming()
+  local ir; for _,x in ipairs(_G.BuffDiggerRequests.entries) do if x.request and x.request.name=="Ilya" then ir=x end end
+  assert(ir and #ir.buffs==1 and ir.buffs[1].key=="spirit", "ADD alone: Spirit asked")
+  BuffDiggerDB.requests=false; ns.applyWindows()
+  for _,u in ipairs({"nameplate80","nameplate81","nameplate82","nameplate83"}) do fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end
+  units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
 print("SMOKE OK")
 print("=== buffKeyOf: spell names not loaded yet (#34)")
 do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.

@@ -197,3 +197,11 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
 | 73 | `/run BuffDiggerDB.debug=true`, en capitale bondée, toutes fenêtres fermées. **Avant** (ancien comportement : une demande en attente) : `/bd selftest`, fermer Requests, `/bd perf` (remet à zéro), 60 s, `/bd perf`. **Après** (aucune demande, attendre 90 s qu'elle expire) : `/bd perf`, 60 s, `/bd perf`. Refaire avec Get buffs + Give buffs ouvertes | Noter dans l'issue #35 les ms/s de `refreshNow`, `refreshWindow`, `refreshIncoming` dans chaque cas ; `refreshIncoming` doit chuter dans « après » |
+
+## Plusieurs buffs en une demande (#39) — un mage ou un démoniste, un prêtre 40+ croisé (ou deux testeurs)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 74 | Sans Robustesse ni Esprit divin, clic sur l'icône du prêtre (barre de nom en « Best buff ») | Un petit « +1 » bleu sur l'icône. **Une seule** MP, avec les deux liens cliquables (« [Robustesse] and [Esprit divin] ») ; la MP part bien (le serveur accepte deux liens) |
+| 75 | Il lance la Robustesse seule | La ligne dorée Thank arrive. Il lance ensuite l'Esprit : toujours une seule ligne, deux icônes. Un clic *Thank* : un seul merci |
+| 76 | Deux Buff Digger : le prêtre a la fenêtre Requests ouverte | Une ligne pour le mage, deux icônes ; chaque clic lance son sort, la ligne part quand les deux sont posés |
