@@ -727,7 +727,7 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
   w.grip:SetScript("OnMouseUp", function() w:StopMovingOrSizing() end)
   -- Padlock left of the close button: locked = no move, no resize (both list windows at once).
   w.lock = CreateFrame("Button", nil, w)
-  w.lock:SetSize(18, 18)
+  w.lock:SetSize(24, 24) -- its art fills ~2/3 of the frame: shows ~16 px, the sort arrow's size (#42)
   w.lock:SetPoint("RIGHT", w.CloseButton, "LEFT", 2, 0)
   w.lock:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
   w.lock:SetScript("OnClick", function(self)
