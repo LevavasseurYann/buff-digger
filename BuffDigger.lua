@@ -43,9 +43,8 @@ ns.DEFAULTS = {
   nearbyUseful = false, -- Get buffs: hide players with nothing better for me
   lockWindows = false, -- windows can't be moved or resized
   give = false,      -- "Give buffs" window (buffer classes)
-  thank = true,      -- automatic /thank emote
+  thank = true,      -- /thank emote with a Thank click
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
-  thankByHand = true, -- no automatic thanks: givers wait for a click, in Get buffs or Thanks (#21, #24)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
@@ -57,6 +56,7 @@ ns.DEFAULTS = {
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
   requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
   gameMenu = true, -- buff request lines in the game's right-click menu on a player (#17)
+  multiAsk = true, -- one request names every buff that player can probably give me (#39)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -67,7 +67,7 @@ local BETS = {
   { key = "click",    label = "Receive a click on that icon" },
   { key = "tooltip",  label = "Add a line to their tooltip" },
   { key = "source",   label = "Know who put a buff on me" },
-  { key = "thank",    label = "Automatic /thank" },
+  { key = "thank",    label = "Send /thank" },
   { key = "others",   label = "Read another player's buffs (buffer mode)" },
   { key = "whisper",  label = "Send a whisper (with a spell link)" },
   { key = "say",      label = "Talk in /say" },
@@ -97,17 +97,18 @@ ns.record = record
 
 -- ---------------------------------------------------------------- my buffs
 
--- Spell name (rank 1 and group version) -> buff key, built once names are available.
-local keyByName
+-- Spell name (rank 1 and group version) -> buff key. Rebuilt on a miss while a name was still missing
+-- (not loaded yet at the first lookup): otherwise that buff stays unknown until /reload (#34).
+local keyByName, namesMissing
 local function buffKeyOf(spellName)
-  if not keyByName then
-    keyByName = {}
+  if not keyByName or (namesMissing and not keyByName[spellName]) then
+    keyByName, namesMissing = {}, false
     for key, buff in pairs(BUFFS) do
       local n = C_Spell.GetSpellName(buff.id)
-      if n then keyByName[n] = key end
+      if n then keyByName[n] = key else namesMissing = true end
       for _, id in ipairs(buff.group or {}) do
         n = C_Spell.GetSpellName(id)
-        if n then keyByName[n] = key end
+        if n then keyByName[n] = key else namesMissing = true end
       end
     end
   end
@@ -120,8 +121,16 @@ ns.buffKeyOf = buffKeyOf
 -- The rank comes from the value the buff gives (aura.points, #8), else from the giver's level when it
 -- lands. Neither known (value hidden or not in Data.lua, giver unknown): unknown rank, never "upgraded".
 local mine = {}
-local byInstance = {} -- auraInstanceID -> { key, rank, giver, expires }
-local ready = false
+-- My auras by instance ID, kept up to date by UNIT_AURA's updateInfo (#30): the game names what was
+-- added, updated or removed, and a removed ID can't be read any more.
+-- auraInstanceID -> { name, key, rank, giver, expires, duration }
+local byInstance = {}
+-- What I know may be wrong (combat, restricted map, a payload I couldn't read, a full update, login):
+-- the next full read, once my auras are readable, is silent: it only honors an open request (#25).
+local stale = true
+-- Running buffs missing from the last full read: maybe only hidden (a partial list while the restriction
+-- lifts). Back under the same ID, they keep what I knew (giver, rank).
+local lost = {}
 
 -- What the buff gives (+55 attack power -> 55), or nil when the game hides it.
 local function auraValue(aura)
@@ -158,38 +167,20 @@ end
 
 -- ---------------------------------------------------------------- thanks
 
--- Blizzard only lets an addon talk in /say (outside instances) during a real click or key press,
--- and maybe emotes too. Such thanks wait here and go out with the next Buff Digger click or key
--- (ns.flushThanks, called by every action). Whispers never need to wait.
--- At most one waiting thank-you per player; after PENDING_MAX seconds it is dropped (they left).
-local PENDING_MAX = 120
-local pendingThanks = {} -- name -> { at, fns }
-
-local function sendLater(name, fn)
-  local p = pendingThanks[name]
-  if not p then
-    p = { at = time(), fns = {} }
-    pendingThanks[name] = p
-    debug(L["Thanks to %s will go out with your next Buff Digger click or key."]:format(name))
-  end
-  p.fns[#p.fns + 1] = fn
-end
-
-function ns.flushThanks()
-  local todo = pendingThanks
-  pendingThanks = {}
-  for _, p in pairs(todo) do
-    if time() - p.at <= PENDING_MAX then
-      for _, fn in ipairs(p.fns) do fn() end
-    end
-  end
+-- Was this buff in that request? `keys`: every buff of the request (#39); older entries only have `key`.
+local function asks(e, key)
+  if e.key == key then return true end
+  for _, k in ipairs(e.keys or {}) do if k == key then return true end end
+  return false
 end
 
 -- My open request to this player for this very buff (asked less than 10 minutes ago, not thanked yet).
 -- Nothing else is ever thanked: another buff, a buff nobody asked for, a giver the game doesn't name.
+-- One request for several buffs (#39): each one that lands joins the same Thank line, one click
+-- thanks for them all and answers the request.
 local function findRequest(name, key)
-  local e = name and key and BuffDiggerDB.asked[name]
-  if type(e) == "table" and not e.thanked and e.key == key and time() - e.at < 600 then return e end
+  local e = name and key and BuffDiggerCharDB.asked[name]
+  if type(e) == "table" and not e.thanked and asks(e, key) and time() - e.at < 600 then return e end
 end
 
 -- One /thank per player per THANK_GAP seconds: a druid casting Mark then Thorns, or a paladin
@@ -197,32 +188,27 @@ end
 local THANK_GAP = 60
 local lastThank = {}
 
--- now: a click (#24), the message goes at once; on its own it waits a second or two.
-local function thank(name, request, now)
-  -- A thank-you in the same channel as the request, if there was one.
+-- Always from a click or a key (#37): /say and the emote go out at once.
+local function thank(name, request)
+  -- A thank-you in the same channel as the request.
   request.thanked = true -- answered: one thank-you per request
   if BuffDiggerDB.thankMessage then
     local text = ns.thanks(BuffDiggerDB.language)
     if request.channel == "SAY" then
-      sendLater(name, function() send(name .. " : " .. text, "SAY") end)
+      send(name .. " : " .. text, "SAY")
     else
-      -- A second or two, like someone typing: an instant thank-you reads like a bot.
-      -- (The /thank emote stays immediate: that's the reflex.)
-      local target = request.target or name
-      local whisper = function() send(text, "WHISPER", nil, target) end
-      if now then whisper() else C_Timer.After(1 + math.random(), whisper) end -- 1 to 2 s
+      send(text, "WHISPER", nil, request.target or name)
     end
   end
   if BuffDiggerDB.thank and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
     lastThank[name] = time()
-    local emote = function() DoEmote("THANK", firstName(name)) end
-    if BuffDiggerDB.emoteNeedsClick then sendLater(name, emote) else emote() end
+    DoEmote("THANK", firstName(name))
     record("thank", true, "/thank to " .. name)
   end
 end
 
--- ---------------------------------------------------------------- thanks by hand (#21)
--- With "thankByHand", nothing is thanked on its own: who just buffed me waits here, newest first,
+-- ---------------------------------------------------------------- thanks by hand (#21, #37)
+-- Nothing is thanked on its own: who just gave me a buff I asked for waits here, newest first,
 -- one entry per player, until I click Thank (a real click: /say and the emote go out at once),
 -- dismiss them, or THANK_KEEP seconds pass.
 local TO_THANK_MAX = 5
@@ -239,22 +225,17 @@ local function addToThank(name, class, target, key, request)
   local known = false
   for _, k in ipairs(e.keys) do known = known or k == key end
   if not known then e.keys[#e.keys + 1] = key end
-  e.at, e.request = time(), e.request or request
+  e.at, e.request = time(), request -- the latest: the one in BuffDiggerCharDB.asked
   table.insert(toThank, 1, e)
-  -- Full: the oldest gift goes first; gifts show nowhere but Get buffs, a buff I asked for must stay.
-  if #toThank > TO_THANK_MAX then
-    local drop = #toThank
-    for i = #toThank, 1, -1 do if not toThank[i].request then drop = i break end end
-    table.remove(toThank, drop)
-  end
+  if #toThank > TO_THANK_MAX then table.remove(toThank) end -- full: the oldest goes
   if ns.refreshThanks then ns.refreshThanks() end
 end
 
 -- Who is waiting for a thank-you (expired ones dropped).
 function ns.thanksWaiting()
-  if not BuffDiggerDB.thankByHand then wipe(toThank) end -- option turned off: the window goes too
   for i = #toThank, 1, -1 do
-    if time() - toThank[i].at > THANK_KEEP then table.remove(toThank, i) end
+    -- Ran out unclicked: that request counts as answered, or Ghost Wolf or a /reload would bring it back.
+    if time() - toThank[i].at > THANK_KEEP then table.remove(toThank, i).request.thanked = true end
   end
   return toThank
 end
@@ -276,39 +257,63 @@ function ns.dismissThank(name)
   return e
 end
 
--- Called from a click or a key: emote and message (as ticked) now, in my request's channel if
--- I asked them, in a whisper otherwise. flip (Shift/Ctrl-click): the other channel, like asking.
+-- Called from a click or a key: emote and message (as ticked) now, in my request's channel.
+-- flip (Shift/Ctrl-click): the other channel, like asking.
 function ns.thankBuffer(name, flip)
   local e = ns.dismissThank(name)
   if not e then return end
-  local request = e.request or { channel = "WHISPER", target = e.target }
+  local request = e.request
   if flip then
     request = { channel = request.channel == "SAY" and "WHISPER" or "SAY", target = request.target or e.target }
   end
-  thank(e.name, request, true)
+  thank(e.name, request)
   lastThank[e.name] = time()
-  ns.flushThanks()
 end
 
 -- How Get buffs shows this player (#24): "thank" (buffed me, waits for my click), "asked" (my
 -- request is open and I can't ask them again yet: BuffDiggerDB.delay), or nil.
 function ns.askState(name)
   for _, x in ipairs(ns.thanksWaiting()) do if x.name == name then return "thank" end end
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   if type(e) == "table" and not e.thanked and time() - e.at < BuffDiggerDB.delay then return "asked" end
 end
 
 -- The cross on a Get buffs line, nothing sent. Gold: skip that thank-you (its request, if any, is
 -- answered; another open request to them stays). Amber: the request is closed; a late buff from
--- them then only comes back as a gift (open world).
+-- them then isn't thanked.
 function ns.closeAsk(name)
   if ns.dismissThank(name) then return end
-  local e = BuffDiggerDB.asked[name]
+  local e = BuffDiggerCharDB.asked[name]
   if type(e) == "table" then e.thanked = true end
 end
 
--- prevGiver: who gave me that buff before this landing (a renewal by the same player isn't a gift).
-local function onBuffLanded(aura, info, prevGiver)
+-- Did this buff start after my request? nil when its time is hidden. time() counts whole seconds: 2 s slack.
+local function startedAfter(info, request)
+  if not info.expires then return end
+  return time() - (GetTime() - (info.expires - info.duration)) >= request.at - 2
+end
+
+-- Another aura of mine, this buff from this giver: a new ID for it is the same buff (Ghost Wolf).
+local function heldFrom(info, giver)
+  for _, x in pairs(byInstance) do
+    if x ~= info and x.key == info.key and x.giver == giver then return true end
+  end
+end
+
+-- The aura I had for this buff with the same end: a new ID for it is the same buff (Ghost Wolf), which
+-- keeps its giver and rank (the new aura may not name the giver).
+local function twin(info)
+  if not (info.key and info.expires) then return end
+  for _, x in pairs(byInstance) do
+    if x ~= info and x.key == info.key and x.expires and math.abs(x.expires - info.expires) < 2 then return x end
+  end
+end
+
+-- A Data.lua buff landed on me: learn its giver (and rank from their level if the value is hidden).
+-- kind: "new" (added, live), "renew" (its end moved later, live) or "read" (a full read, silent).
+-- A Thank line only for my open request to this very giver for this very buff (#37), and only for a
+-- buff given after that request: a full read or a new ID (Ghost Wolf) for a buff I already had is not.
+local function onBuffLanded(aura, info, kind)
   local source = aura.sourceUnit
   if not readable(source) or not readable(aura.spellId) then record("source", false, "source or spell secret") return end
   local name, class, level, target, _
@@ -320,105 +325,166 @@ local function onBuffLanded(aura, info, prevGiver)
     if not (name and readable(class) and readable(level)) then record("source", false, "giver secret") return end
   end
   -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
-  if name and info.key and BUFFS[info.key].class ~= class then
+  if name and BUFFS[info.key].class ~= class then
     debug("Ignored: " .. name .. " can't give " .. show(aura.name))
     name = nil
   elseif name then
     record("source", true, name .. " → " .. show(aura.name))
     info.giver = name
     -- The value read on the buff wins; the giver's level is only a guess at what they bought.
-    if info.key and not info.rank then info.rank = rankAt(BUFFS[info.key], level) end
+    if not info.rank then info.rank = rankAt(BUFFS[info.key], level) end
 
     local entry = logEntry(aura)
     local seen = entry.classes[class]
     entry.classes[class] = seen and math.min(seen, level) or level
-  else
+  elseif kind ~= "read" then
     -- A stranger outside the group does not always have a unit token: count those cases.
     BuffDiggerDB.noSource = BuffDiggerDB.noSource + 1
   end
 
-  -- Only the buff I asked this player for, from this very player, is thanked. Giver unknown (no unit
-  -- token, stale token): no guessing, nobody is thanked — guessing thanked people who gave nothing.
+  -- Giver unknown (no unit token, stale token): no guessing — guessing thanked people who gave nothing.
   local request = findRequest(name, info.key)
-  if not BuffDiggerDB.thankByHand then
-    if request then thank(name, request) end
-  -- By hand: a buff I asked for, or (open world only: group buffs rain in instances) a real gift.
-  elseif name and info.key and (BuffDiggerDB.thank or BuffDiggerDB.thankMessage)
-    and not (lastThank[name] and time() - lastThank[name] < THANK_GAP)
-    and (request or not (IsInInstance() or name == prevGiver)) then
-    addToThank(name, class, target, info.key, request)
-  end
+  if not request or not (BuffDiggerDB.thank or BuffDiggerDB.thankMessage) then return end
+  local after = kind == "renew" or startedAfter(info, request)
+  if after == nil and kind == "new" then after = not heldFrom(info, name) end -- time hidden
+  if after then addToThank(name, class, target, info.key, request) end
 end
 
-local function readMyBuffs()
-  local seen = {}
-  -- A shapeshift (Ghost Wolf...) can hand every aura a new instance ID: a known buff ending at the
-  -- same time is the one I already had, not a new landing to thank.
-  local had = {}
-  for _, info in pairs(byInstance) do if info.key then had[info.key] = info end end
-  local hidden = false
-  for i = 1, 40 do
-    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
-    if not ok or not aura then break end
-    local id = aura.auraInstanceID
-    local known = readable(id) and readable(aura.name)
-    hidden = hidden or not known
-    if known then
-      local info = byInstance[id]
-      local expires, duration = auraExpires(aura)
-      local old = not info and had[buffKeyOf(aura.name) or false]
-      -- Time left hidden on either side: can't tell, so it is the same buff (no thanks) — unless
-      -- the game names another caster than the one I had (paladin B's Kings replacing paladin A's).
-      local src = aura.sourceUnit
-      local caster = old and readable(src) and src and ns.unitName(src)
-      local sameGiver = not (readable(caster) and caster and old.giver) or caster == old.giver
-      local same = old and sameGiver and (not (old.expires and expires) or math.abs(old.expires - expires) < 2)
-      -- Same aura with a later end: someone refreshed it. That counts as a new landing (thanks, if I
-      -- asked them). Even a few seconds later: a recast right after the first one (upgrade asked).
-      local renewed = info and info.expires and expires and expires > info.expires + 5
-      if not info or renewed then
-        local oldRank = info and info.rank
-        info = info or { key = buffKeyOf(aura.name) }
-        if info.key then
-          local value = auraValue(aura)
-          record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
-          if expires then record("expires", true) else record("expires", false, "time left hidden") end
-          info.rank = value and ns.rankOfValue(BUFFS[info.key], value)
-          local entry = value and logEntry(aura)
-          if entry then entry.value = value end
-        end
-        local oldGiver = info.giver or (same and old.giver)
-        -- Not oldGiver: that one is only for an aura judged the same. prevGiver is who gave this buff
-        -- before, for any landing (unknown giver before: nil, so a renewal then counts as a gift).
-        local prevGiver = info.giver or (old and old.giver)
-        info.giver = nil
-        if ready and not same then onBuffLanded(aura, info, prevGiver) end
-        info.giver = info.giver or oldGiver -- renewal by a hidden giver: keep the one we knew
-        info.rank = info.rank or oldRank -- nothing better known: keep what we had
-      end
-      info.expires, info.duration = expires, duration
-      seen[id] = info
-    end
+-- Learns what a readable aura is now. True when it is a landing of a Data.lua buff: new to me, or its
+-- end moved later by more than 5 s (someone recast it, even right after the first cast).
+local function track(aura, info)
+  local expires, duration = auraExpires(aura)
+  local landing = info.name == nil or expires and info.expires and expires > info.expires + 5
+  info.name = aura.name
+  info.key = info.key or buffKeyOf(aura.name)
+  if landing and info.key then
+    local value = auraValue(aura)
+    record("points", value ~= nil, value and (aura.name .. " = " .. value) or "value hidden")
+    if expires then record("expires", true) else record("expires", false, "time left hidden") end
+    info.rank = value and ns.rankOfValue(BUFFS[info.key], value) or info.rank
+    local entry = value and logEntry(aura)
+    if entry then entry.value = value end
   end
-  -- Some auras secret (in combat): keep what I knew of them. Dropped, they would all come back as new
-  -- landings after the fight and gold "Thank" lines for buffs already thanked (journal, 2026-11-15).
-  -- Not a buff already read under a new ID, nor one past its end: PLAYER_REGEN_ENABLED reads again.
-  if hidden then
-    local keys = {}
-    for _, info in pairs(seen) do if info.key then keys[info.key] = true end end
-    for id, info in pairs(byInstance) do
-      if not seen[id] and not (info.key and keys[info.key]) and not (info.expires and info.expires < GetTime()) then
-        seen[id] = info
-      end
-    end
-  end
-  byInstance, ready = seen, true -- the first pass thanks nobody
+  info.expires, info.duration = expires, duration
+  return landing and info.key ~= nil
+end
+
+-- mine from byInstance. True when a buff read before its name loaded is known now (#34).
+local function rebuildMine()
+  local found = false
   mine = {}
   for _, info in pairs(byInstance) do
+    if not info.key and info.name then
+      info.key = buffKeyOf(info.name)
+      found = found or info.key ~= nil
+    end
     if info.key then
       mine[info.key] = { rank = info.rank, giver = info.giver, expires = info.expires, duration = info.duration }
     end
   end
+  return found
+end
+
+-- In combat or on a restricted map my auras can be secret, missing from the list (nil), or the call
+-- can fail (journal 2026-11-15): don't read them then.
+local function aurasReadable()
+  local secret = C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret()
+  return not InCombatLockdown() and readable(secret) and not secret
+end
+
+local function readableAura(aura)
+  return readable(aura) and type(aura) == "table" and readable(aura.auraInstanceID) and readable(aura.name)
+end
+
+-- A full read of my auras, once they are readable: after `stale` only, and silent (#25). Returns true
+-- when it read them.
+local function reconcile()
+  if not aurasReadable() then stale = true return false end
+  local auras = {}
+  for i = 1, 40 do
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+    if not ok or aura and not readableAura(aura) then stale = true return false end
+    if not aura then break end
+    auras[i] = aura
+  end
+  -- A buff of mine still running and missing from the read: hidden (a nil or partial list while the
+  -- restriction lifts), or really gone (fell off, death). Read again at the next chance; the start
+  -- time keeps a buff coming back from looking new.
+  local seen, missing = {}, false
+  for _, aura in ipairs(auras) do
+    local id = aura.auraInstanceID
+    local info = byInstance[id] or lost[id] or {}
+    if track(aura, info) then onBuffLanded(aura, info, "read") end
+    seen[id] = info
+  end
+  lost = {}
+  for id, info in pairs(byInstance) do
+    if not seen[id] and info.key and not (info.expires and info.expires < GetTime()) then missing, lost[id] = true, info end
+  end
+  if not auras[1] and missing then -- nothing at all: show none, keep what I knew
+    stale, mine = true, {}
+    return true
+  end
+  byInstance, stale = seen, missing
+  rebuildMine()
+  return true
+end
+
+-- One UNIT_AURA payload (#30). Returns true when a Data.lua buff moved, false when none did, nil when
+-- the payload can't be trusted (full update, secret or unreadable part).
+local function applyUpdate(u)
+  if not readable(u) or type(u) ~= "table" then return end
+  local full, added, updated, removed = u.isFullUpdate, u.addedAuras, u.updatedAuraInstanceIDs, u.removedAuraInstanceIDs
+  if not readable(full) or full then return end
+  for _, list in ipairs({ added or {}, updated or {}, removed or {} }) do
+    if not readable(list) or type(list) ~= "table" then return end
+  end
+  local moved = false
+  -- Added before removed: a new ID for a buff I had (Ghost Wolf) still finds the old one (heldFrom).
+  for _, aura in ipairs(added or {}) do
+    if not readableAura(aura) then return end
+    local helpful = aura.isHelpful
+    if not (readable(helpful) and helpful == false) then
+      local info = {}
+      local landing = track(aura, info)
+      local old = twin(info)
+      if old then info.giver, info.rank = old.giver, info.rank or old.rank end
+      if landing then onBuffLanded(aura, info, "new") end
+      byInstance[aura.auraInstanceID] = info
+      moved = moved or info.key ~= nil
+    end
+  end
+  for _, id in ipairs(updated or {}) do
+    if not readable(id) then return end
+    local info = byInstance[id]
+    if info then
+      local aura = C_UnitAuras.GetAuraDataByAuraInstanceID("player", id)
+      if aura then -- nil: gone already, its removal follows
+        if not readableAura(aura) then return end
+        if track(aura, info) then onBuffLanded(aura, info, "renew") end
+        moved = moved or info.key ~= nil
+      end
+    end
+  end
+  for _, id in ipairs(removed or {}) do
+    if not readable(id) then return end
+    local info = byInstance[id]
+    byInstance[id] = nil
+    moved = moved or info ~= nil and info.key ~= nil
+  end
+  return moved
+end
+
+-- UNIT_AURA on me: follow the payload; a full read only after `stale` (combat, full update, secrets).
+-- Returns true when what I have may have changed.
+local function onUnitAura(updateInfo)
+  if not stale and aurasReadable() then
+    local ok, moved = pcall(applyUpdate, updateInfo)
+    if ok and moved ~= nil then return rebuildMine() or moved end
+    if not ok then debug("UNIT_AURA: " .. tostring(moved)) end
+    stale = true
+  end
+  return reconcile()
 end
 
 -- ---------------------------------------------------------------- decision tree
@@ -430,6 +496,14 @@ end
 local function prefIndex(prefs, key)
   for i, k in ipairs(prefs) do if k == key then return i end end
   return math.huge
+end
+
+-- A buff I lack, or that is running out, that this player can probably give me. A refresh must be at
+-- least the rank I have; rank unknown: no refresh (it could lower it). A new buff: any rank.
+local function missingFrom(key, class, level)
+  local buff, have = BUFFS[key], mine[key]
+  if have and not expiring(have) or buff.class ~= class then return false end
+  return rankAt(buff, level) >= (have and (have.rank or math.huge) or 1)
 end
 
 -- What should I ask this player for? Returns buff key, kind, isTopPick — or nil.
@@ -448,13 +522,10 @@ function ns.bestBuff(name, class, level)
 
   local missingSeen = 0
   for i, key in ipairs(prefs) do
-    local buff, have = BUFFS[key], mine[key]
+    local have = mine[key]
     if not have or expiring(have) then
       missingSeen = missingSeen + 1
-      -- A refresh must be at least the rank I have; rank unknown: no refresh (it could lower it).
-      -- A new buff: any rank.
-      local need = have and (have.rank or math.huge) or 1
-      if buff.class == class and rankAt(buff, level) >= need then
+      if missingFrom(key, class, level) then
         if not hisBlessing then return key, have and "refresh" or "new", missingSeen == 1 end
         if i < prefIndex(prefs, hisBlessing) then return key, "replace", missingSeen == 1 end
       end
@@ -468,6 +539,19 @@ function ns.bestBuff(name, class, level)
       return key, "upgrade", false
     end
   end
+end
+
+-- The other buffs a request to this player also names, after their best one `key` of kind `kind`
+-- (#39): the ones I lack or that run out, in my preference order. None from a paladin (his blessings
+-- replace each other on me), none with an upgrade or a swap, none with "multiAsk" unticked.
+function ns.moreBuffs(class, level, key, kind)
+  local more = {}
+  if not BuffDiggerDB.multiAsk or class == "PALADIN" or not (kind == "new" or kind == "refresh") then return more end
+  local _, myClass = UnitClass("player")
+  for _, k in ipairs(ns.prefsFor(myClass)) do
+    if k ~= key and missingFrom(k, class, level) then more[#more + 1] = k end
+  end
+  return more
 end
 
 -- Forever: UnitName returns "Raide", "Boule": the last name sits where WoW puts the realm (seen in
@@ -501,10 +585,11 @@ end
 -- ---------------------------------------------------------------- asking
 
 -- Anti-nagging: never ask the same player twice within BuffDiggerDB.delay seconds. Kept in the
--- saved variables (real clock), so a /reload does not reset it (#6).
-function ns.askedAgo(name)
-  local e = BuffDiggerDB.asked[name]
-  local ago = type(e) == "table" and (time() - e.at)
+-- saved variables (real clock), so a /reload does not reset it (#6). With `key`: that buff only (#39),
+-- another of their buffs can still be asked for.
+function ns.askedAgo(name, key)
+  local e = BuffDiggerCharDB.asked[name]
+  local ago = type(e) == "table" and (key == nil or asks(e, key)) and (time() - e.at)
   if ago and ago < BuffDiggerDB.delay then return ago end
 end
 
@@ -546,35 +631,57 @@ function ns.hisBlessing(name)
   end
 end
 
--- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4).
+-- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4). The best one,
+-- picked or not, comes with the other buffs they can give me, in the same message (#39).
 function ns.request(unit, chosenKey)
   if InCombatLockdown() then return end
-  ns.flushThanks()
   if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
   local name, class, level, target = ns.identity(unit)
   if not name then return end
   -- A group member out of sight (another zone): a whisper would only bother them (#16).
   if ns.outOfSight(unit) then notice(L["%s is too far away: nothing asked."]:format(name)) return end
-  local key, kind
-  if chosenKey then
+  local key, kind = ns.bestBuff(name, class, level)
+  local keys = { key }
+  if chosenKey and chosenKey ~= key then
     key, kind = chosenKey, kindFor(name, chosenKey, level)
-  else
-    key, kind = ns.bestBuff(name, class, level)
+    keys = { key }
+  elseif key then -- the best one: every other buff they can give me too
+    for _, k in ipairs(ns.moreBuffs(class, level, key, kind)) do keys[#keys + 1] = k end
   end
   if not key then notice(L["%s has nothing better for you right now."]:format(name)) return end
   -- A silent request that brought nothing: this click re-asks them by whisper (#13).
   local reask = ns.unanswered(name)
-  local ago = not reask and ns.askedAgo(name)
-  if ago then
+  -- Anti-nagging, buff by buff (#39): a buff asked a moment ago is left out of this request.
+  local ago
+  if not reask then
+    for i = #keys, 1, -1 do
+      local a = ns.askedAgo(name, keys[i])
+      if a then ago = a; table.remove(keys, i) end
+    end
+  end
+  if #keys == 0 then
     notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
-  local text = ns.message(kind, key, BuffDiggerDB.language)
+  if keys[1] ~= key then kind = mine[keys[1]] and "refresh" or "new" end -- the best one was left out
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
+  local text = ns.message(kind, keys, BuffDiggerDB.language)
+  -- The chat takes 255 bytes ("Name : " first in /say): fewer buffs rather than a cut message.
+  while #keys > 1 and #name + 3 + #text > 255 do
+    keys[#keys] = nil
+    text = ns.message(kind, keys, BuffDiggerDB.language)
+  end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
-  local channel, silent = ns.deliver(name, target, key, text, useSay, kind, reask)
-  BuffDiggerDB.asked[name] = { at = time(), key = key, channel = channel, target = target, silent = silent }
+  local channel, silent = ns.deliver(name, target, keys, text, useSay, kind, reask)
+  -- One entry per player, every buff asked in it: an open request to them takes the new buffs (its
+  -- Thank line, if any, stays the same), otherwise a new one.
+  local e = BuffDiggerCharDB.asked[name]
+  if not (type(e) == "table" and not e.thanked and time() - e.at < 600) then e = {} end
+  e.keys = e.keys or { e.key }
+  for _, k in ipairs(keys) do if not asks(e, k) then e.keys[#e.keys + 1] = k end end
+  e.at, e.key, e.channel, e.target, e.silent = time(), keys[1], channel, target, silent
+  BuffDiggerCharDB.asked[name] = e
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -582,7 +689,6 @@ end
 -- A key press counts as a real input, so /say works from here too.
 function ns.askBest()
   if InCombatLockdown() then return end
-  ns.flushThanks()
   local _, myClass = UnitClass("player")
   local prefs = ns.prefsFor(myClass)
   local KIND_ORDER = { new = 0, refresh = 1, replace = 2, upgrade = 3 }
@@ -753,13 +859,15 @@ end
 
 local function updateIcon(unit)
   local name, class, level = ns.identity(unit)
-  local key = name and ns.bestBuff(name, class, level)
+  local key, kind
+  if name then key, kind = ns.bestBuff(name, class, level) end
   local his = name and ns.hisBlessing(name)
   local mode = BuffDiggerDB.plates
   if mode == "off" or not name then return end
   -- "all": every buff they can give, I pick (my priorities left to right).
   -- "best": that choice only. "hint": a small Buff Digger icon saying "this one can buff you".
   local keys = mode == "all" and ns.offers(class, level) or { key }
+  local more = key and #ns.moreBuffs(class, level, key, kind) or 0 -- asked along with the best one (#39)
   for i, k in ipairs(keys) do
     local button = iconFor(unit, i)
     if not button then return end
@@ -776,6 +884,7 @@ local function updateIcon(unit)
       ns.styleBuff(button, k, key, his)
     end
     button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
+    ns.showMore(button, mode ~= "hint" and k == key and more or 0)
     button:Show()
   end
 end
@@ -846,19 +955,41 @@ function ns.styleBuff(button, k, best, his)
   button.his:SetShown(k ~= nil and k == his)
 end
 
+-- "+1" in the icon's top corner: a click on it also asks for that many more buffs (#39).
+function ns.showMore(button, n)
+  if not button.more then
+    button.more = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    button.more:SetPoint("TOPRIGHT", 4, 2)
+    button.more:SetTextColor(0.4, 0.8, 1) -- Buff Digger's blue, not a rank's white
+  end
+  button.more:SetText(n and n > 0 and "+" .. n or "")
+end
+
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change
 -- many times a second: calls within REFRESH_DELAY are merged into one recompute (#7).
 local REFRESH_DELAY = 0.25
 local refreshPending = false
 
-local function refreshNow()
+-- /bd perf (#35): how many calls and how many ms each refresh took since the last /bd perf.
+local perf, perfSince = {}, GetTime()
+function ns.timed(name, f)
+  return function(...)
+    local t0 = debugprofilestop()
+    f(...)
+    local p = perf[name] or { n = 0, ms = 0 }
+    perf[name] = p
+    p.n, p.ms = p.n + 1, p.ms + debugprofilestop() - t0
+  end
+end
+
+local refreshNow = ns.timed("refreshNow", function()
   refreshPending = false
   if InCombatLockdown() then return end
   hideIcons(nil)
   for _, unit in ipairs(ns.nearbyUnits()) do updateIcon(unit) end
   if ns.refreshWindow then ns.refreshWindow() end
   if ns.refreshIncoming then ns.refreshIncoming() end
-end
+end)
 
 function ns.refreshAll()
   if refreshPending then return end
@@ -955,7 +1086,7 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
   thankLast = function()
-    -- The Thanks window shown: its top line, the one I see (a gift isn't in it).
+    -- The Thanks window shown: its top line, the one I see.
     local w = _G.BuffDiggerThanks
     local last = w and w:IsShown() and w.list and w.list[1] or ns.thanksWaiting()[1]
     if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
@@ -970,7 +1101,7 @@ BuffDigger = {
     end
     local spellIDs = {}
     for key, b in pairs(BUFFS) do spellIDs[key] = { b.id, unpack(b.group or {}) } end
-    return { toThank = copy(toThank), mine = copy(mine), asked = copy(BuffDiggerDB and BuffDiggerDB.asked), spellIDs = spellIDs }
+    return { toThank = copy(toThank), mine = copy(mine), asked = copy(BuffDiggerCharDB and BuffDiggerCharDB.asked), spellIDs = spellIDs }
   end,
 }
 _G["BINDING_NAME_CLICK BuffDiggerGiveNext:LeftButton"] = L["Give my buff to the next player around"]
@@ -983,6 +1114,17 @@ function COMMANDS.whisper() send("Buff Digger: whisper test", "WHISPER", nil, se
 function COMMANDS.say() send("Buff Digger: /say test", "SAY") end
 function COMMANDS.selftest() if ns.selfTest then ns.selfTest() end end -- see the Requests window alone
 function COMMANDS.nameplates() ns.turnOnFriendlyPlates() end
+function COMMANDS.perf()
+  if not BuffDiggerDB.debug then say("/bd perf: debug mode only (/run BuffDiggerDB.debug=true)") return end
+  local secs = math.max(GetTime() - perfSince, 1)
+  say(("Refreshes over the last %d s (refreshNow includes the other two):"):format(secs))
+  for _, name in ipairs({ "refreshNow", "refreshWindow", "refreshIncoming" }) do -- same order every time
+    local p = perf[name] or { n = 0, ms = 0 }
+    print(("  %-16s %6d calls  %8.1f ms  %.2f calls/s  %.2f ms/s"):format(name, p.n, p.ms, p.n / secs, p.ms / secs))
+  end
+  wipe(perf)
+  perfSince = GetTime()
+end
 
 SLASH_BUFFDIGGER1 = "/bd"
 SlashCmdList.BUFFDIGGER = function(text)
@@ -1004,6 +1146,7 @@ frame:RegisterEvent("CHAT_MSG_SAY")
 frame:RegisterEvent("ADDON_ACTION_BLOCKED")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
+pcall(frame.RegisterEvent, frame, "ADDON_RESTRICTION_STATE_CHANGED") -- Midnight: auras readable again
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 frame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -1082,8 +1225,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     -- Up to 0.4.0, nameplate icons were a checkbox: unticked means "off".
     if BuffDiggerDB.icons == false and BuffDiggerDB.plates == nil then BuffDiggerDB.plates = "off" end
     BuffDiggerDB.icons = nil
-    -- 0.5.0-beta saved "thankByHand = false" as a default, nobody chose it: on once, for everyone (#24).
-    if not BuffDiggerDB.thankByHandOn then BuffDiggerDB.thankByHand, BuffDiggerDB.thankByHandOn = true, true end
+    -- Up to 0.6.x: automatic thanks, now gone (#37).
+    BuffDiggerDB.thankByHand, BuffDiggerDB.thankByHandOn, BuffDiggerDB.emoteNeedsClick = nil, nil, nil
     for k, v in pairs(ns.DEFAULTS) do
       if BuffDiggerDB[k] == nil then BuffDiggerDB[k] = v end
     end
@@ -1093,19 +1236,26 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
     BuffDiggerDB.custom = BuffDiggerDB.custom or {} -- my own phrases (#20)
     BuffDiggerDB.customText = BuffDiggerDB.customText or {}
-    BuffDiggerDB.asked = BuffDiggerDB.asked or {}
+    -- My requests are per character (#38). Up to 1.0.0 they were shared by the whole account: the
+    -- first character loaded takes them once, the others start empty (entries live an hour anyway).
+    BuffDiggerCharDB = BuffDiggerCharDB or {}
+    BuffDiggerCharDB.asked = BuffDiggerCharDB.asked or BuffDiggerDB.asked or {}
+    BuffDiggerDB.asked = nil
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
-    for name, e in pairs(BuffDiggerDB.asked) do -- forget requests older than an hour (or old format)
-      if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerDB.asked[name] = nil end
+    for name, e in pairs(BuffDiggerCharDB.asked) do -- forget requests older than an hour (or old format)
+      if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerCharDB.asked[name] = nil end
     end
     hookTooltip()
     if ns.buildUI then ns.buildUI() end
     -- Buffs run out without any event: look again every 30 s (refreshAll is cheap and batched).
-    C_Timer.NewTicker(30, ns.refreshAll)
+    -- Also a full read while stale: the restriction may lift with no event to say so (#30).
+    C_Timer.NewTicker(30, function() if stale then reconcile() end ns.refreshAll() end)
   elseif event == "PLAYER_ENTERING_WORLD" then
-    ready = false
-    readMyBuffs()
+    -- Login or /reload: start from a full read. A zone change keeps what I knew (giver, rank) by ID.
+    if a1 or a2 then byInstance, lost = {}, {} end
+    stale = true
+    reconcile()
     -- One line at login, only while they're off: without them most of the addon sees nobody.
     -- A few seconds later: right at login no plate has shown yet, so nobody would prove them on.
     if a1 then
@@ -1122,7 +1272,13 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if ns.onCombat then ns.onCombat(true) end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if ns.onCombat then ns.onCombat(false) end
-    readMyBuffs() -- auras secret during the fight: what fell off then is only seen now
+    -- Auras secret during the fight: what landed or fell off then is only seen now, or a second later
+    -- (the restriction may lift after this event; nothing says which comes first).
+    if stale then reconcile() end
+    if stale then C_Timer.After(1, function() if stale then reconcile() end ns.refreshAll() end) end
+    ns.refreshAll()
+  elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
+    if stale then reconcile() end
     ns.refreshAll()
   elseif event == "NAME_PLATE_UNIT_ADDED" then
     shownPlates[a1] = true
@@ -1132,8 +1288,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     for _, m in pairs(markers) do if m.unit == a1 then m:Hide() end end -- before the plate serves someone else
     ns.refreshAll()
   elseif event == "UNIT_AURA" then
-    readMyBuffs() -- buffs received in combat are still recorded and thanked
-    ns.refreshAll()
+    -- In combat the payload is secret: what landed then is read once the fight ends (a Thank line if asked).
+    if onUnitAura(a2) then ns.refreshAll() end
   elseif event == "UNIT_SPELLCAST_SENT" then
     -- a2 = target name, a4 = spell ID
     local spell = readable(a4) and a4 and C_Spell.GetSpellName(a4)
@@ -1152,8 +1308,6 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if a1 == ADDON_NAME then
       debug("|cffff5555Blizzard blocked|r " .. tostring(a2)) -- also in the /bd report
       if tostring(a2):find("SendChatMessage") then record("say", false, "blocked: " .. tostring(a2)) end
-      -- The emote needs a real click here: from now on, /thank waits for the next Buff Digger action.
-      if tostring(a2):find("DoEmote") then BuffDiggerDB.emoteNeedsClick = true end
     end
   end
 end)

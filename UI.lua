@@ -51,10 +51,17 @@ end
 -- what a click does. No name: it is on the line (or above the nameplate) already.
 function ns.buffTooltip(owner, unit, key)
   if not (key and unit) or InCombatLockdown() then return end
-  local name, _, level = ns.identity(unit)
+  local name, class, level = ns.identity(unit)
   if not name then return end
   local buff = BUFFS[key]
   spellLines(owner, key, level)
+  -- The best one asks for the others too, in the same message (#39).
+  local best, kind = ns.bestBuff(name, class, level)
+  if best == key then
+    local more = ns.moreBuffs(class, level, key, kind)
+    for i, k in ipairs(more) do more[i] = spellName(k) end
+    if #more > 0 then GameTooltip:AddLine(L["Also asks for: %s"]:format(table.concat(more, ", ")), 0.4, 0.8, 1, true) end
+  end
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
   if his == key then
@@ -135,6 +142,7 @@ local SECTIONS = {
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
+    { key = "multiAsk", label = "Ask for all their buffs at once (one message)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
     { key = "requestSound", label = "Sound when a request arrives" },
@@ -142,8 +150,7 @@ local SECTIONS = {
     { key = "gameMenu", label = "Buff requests in the game's right-click menu" },
   }, delay = true, language = true },
   { title = "Thanks", options = {
-    { key = "thankByHand", label = "Let me click Thank (no automatic thanks)" },
-    { key = "thank",   label = "/thank emote when someone buffs me" },
+    { key = "thank",   label = "/thank emote when I click Thank" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
   } },
   { title = "Advanced", options = {
@@ -602,7 +609,6 @@ local function buildMinimapButton()
   function ns.showRequestCount(n) count:SetText(n > 0 and n or "") end
 
   button:SetScript("OnClick", function(_, mouse)
-    ns.flushThanks() -- a real click: waiting thanks can go out
     if mouse ~= "RightButton" then ns.toggleSettings()
     elseif IsShiftKeyDown() then ns.toggleGive()
     elseif IsControlKeyDown() then ns.toggleRequests()
@@ -777,12 +783,9 @@ local function makeWindow(globalName, title, setting, cast, point)
     ns.secureClicks(row)
     row:HookScript("PostClick", function(self, mouse)
       if cast then return end
-      if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit)
-      -- A gold line (#24): the click thanks them (a real click: /say goes too), it doesn't target.
-      elseif mouse == "LeftButton" and self.state == "thank" then
-        ns.thankBuffer(self.entry.who, IsShiftKeyDown() or IsControlKeyDown())
-        if not InCombatLockdown() then w.fill() end
-      end
+      -- A gold line (#24) does nothing on its own: only its tick + "Thank" (row.thankButton) thanks,
+      -- a click next to the cross must not whisper anyone.
+      if mouse == "RightButton" and not gone() then ns.openMenu(self, self.unit) end
     end)
     -- Get buffs (#24): a cross ends the wait (amber) or skips the thank-you (gold), sending nothing.
     -- A plain button on the secure row, like the fold: nothing secure to set.
@@ -819,6 +822,21 @@ local function makeWindow(globalName, title, setting, cast, point)
       row.thank = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall") -- gold, like a button label
       row.thank:SetPoint("RIGHT", -20, 0)
       row.thank:SetText(L["Thank"])
+      -- The tick and "Thank" are the button (a real click: /say goes too); Shift/Ctrl: other channel.
+      row.thankButton = CreateFrame("Button", nil, row)
+      row.thankButton:SetPoint("TOPLEFT", row.status, "TOPLEFT", -2, 2)
+      row.thankButton:SetPoint("BOTTOMRIGHT", row.thank, "BOTTOMRIGHT", 2, -2)
+      row.thankButton:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+      row.thankButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+      row.thankButton:SetScript("OnClick", function(_, mouse)
+        if mouse == "RightButton" then -- the player's menu, as anywhere else on the line
+          if not gone() then ns.openMenu(row, row.unit) end
+          return
+        end
+        ns.thankBuffer(row.entry.who, IsShiftKeyDown() or IsControlKeyDown())
+        if not InCombatLockdown() then w.fill() end
+      end)
+      row.thankButton:Hide()
       -- The buff just landed: the band and its edge flash twice.
       row.pulse = row:CreateAnimationGroup()
       for k = 1, 4 do
@@ -949,6 +967,7 @@ local function fill(w, list, emptyMessage)
         row.edge:SetShown(state ~= nil)
         row.status:SetShown(state ~= nil)
         row.thank:SetShown(state == "thank")
+        row.thankButton:SetShown(state == "thank")
         if state == "thank" then
           fadeRight(row.band, 1, 0.82, 0, 0.35)
           row.edge:SetColorTexture(1, 0.82, 0, 0.9)
@@ -991,6 +1010,7 @@ local function fill(w, list, emptyMessage)
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
           b.rank:SetText(buff.rank or "")
+          ns.showMore(b, buff.more)
           -- Green: higher than the one I have, like an upgrade in a loot tooltip.
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
           if w.cast then
@@ -1018,10 +1038,9 @@ end
 local nearby, give, giveNext, requests, thanksWindow
 
 -- ---------------------------------------------------------------- Thanks window (#21)
--- "Let me click Thank": who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at
--- most 5), when Get buffs can't show them: Get buffs closed, in combat, group folded, line scrolled
--- away. Shown only while someone waits; click = thank them, right click = forget them, close = forget
--- them all. A gift never opens it: it only shows on Get buffs, if they're there.
+-- Who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at most 5), when Get
+-- buffs can't show them: Get buffs closed, in combat, group folded, line scrolled away. Shown only
+-- while someone waits; click = thank them, right click = forget them, close = forget them all.
 -- Nothing secure here, so it also works in combat.
 
 local function buildThanks()
@@ -1044,7 +1063,7 @@ local function buildThanks()
   w:SetScript("OnDragStart", startMove)
   w:SetScript("OnDragStop", stopMove)
   w:Hide()
-  -- Only the lines shown: a gift waiting on Get buffs stays there.
+  -- Only the lines shown: a line on Get buffs stays there.
   w.CloseButton:HookScript("OnClick", function()
     for _, e in ipairs(w.list or {}) do ns.dismissThank(e.name) end
   end)
@@ -1100,11 +1119,10 @@ end
 
 function ns.refreshThanks()
   if not thanksWindow then return end
-  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded). A gift
-  -- (nothing asked) never pops a window up: Get buffs shows it, or the "thank the last" key.
+  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded).
   local list = {}
   for _, e in ipairs(ns.thanksWaiting()) do
-    if e.request and not onGetBuffs(e.name) then list[#list + 1] = e end
+    if not onGetBuffs(e.name) then list[#list + 1] = e end
   end
   thanksWindow.list = list
   for i, row in ipairs(thanksWindow.rows) do
@@ -1144,11 +1162,12 @@ local function nearbyEntries()
       local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
       local buffs = {}
+      local more = key and #ns.moreBuffs(class, level, key, kind) or 0 -- asked along with the best one (#39)
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", best = key, his = his,
+          upgrade = k == key and kind == "upgrade", best = key, his = his, more = k == key and more or 0,
         }
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
@@ -1241,15 +1260,15 @@ local function buffsToGive(unit, theirClass, myBuffs)
   return list
 end
 
--- Players I just buffed with the next-player key: name -> GetTime(). They stay out of the list a
--- few seconds, so pressing the key again moves on to someone else, even when the game can't show me
--- their new buff yet or the cast failed (line of sight). A click in the window passes no unit.
+-- Players I just buffed with the next-player key: "First Last" (ns.unitName) -> GetTime(). They
+-- stay out of the list a few seconds, so pressing the key again moves on to someone else, even when
+-- the game can't show me their new buff yet or the cast failed (line of sight). A click in the
+-- window passes no unit.
 local justCast = {}
 
 function ns.castOn(unit)
-  ns.flushThanks()
   local name = unit and ns.unitName(unit)
-  if name then justCast[ns.firstName(name)] = GetTime() end
+  if name then justCast[name] = GetTime() end
   C_Timer.After(1, ns.refreshAll)
 end
 
@@ -1265,7 +1284,7 @@ local function giveEntries(myBuffs)
   local entries, myLevel = {}, UnitLevel("player")
   for _, unit in ipairs(ns.listUnits()) do
     local name, class, level = ns.identity(unit)
-    local cast = name and justCast[ns.firstName(name)]
+    local cast = name and justCast[name]
     if cast and GetTime() - cast < SKIP_AFTER_CAST then name = nil end
     local keys = name and buffsToGive(unit, class, myBuffs) or {}
     if #keys > 0 then
@@ -1297,10 +1316,9 @@ end
 
 -- I cast at someone (macro or by hand): skip them for a few seconds, the macro moves to the next one.
 function ns.onSpellSent(target)
-  -- nil for a spell with no target (an attack, a self buff). Keyed by first name: whether the game
-  -- gives "Raide", "Raide-Boule" or "Raide Boule" here is not known yet (recette 45).
-  -- ponytail: two players sharing a first name are both skipped for SKIP_AFTER_CAST seconds.
-  local name = type(target) == "string" and ns.firstName(ns.chatName(target)) -- "" -> nil
+  -- nil for a spell with no target (an attack, a self buff). The game gives "Raide Boule" (seen in
+  -- game, recette 45); chatName also turns "Raide-Boule" into it. Keyed by the whole name (#33).
+  local name = type(target) == "string" and target ~= "" and ns.chatName(target)
   if not name then return end
   justCast[name] = GetTime()
   C_Timer.After(1, ns.refreshAll)
@@ -1308,7 +1326,7 @@ end
 
 -- ---------------------------------------------------------------- refresh and visibility
 
-function ns.refreshWindow()
+ns.refreshWindow = ns.timed("refreshWindow", function()
   if InCombatLockdown() then return end -- secure rows cannot change in combat
   -- Not under the cursor either: with targetOnAsk, the list must not change between aiming and
   -- releasing, or the click would ask someone else than the one targeted.
@@ -1343,7 +1361,7 @@ function ns.refreshWindow()
   end
   giveNext.unit = first and first.unit
   ns.aimCast(giveNext, first and first.unit, first and first.buffs[1].spell)
-end
+end)
 
 -- Show each window according to its setting (out of combat only).
 function ns.applyWindows()
@@ -1396,7 +1414,9 @@ function ns.buildUI()
   requests = makeWindow("BuffDiggerRequests", L["Buff Digger — Requests"], "requests", true, { "RIGHT", -40, 60 })
   ns.requestsWindow = requests
   function ns.fillRequests(entries) fill(requests, entries, L["No requests right now."]) end
-  for _, row in ipairs(requests.rows) do row.buffs[1]:HookScript("PostClick", ns.onRequestClick) end
+  for _, row in ipairs(requests.rows) do
+    for _, b in ipairs(row.buffs) do b:HookScript("PostClick", ns.onRequestClick) end
+  end
   -- Key "Give my buff to the next player around" (Bindings.xml, CLICK binding): an invisible secure
   -- button aimed at the first Give buffs line, re-aimed after every refresh (out of combat only).
   giveNext = CreateFrame("Button", "BuffDiggerGiveNext", UIParent, "SecureActionButtonTemplate")

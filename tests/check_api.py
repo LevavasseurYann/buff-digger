@@ -4,8 +4,8 @@ Usage, from the repo root:  python -I tests/check_api.py
 Source: Interface/AddOns/Blizzard_APIDocumentationGenerated/*.lua of github.com/Gethe/wow-ui-source,
 branch `forever`, cached in tests/.apidoc/ (delete that folder to download it again).
 
-Fails (exit 1) if a `C_X.Y` or a `RegisterEvent("...")` in the addon files, or a fake in tests/smoke.lua,
-is not in the docs. Lists, with file:line, what the docs mark Secret*/Restricted (SecretArguments aside:
+Fails (exit 1) if a `C_X.Y` or a `RegisterEvent("...")` in the addon files, or a fake in tests/fakewow.lua,
+smoke.lua or replay.lua, is not in the docs. Lists, with file:line, what the docs mark Secret*/Restricted (SecretArguments aside:
 nearly every function has it). A missing `C_X.Y` guarded on its line (`C_X.Y and`, `C_X and C_X.Y`, ...)
 is only a warning. Global functions (UnitName, ...) are checked for marks only: many real globals are
 not in the docs, so a missing one proves nothing.
@@ -114,7 +114,7 @@ def main():
         sys.exit(f"Could not read the API docs in {CACHE} (format changed?)")
     errors, warnings, marked = [], [], []
     guarded_names = set()
-    files = [(f, False) for f in ADDON] + [("tests/smoke.lua", True)]
+    files = [(f, False) for f in ADDON] + [(f"tests/{f}", True) for f in ("fakewow.lua", "smoke.lua", "replay.lua")]
     all_uses = []
     for f, smoke in files:
         for no, kind, name, guarded in uses((ROOT / f).read_text(encoding="utf-8"), smoke):

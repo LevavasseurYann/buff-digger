@@ -2,8 +2,17 @@
 
 ## Unreleased
 
+- **Fort and Spirit in one whisper.** When a player can give you several buffs you're missing (a priest: Fort and Divine Spirit; a druid: Mark and Thorns), one click asks for all of them in a single message, every spell linked. A small *+1* on the icon says so. They all land on the same gold Thank line, one click thanks for the lot. Paladins still get asked for one blessing only, since they don't stack. Rather ask one buff at a time? Untick *Ask for all their buffs at once* in the settings.
+- **Each character asks on its own.** Asking someone with one character no longer stops your alt from asking them too; settings stay shared across the account. Restart the game after updating (a /reload is not enough).
+- **Thanks are always your click.** The automatic thanks are gone, and so is the *Let me click Thank* box: Buff Digger never thanks anyone on its own. When a buff you asked for lands, that player's line turns gold (Get buffs, or the *Thanks* window); click *Thank* and your /thank and message go out at once, even in /say.
+- **Only what you asked for.** A buff you didn't ask for no longer gets a gold Thank line, and the *Thank the last player who buffed me* key only thanks buffs you asked for. Thanking spontaneous buffs may come back once Buff Digger can tell them apart reliably.
 - **Thank in /say.** Shift or Ctrl click a gold *Thank* line (Get buffs or the Thanks window) to thank in the other channel: /say instead of a whisper, or a whisper if you asked in /say. Like asking.
-- **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed.
+- **No stray thank-yous.** On a gold line in Get buffs, only the tick and *Thank* thank the player, and only the cross closes it: a click elsewhere on the line, say next to the cross, sends nothing.
+- **No more Thank lines after a fight.** Players you had already thanked (group members mostly) could come back in gold on Get buffs after combat, as if they had just buffed you again. Fixed, for good this time: whenever the game hides your buffs (combat, dungeons, the moment a fight ends), Buff Digger keeps what it knew and, once it can read them again, only thanks a buff you actually asked for. A buff you asked for that lands mid-fight still gets its Thank line after the fight.
+- **Buffs followed as they change.** Buff Digger now follows what the game says changed on you (a buff added, recast or gone) instead of re-reading all your buffs every time: less work in busy towns, and Ghost Wolf or a shapeshift no longer looks like a new buff, even right after you asked that player for a refresh.
+- **Same first name, no mix-up.** In Give buffs, buffing "Raide Boule" no longer hides "Raide Tartempion" for a few seconds: each player is told apart by their whole name.
+- **Buffs recognized right after login.** If the game hadn't loaded a spell's name yet the first time Buff Digger looked, that buff (rank, Thank line) stayed unknown until a /reload. It now looks again once the name is there.
+- **Less work when nobody asks you anything.** With no request waiting and the Requests window closed, Buff Digger no longer scans the nameplates every second for it. `/bd perf` (debug mode) shows how often and how long the refreshes run.
 
 ## 1.0.0
 
