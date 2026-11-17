@@ -1007,7 +1007,8 @@ end
 -- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
 -- can't use (not when it's Buff Digger's pick: a refresh or a higher rank). Order says the rest.
 -- `his`: the blessing this paladin already put on me, framed in gold: asking him for another one
--- would replace it (the tooltip says so on his other blessings).
+-- would replace it (the tooltip says so on his other blessings). The one Buff Digger picks instead
+-- wears circling arrows (#22: no "(swap)" word): this gold one goes, that one comes.
 function ns.styleBuff(button, k, best, his)
   button.icon:SetAlpha(1)
   button.icon:SetDesaturated(k ~= nil and k ~= best and ns.haveBuff(k))
@@ -1018,6 +1019,14 @@ function ns.styleBuff(button, k, best, his)
     button.his:SetColorTexture(1, 0.82, 0) -- gold, like a quest reward border
   end
   button.his:SetShown(k ~= nil and k == his)
+  if not button.swap then
+    button.swap = button:CreateTexture(nil, "OVERLAY", nil, 3)
+    button.swap:SetSize(10, 10)
+    button.swap:SetPoint("BOTTOMRIGHT", 3, -3)
+    button.swap:SetTexture("Interface\\Buttons\\UI-RefreshButton")
+  end
+  -- A paladin's blessings never stack: his best other one replaces the one he gave.
+  button.swap:SetShown(k ~= nil and his ~= nil and k == best and k ~= his)
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change

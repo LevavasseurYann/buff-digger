@@ -1243,11 +1243,10 @@ local function nearbyEntries()
           upgrade = k == key and kind == "upgrade", refresh = k == key and kind == "refresh", best = key, his = his,
         }
       end
-      -- Higher rank and running out: said by the rank's colour, no word (the tooltip still says it).
-      local extra = kind == "replace" and L[" (swap)"] or ""
+      -- No words (#22): higher rank and running out by the rank's colour, a swap by circling arrows,
+      -- too far by red icons; the tooltip still says it.
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
-      if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
-      if far then extra = L[" (too far)"] end
+      local extra = ns.unanswered(name) and L[" |cffffd100no answer: click a buff to whisper|r"] or ""
       local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
         unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
@@ -1372,7 +1371,7 @@ local function giveEntries(myBuffs)
       end
       entries[#entries + 1] = {
         unit = unit, who = name, far = far, buffs = buffs, group = ns.isMember(unit),
-        text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
+        text = ("%s %d"):format(classColored(name, class), level),
       }
     end
   end

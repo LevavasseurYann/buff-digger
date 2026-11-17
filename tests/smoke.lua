@@ -18,6 +18,9 @@ print("after kings:", ns.bestBuff("Arthas","PALADIN",25))
 assert(ns.hisBlessing("Arthas")=="kings" and ns.hisBlessing("Jaina")==nil)
 local fb=CreateFrame(); fb.icon=CreateFrame(); ns.styleBuff(fb,"kings","might","kings"); assert(fb.his._shown, "his blessing: gold frame")
 ns.styleBuff(fb,"might","might","kings"); assert(not fb.his._shown, "another blessing: no frame")
+assert(fb.swap._shown, "his best other blessing: circling arrows (swap)")
+ns.styleBuff(fb,"kings","might","kings"); assert(not fb.swap._shown, "the one he gave: no arrows")
+ns.styleBuff(fb,"might","might"); assert(not fb.swap._shown, "no blessing of his on me: no arrows")
 ns.styleBuff(fb,"kings","might","kings"); ns.styleBuff(fb); assert(not fb.his._shown, "hint mode (no buff): frame gone")
 local tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
 ns.buffTooltip(fb,"nameplate1","might"); print("tooltip:", table.concat(tip," / "))
@@ -570,7 +573,7 @@ BuffDiggerCharDB.asked={}; ns.askBest(); assert(not BuffDiggerCharDB.asked.Tirio
 -- Get buffs: the far member says so, greyed, after the members in sight; a click asks nothing.
 BuffDiggerDB.nearby=true; ns.applyWindows(); local fe=_G.BuffDiggerNearby.entries; local tir, tirAt, lastNear
 for i,x in ipairs(fe) do if x.unit=="party3" then tir, tirAt = x, i elseif x.group then lastNear = i end end
-print("far member:", tir and tir.text); assert(tir and tir.far and tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member flagged, after")
+print("far member:", tir and tir.text); assert(tir and tir.far and not tir.text:find("(too far)", 1, true) and tirAt > lastNear, "far member flagged, after")
 for _,r in ipairs(_G.BuffDiggerNearby.rows) do if r._shown and r.entry.buffs[1] then
   assert(r.buffs[1].icon._red == (r.entry.unit=="party3"), "red icons for the far member only") end end
 local b=#sent; ns.request("party3"); assert(#sent==b and not BuffDiggerCharDB.asked.Tirion, "no whisper to a member out of sight")
