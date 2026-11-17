@@ -24,7 +24,7 @@ local SORTS = {
   { "level", "Level", "Highest level first: the highest ranks.", "Lowest level first: who needs it most." },
   { "range", "Range", "In spell range, then in sight, then too far.", "In range, then in sight, then too far." },
   { "missing", "Missing / fading", "Buffs you lack, then running out, then swaps and higher ranks.",
-    "Lacking all your buffs first, then whose buff runs out soonest.", "Fading" }, -- short: title bar
+    "Lacking all your buffs first, then whose buff runs out soonest." },
   { "name", "Name", "A to Z.", "A to Z." },
   { "class", "Class", "By class, then name.", "By class, then name." },
 }
@@ -968,43 +968,23 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
   end
   w.up, w.down = arrow("Up", 1, "TOPRIGHT", -28), arrow("Down", -1, "BOTTOMRIGHT", 20)
   if sortable then
-    -- "Sort: Best v": a click opens the criteria as radios, like a settings choice (choiceRow);
-    -- without the game's menu, each click moves to the next one.
+    -- A red arrow button in the title bar, mirroring the padlock (#42): a click opens the criteria
+    -- as radios; without the game's menu, each click moves to the next one. No text: the title bar
+    -- holds controls (close, padlock), the current order is in the tooltip and checked in the menu.
     local bar = CreateFrame("Button", nil, w)
-    -- In the title bar (20 px high, centre 11 px down), mirroring the padlock: a red button with
-    -- a down arrow at the left edge, then the order in white. The list keeps its whole height.
-    bar:SetSize(70, 18)
-    bar:SetPoint("LEFT", w, "TOPLEFT", 4, -11)
-    bar.arrow = CreateFrame("Button", nil, bar)
-    bar.arrow:SetSize(18, 18)
-    bar.arrow:SetPoint("LEFT")
-    -- The spellbook's next-page button (the padlock's family), turned a quarter clockwise: right -> down.
-    local function turned(file)
-      local tex = bar.arrow:CreateTexture()
-      tex:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-" .. file)
-      tex:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-      return tex
-    end
-    bar.arrow:SetNormalTexture(turned("Up"))
-    bar.arrow:SetPushedTexture(turned("Down"))
-    bar.arrow:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
-    bar.arrow:SetScript("OnClick", function() bar:GetScript("OnClick")(bar) end)
-    bar.arrow:SetScript("OnEnter", function() bar:GetScript("OnEnter")(bar) end)
-    bar.arrow:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    bar.text:SetPoint("LEFT", bar.arrow, "RIGHT", 2, 0)
+    bar:SetSize(20, 20)
+    bar:SetPoint("LEFT", w, "TOPLEFT", 3, -11) -- the title bar: 20 px high, centre 11 px down
+    -- Blizzard's own red arrow button (character select, shop cart), present in Forever.
+    bar:SetNormalAtlas("128-RedButton-ArrowDown")
+    bar:SetPushedAtlas("128-RedButton-ArrowDown-Pressed")
+    bar:SetHighlightAtlas("128-RedButton-ArrowDown-Highlight", "ADD")
     local function current()
       for i, c in ipairs(SORTS) do if c[1] == BuffDiggerDB.sort[setting] then return i, c end end
       return 1, SORTS[1]
     end
-    function bar.update()
-      local c = select(2, current())
-      bar.text:SetText(L[c[5] or c[2]])
-    end
     local function choose(key)
       BuffDiggerDB.sort[setting] = key ~= "best" and key or nil
       w.offset = 0 -- back to the top of the new order
-      bar.update()
       if w.fill and not InCombatLockdown() then w.fill() end
     end
     bar:SetScript("OnClick", function(self)
@@ -1029,7 +1009,6 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
       GameTooltip:Show()
     end)
     bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    bar.update()
     w.sortBar = bar
   end
   listWindows[#listWindows + 1] = w
@@ -1083,7 +1062,6 @@ local function fill(w, list, emptyMessage)
   -- Re-fills (scroll, resize, [-]) start again from the list without headers: headers on headers
   -- piled up "Group / Around" and lost the folded members.
   w.fill = function() fill(w, list, emptyMessage) end
-  if w.sortBar then w.sortBar.update() end -- the choice saved before a /reload
   local entries = withHeaders(sorted(w, list), BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
   -- A gold line flashes once per buff: forget those no longer to thank, wherever they were thanked

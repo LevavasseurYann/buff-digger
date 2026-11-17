@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Sort Get buffs and Give buffs your way.** The order sits in the title bar, left of the title (*Best*): click it and pick Best (the usual order), Level, Range, Missing / fading, Name or Class. Get buffs puts the highest levels first (better ranks), Give buffs the lowest (who needs it most); *Missing / fading* in Give buffs shows who lacks all your buffs first, then whose buff runs out soonest. Each window remembers its own choice, even after a /reload. Your group still comes first, and in Get buffs the players you asked (amber) or have to thank (gold) stay at the top of their section.
+- **Sort Get buffs and Give buffs your way.** A red arrow sits in the title bar, top left: click it and pick Best (the usual order), Level, Range, Missing / fading, Name or Class. Get buffs puts the highest levels first (better ranks), Give buffs the lowest (who needs it most); *Missing / fading* in Give buffs shows who lacks all your buffs first, then whose buff runs out soonest. Each window remembers its own choice, even after a /reload. Your group still comes first, and in Get buffs the players you asked (amber) or have to thank (gold) stay at the top of their section.
 
 ## 1.1.0
 

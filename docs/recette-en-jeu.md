@@ -211,7 +211,7 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 77 | Get buffs ouverte : survoler puis cliquer « Best ▾ » dans la barre de titre, à gauche du titre (le titre et le tri ne se chevauchent pas, même fenêtre rétrécie au minimum) | La flèche ▾ s'affiche (petite flèche, pas un carré vide) ; l'infobulle dit le critère et son sens ; le menu montre 6 choix, Best coché. Choisir Level : les plus hauts niveaux d'abord, le groupe reste en tête, une ligne ambre/or reste première de sa section |
-| 78 | Choisir Name dans Get buffs, Level dans Give buffs, puis `/reload` | Chaque fenêtre garde son tri, la barre de titre le dit |
+| 77 | Get buffs ouverte : survoler puis cliquer la flèche rouge en haut à gauche de la barre de titre (même rendu que le X, alignée sur lui) | La flèche ▾ s'affiche (petite flèche, pas un carré vide) ; l'infobulle dit le critère et son sens ; le menu montre 6 choix, Best coché. Choisir Level : les plus hauts niveaux d'abord, le groupe reste en tête, une ligne ambre/or reste première de sa section |
+| 78 | Choisir Name dans Get buffs, Level dans Give buffs, puis `/reload` | Chaque fenêtre garde son tri, l'infobulle de la flèche le dit |
 | 79 | Prêtre (ou mage, druide), hors combat, en ville : Give buffs triée par Missing / fading | D'abord ceux qui n'ont aucun de mes buffs, puis celui dont mon buff expire le plus tôt. En combat : rien ne casse (fenêtre cachée), le tri revient après |
 | 80 | Get buffs triée par Range, un paladin ou un prêtre proche et un autre loin (mais barre de nom visible) | Noter si le jeu distingue « à portée de sort » de « en vue » (sinon : seulement en vue / trop loin, limite connue) |
