@@ -1025,7 +1025,8 @@ function ns.styleBuff(button, k, best, his)
     button.swap:SetPoint("BOTTOMRIGHT", 3, -3)
     button.swap:SetTexture("Interface\\Buttons\\UI-RefreshButton")
   end
-  -- A paladin's blessings never stack: his best other one replaces the one he gave.
+  -- A paladin's blessings never stack: his best other one replaces the one he gave, even when his is
+  -- running out (bestBuff then calls it "new", not "replace": the arrows still tell the truth).
   button.swap:SetShown(k ~= nil and his ~= nil and k == best and k ~= his)
 end
 
