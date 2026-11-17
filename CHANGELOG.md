@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - **Friendly nameplates, your way.** Many of you hide friendly nameplates, and Buff Digger needs them to see anyone. The settings now offer a look for them: *Full* (the game's bars), *Name only* (just their name, in class colour, with Buff Digger's icon next to it) or *Icons only* (no bar, no name but on your target: only Buff Digger's icons float over players). Both use the game's own settings; *Off* is there too.
 - **Colours instead of words.** Get buffs no longer writes *(higher rank)*, *(running out)*, *(swap)*, *(too far)* or *(out of sight)*: a green rank number is a higher rank than yours, an orange one means yours is about to wear off, red icons are out of range, and a grey name is a player who walked out of sight (Get buffs, Give buffs, Requests). A paladin's blessing you'd rather have wears small circling arrows: asking for it replaces the one he gave you (framed in gold). Hover an icon for the words.
