@@ -840,6 +840,28 @@ do
   C_UnitAuras.GetAuraDataByIndex=realRead; BuffDiggerCharDB.asked={}
   myAuras=savedAuras; fire("UNIT_AURA","player"); units.nameplate60=nil; units.nameplate61=nil; runTimers()
 end
+print("=== giver found by GUID when his nameplate is gone (#41)")
+do
+  ns.dismissThank(); BuffDiggerCharDB.asked={}; local savedAuras=myAuras
+  local function ask(n, key) BuffDiggerCharDB.asked[n]={at=time(), key=key, channel="WHISPER", target=n} end
+  PLAYERS["Player-1-A"]={"Lin Dupont","PALADIN",40}; PLAYERS["Player-1-B"]={"Griff Martin","MAGE",40}
+  ask("Lin Dupont","kings"); NOW=NOW+30
+  -- Recette 2: Kings from Lin, her nameplate just removed (sourceUnit nil): the GUID names her.
+  local kings={auraInstanceID=7000,name="Bénédiction des rois",spellId=20217,sourceUnit=nil,casterGUID="Player-1-A",expirationTime=NOW+600,duration=600}
+  myAuras={kings}; fire("UNIT_AURA","player")
+  assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Lin Dupont", "no nameplate: the caster's GUID names the giver")
+  assert(BuffDigger.debugState().mine.kings.giver=="Lin Dupont")
+  ns.dismissThank()
+  -- A GUID that can't give it (a mage's Kings) or nobody asked: no line (#37).
+  ask("Griff Martin","kings"); NOW=NOW+30; kings.auraInstanceID=7001; kings.casterGUID="Player-1-B"; kings.expirationTime=NOW+600
+  fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "a GUID of the wrong class gives no line")
+  -- Restricted: not read (the call would fail), nothing until readable.
+  ask("Lin Dupont","kings"); NOW=NOW+30; SECRET_AURAS=true; kings.auraInstanceID=7002; kings.casterGUID="Player-1-A"; kings.expirationTime=NOW+600
+  fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "restricted: nothing read")
+  SECRET_AURAS=false; fire("ADDON_RESTRICTION_STATE_CHANGED", 4, 0)
+  assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Lin Dupont", "readable again: the GUID names her")
+  ns.dismissThank(); BuffDiggerCharDB.asked={}; PLAYERS={}; myAuras=savedAuras; fire("UNIT_AURA","player"); runTimers()
+end
 print("=== Get buffs: my request amber, the buff gold (#24)")
 BuffDiggerCharDB.asked={}; ns.dismissThank()
 units.nameplate42={"Tyrande","DRUID",40}; units.nameplate43={"Shandris","DRUID",40}

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Thank lines for players who just walked off.** In a crowd, nameplates come and go every half second; a buff you asked for that landed right then had no giver and no Thank line. Buff Digger now asks the game who cast it.
 - **Fort and Spirit in one whisper.** When a player can give you several buffs you're missing (a priest: Fort and Divine Spirit; a druid: Mark and Thorns), one click asks for all of them in a single message, every spell linked. A small *+1* on the icon says so. They all land on the same gold Thank line, one click thanks for the lot. Paladins still get asked for one blessing only, since they don't stack. Rather ask one buff at a time? Untick *Ask for all their buffs at once* in the settings.
 - **Each character asks on its own.** Asking someone with one character no longer stops your alt from asking them too; settings stay shared across the account. Restart the game after updating (a /reload is not enough).
 - **Thanks are always your click.** The automatic thanks are gone, and so is the *Let me click Thank* box: Buff Digger never thanks anyone on its own. When a buff you asked for lands, that player's line turns gold (Get buffs, or the *Thanks* window); click *Thank* and your /thank and message go out at once, even in /say.
