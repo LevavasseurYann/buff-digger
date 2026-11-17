@@ -271,24 +271,56 @@ local function choiceRow(x, y, caption, key, choices, translate)
   end)
 end
 
--- Friendly nameplates: their state, and a button to turn them on.
+-- Friendly nameplates (#22): off, or how they look; read from the game's settings, not saved by us.
+local PLATE_STYLES = {
+  { "full", "Full", "The game's nameplates: name and health bar. Buff Digger's icons next to the bar." },
+  { "name", "Name only", "Just their name, in class colour, Buff Digger's icons next to it." },
+  { "icons", "Icons only", "No bar, no name (except your target): only Buff Digger's icons float over players." },
+  { "off", "Off", "No friendly nameplates: Buff Digger can't see anyone around you (group members still listed)." },
+}
 local function nameplateRow(x, y)
-  local label = text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 96, "")
+  local label = text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, "")
   local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  button:SetSize(80, 22)
-  button:SetPoint("TOPLEFT", x + COL_W - 80, y)
-  button:SetText(L["Turn on"])
+  button:SetSize(104, 22)
+  button:SetPoint("TOPLEFT", x + COL_W - 104, y)
   local function update()
-    local on = ns.friendlyPlatesOn()
-    label:SetText(on and L["Friendly nameplates: on"] or L["|cffff5555Friendly nameplates: off|r (needed)"])
-    button:SetEnabled(not on)
+    local style = ns.plateStyle()
+    label:SetText(style == "off" and L["|cffff5555Friendly nameplates|r (needed)"] or L["Friendly nameplates"])
+    for _, c in ipairs(PLATE_STYLES) do if c[1] == style then button:SetText(L[c[2]]) end end
   end
+  local function choose(style) ns.setPlateStyle(style) update() end
   button:SetScript("OnShow", update)
-  -- Turned on or off elsewhere (game options, /bd nameplates) while the settings are open.
+  button:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(L["Friendly nameplates"])
+    GameTooltip:AddLine(L["Buff Digger sees players through them. Pick how they look; hover each choice for more."], 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- Changed elsewhere (game options, /bd nameplates) while the settings are open.
   C_Timer.NewTicker(1, function() if button:IsVisible() then update() end end)
-  button:SetScript("OnClick", function()
-    ns.turnOnFriendlyPlates()
-    update()
+  button:SetScript("OnClick", function(self)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then -- no menu: each click moves to the next one
+      local i = 1
+      for j, c in ipairs(PLATE_STYLES) do if c[1] == ns.plateStyle() then i = j end end
+      local nxt = PLATE_STYLES[i % #PLATE_STYLES + 1][1]
+      if nxt == "icons" and not ns.canSimplify() then nxt = "off" end
+      choose(nxt)
+      return
+    end
+    MenuUtil.CreateContextMenu(self, function(_, root)
+      for _, c in ipairs(PLATE_STYLES) do
+        if c[1] ~= "icons" or ns.canSimplify() then
+          local radio = root:CreateRadio(L[c[2]], function() return ns.plateStyle() == c[1] end, function() choose(c[1]) end)
+          if radio and radio.SetTooltip then
+            radio:SetTooltip(function(tooltip)
+              GameTooltip_SetTitle(tooltip, L[c[2]])
+              GameTooltip_AddNormalLine(tooltip, L[c[3]])
+            end)
+          end
+        end
+      end
+    end)
   end)
 end
 
@@ -962,7 +994,7 @@ end
 
 -- entries: { { unit, who (their name, read with the text: scrolling re-fills from these cached
 --   entries, by then the nameplate token may be someone else's; false = unreadable), text, far (Get buffs: red icons),
---   buffs = { { key, icon, rank, upgrade, best, his (Get buffs), spell (cast windows; nil = red,
+--   buffs = { { key, icon, rank, upgrade, refresh, best, his (Get buffs), spell (cast windows; nil = red,
 --   not castable) }, ... } }, ... }
 -- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
 -- then "Around" and everyone else. Out of a group, the list as it is.
@@ -1063,8 +1095,11 @@ local function fill(w, list, emptyMessage)
           b.icon:SetTexture(buff.icon)
           b.rank:SetText(buff.rank or "")
           if b.pick then b.pick:SetShown(isPicked(e.who, buff.key)) end
-          -- Green: higher than the one I have, like an upgrade in a loot tooltip.
-          if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
+          -- Green: higher than the one I have, like an upgrade in a loot tooltip. Orange: mine is
+          -- running out, like a buff's timer about to end.
+          if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1)
+          elseif buff.refresh then b.rank:SetTextColor(1, 0.5, 0)
+          else b.rank:SetTextColor(1, 1, 1) end
           if w.cast then
             ns.styleBuff(b) -- no gold frame, full colour
             ns.aimCast(b, e.unit, buff.spell, e.who)
@@ -1218,14 +1253,13 @@ local function nearbyEntries()
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", best = key, his = his,
+          upgrade = k == key and kind == "upgrade", refresh = k == key and kind == "refresh", best = key, his = his,
         }
       end
-      local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
-        or kind == "refresh" and L[" (running out)"] or ""
+      -- No words (#22): higher rank and running out by the rank's colour, a swap by circling arrows,
+      -- too far by red icons; the tooltip still says it.
       -- A silent request to another Buff Digger user brought nothing: offer, never send (#13).
-      if ns.unanswered(name) then extra = extra .. L[" |cffffd100no answer: click a buff to whisper|r"] end
-      if far then extra = L[" (too far)"] end
+      local extra = ns.unanswered(name) and L[" |cffffd100no answer: click a buff to whisper|r"] or ""
       local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
         unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
@@ -1244,7 +1278,7 @@ local function nearbyEntries()
   for _, t in ipairs(ns.thanksWaiting()) do
     if not listed[t.name] then
       entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5,
-        text = classColored(t.name, t.class) .. L[" (out of sight)"] }
+        text = "|cff808080" .. t.name .. "|r" } -- grey: out of sight, like an offline friend
     end
   end
   -- Group members first (#16); table.sort is not stable: keep the list order within each rank.
@@ -1350,7 +1384,7 @@ local function giveEntries(myBuffs)
       end
       entries[#entries + 1] = {
         unit = unit, who = name, far = far, buffs = buffs, group = ns.isMember(unit),
-        text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
+        text = ("%s %d"):format(classColored(name, class), level),
       }
     end
   end

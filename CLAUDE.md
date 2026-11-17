@@ -11,7 +11,9 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   (`issecretvalue`), pas de messages d'addon en instance, /s hors instance = vrai clic obligatoire.
 - `C_NamePlate.GetNamePlates()` ne liste pas les joueurs alliés dans Forever : on suit
   `NAME_PLATE_UNIT_ADDED/REMOVED` (`shownPlates`). Sans barres de nom alliées, l'addon ne voit
-  personne (aucune autre API) → bouton « Turn on » et `/bd nameplates`.
+  personne (aucune autre API) → choix *Friendly nameplates* (Full / Name only / Icons only / Off) et `/bd nameplates`.
+  Discrètes (#22) : `nameplateShowOnlyNameForFriendlyPlayerUnits` (nom seul) ; + bit `FriendlyPlayer` de
+  `nameplateSimplifiedTypes` = ni barre ni nom (sauf la cible), barre réduite → nos icônes `SetIgnoreParentScale`.
 - Réglage des barres de nom alliées : `nameplateShowFriendlyPlayers` (Midnight) ; `nameplateShowFriends`
   n'existe pas dans Forever (nil, constaté en jeu le 2026-11-12, recette 46).
 - Boutons sécurisés (constaté en jeu le 2026-11-09) : `RegisterForClicks("AnyUp")` + attribut

@@ -734,6 +734,48 @@ local PLATE_CVAR = "nameplateShowFriendlyPlayers"
 
 function ns.friendlyPlatesOn() return getCVar(PLATE_CVAR) == "1" or #ns.nearbyUnits() > 0 end
 
+-- How friendly players' plates look (#22), all game settings (Forever's code, branch forever):
+-- "full" the game's bars; "name" their name only (Options > Nameplates); "icons" name only plus
+-- "simplified" (CVar only): the game hides the name too (but on my target) and shrinks the plate,
+-- only our icons stay. The plate still exists either way: NAME_PLATE_UNIT_ADDED and its token too.
+local NAME_ONLY = "nameplateShowOnlyNameForFriendlyPlayerUnits"
+local CLASS_NAMES = "nameplateUseClassColorForFriendlyPlayerUnitNames"
+local SIMPLIFIED = "nameplateSimplifiedTypes"
+local function simplifiedBit() return Enum and Enum.NamePlateSimplifiedType and Enum.NamePlateSimplifiedType.FriendlyPlayer end
+
+-- The look of the plates in sight (cheap: no scan of the plates, called for each icon).
+local function plateLook()
+  if getCVar(NAME_ONLY) ~= "1" then return "full" end
+  local bit = simplifiedBit()
+  if bit and C_CVar and C_CVar.GetCVarBitfield and C_CVar.GetCVarBitfield(SIMPLIFIED, bit) then return "icons" end
+  return "name"
+end
+
+function ns.plateStyle() return ns.friendlyPlatesOn() and plateLook() or "off" end
+
+-- "Icons only" needs the simplified bit (else the menu leaves it out).
+function ns.canSimplify() return simplifiedBit() ~= nil and C_CVar and C_CVar.SetCVarBitfield ~= nil end
+
+-- Lowercase names of the settings above: changed from the game's options, icons follow (CVAR_UPDATE).
+ns.PLATE_CVARS = { [PLATE_CVAR:lower()] = true, [NAME_ONLY:lower()] = true, [SIMPLIFIED:lower()] = true }
+
+function ns.setPlateStyle(style)
+  if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
+  pcall(setCVar, PLATE_CVAR, style == "off" and "0" or "1")
+  if style ~= "off" then
+    pcall(setCVar, NAME_ONLY, style == "full" and "0" or "1")
+    if style ~= "full" then pcall(setCVar, CLASS_NAMES, "1") end -- a bare name: its class colour says who
+    local bit = simplifiedBit()
+    if ns.canSimplify() then pcall(C_CVar.SetCVarBitfield, SIMPLIFIED, simplifiedBit(), style == "icons") end
+  end
+  -- Read back: a write that didn't take (locked in a dungeon...) is said, not shown as done.
+  local on = getCVar(PLATE_CVAR) == "1"
+  if on ~= (style ~= "off") or (on and plateLook() ~= style) then
+    notice(L["Couldn't change friendly nameplates: Options > Nameplates."])
+  end
+  ns.refreshAll()
+end
+
 function ns.turnOnFriendlyPlates()
   if InCombatLockdown() then notice(L["Can't change that in combat."]) return end
   pcall(setCVar, PLATE_CVAR, "1")
@@ -814,6 +856,14 @@ end
 
 local icons = {} -- nameplate -> our buttons, 1 = next to the bar; Blizzard's frames are never modified
 
+-- "Icons only" (#22): the game shrinks simplified plates, and our icons with them (seen in game,
+-- 2026-11-17: "ridiculously small"). There they keep the UI's own size instead.
+function ns.plateScale(frame)
+  local own = plateLook() == "icons"
+  frame:SetIgnoreParentScale(own)
+  frame:SetScale(own and UIParent:GetEffectiveScale() or 1)
+end
+
 -- The i-th icon of that player's nameplate; button.key = the buff it asks for (nil = the best one).
 local function iconFor(unit, i)
   local plate = C_NamePlate.GetNamePlateForUnit(unit, issecure())
@@ -844,17 +894,22 @@ local function iconFor(unit, i)
     if not ok then record("plate", false, tostring(err)) return end
     icons[plate][i] = button
   end
-  -- Left of the health bar (the plate itself if Blizzard shows names only), the next ones further left.
+  -- Left of the health bar, or of the name when the game shows names only (#22: else they float
+  -- where the bar was), or of the plate; the next ones further left.
   local frame = plate.UnitFrame
   local bar = frame and (frame.HealthBarsContainer or frame.healthBar)
+  local name = frame and frame.name
   button:ClearAllPoints()
   if i > 1 then
     button:SetPoint("RIGHT", icons[plate][i - 1], "LEFT", -2, 0)
+  elseif plateLook() ~= "full" and name and name:IsShown() then -- the bar's frame stays shown, empty
+    button:SetPoint("RIGHT", name, "LEFT", -3, 0)
   elseif bar and bar:IsShown() then
     button:SetPoint("RIGHT", bar, "LEFT", -3, 0)
   else
     button:SetPoint("RIGHT", plate, "LEFT", -3, 0)
   end
+  ns.plateScale(button)
   button.unit = unit
   record("plate", true)
   return button
@@ -926,6 +981,7 @@ local function markerFor(unit)
     m.pulse:SetLooping("BOUNCE")
     markers[plate] = m
   end
+  ns.plateScale(m)
   return m
 end
 
@@ -951,7 +1007,8 @@ end
 -- A buff icon (nameplate or Get buffs), fully opaque: buffs I already have are grey, like spells you
 -- can't use (not when it's Buff Digger's pick: a refresh or a higher rank). Order says the rest.
 -- `his`: the blessing this paladin already put on me, framed in gold: asking him for another one
--- would replace it (the tooltip says so on his other blessings).
+-- would replace it (the tooltip says so on his other blessings). The one Buff Digger picks instead
+-- wears circling arrows (#22: no "(swap)" word): this gold one goes, that one comes.
 function ns.styleBuff(button, k, best, his)
   button.icon:SetAlpha(1)
   button.icon:SetDesaturated(k ~= nil and k ~= best and ns.haveBuff(k))
@@ -962,6 +1019,15 @@ function ns.styleBuff(button, k, best, his)
     button.his:SetColorTexture(1, 0.82, 0) -- gold, like a quest reward border
   end
   button.his:SetShown(k ~= nil and k == his)
+  if not button.swap then
+    button.swap = button:CreateTexture(nil, "OVERLAY", nil, 3)
+    button.swap:SetSize(10, 10)
+    button.swap:SetPoint("BOTTOMRIGHT", 3, -3)
+    button.swap:SetTexture("Interface\\Buttons\\UI-RefreshButton")
+  end
+  -- A paladin's blessings never stack: his best other one replaces the one he gave, even when his is
+  -- running out (bestBuff then calls it "new", not "replace": the arrows still tell the truth).
+  button.swap:SetShown(k ~= nil and his ~= nil and k == best and k ~= his)
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change
@@ -1146,6 +1212,7 @@ frame:RegisterEvent("ADDON_ACTION_BLOCKED")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 pcall(frame.RegisterEvent, frame, "ADDON_RESTRICTION_STATE_CHANGED") -- Midnight: auras readable again
+frame:RegisterEvent("CVAR_UPDATE") -- the look of friendly plates changed elsewhere (#22)
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 frame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -1279,6 +1346,8 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
     if stale then reconcile() end
     ns.refreshAll()
+  elseif event == "CVAR_UPDATE" then
+    if type(a1) == "string" and ns.PLATE_CVARS[a1:lower()] then ns.refreshAll() end
   elseif event == "NAME_PLATE_UNIT_ADDED" then
     shownPlates[a1] = true
     ns.refreshAll()
