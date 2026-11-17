@@ -1162,6 +1162,110 @@ do
   for _,u in ipairs({"nameplate80","nameplate81","nameplate82","nameplate83"}) do fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end
   units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
 end
+print("=== Sort the lists (#42)")
+do
+  for u in pairs(units) do if u~="player" then fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end end
+  BuffDiggerCharDB.asked={}; ns.dismissThank(); myAuras={}; fire("UNIT_AURA","player"); BuffDiggerDB.nearbyUseful=false
+  local function add(u, who) units[u]=who; fire("NAME_PLATE_UNIT_ADDED",u) end
+  -- Get buffs, a warrior: a member (Group), four players around with known kinds of request.
+  units.player={"Yann","WARRIOR",40}
+  IsInGroup=function() return true end; IsInRaid=function() return false end; GetNumSubgroupMembers=function() return 1 end
+  units.party1={"Eve Ent","PRIEST",10}
+  add("nameplate91",{"Ali Zed","PALADIN",50}); add("nameplate92",{"Bob Brun","PRIEST",30})
+  add("nameplate93",{"Cid Cole","DRUID",40}); add("nameplate94",{"Dan Dorn","MAGE",20}); runTimers()
+  local realBest=ns.bestBuff
+  local KINDS={["Ali Zed"]={"might","refresh",false}, ["Cid Cole"]={"wild","new",true}, ["Dan Dorn"]={"intellect","upgrade",false}}
+  ns.bestBuff=function(name) local k=KINDS[name]; if k then return k[1], k[2], k[3] end end
+  -- Ali's spells don't reach me: in sight, not in spell range.
+  C_Spell.IsSpellInRange=function(_, u) return u~="nameplate91" end
+  local w=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows()
+  local function order(win)
+    local t={}; for _,e in ipairs(win.entries) do t[#t+1]=e.header and "|" or e.who:match("^%S+") end
+    return table.concat(t," ")
+  end
+  local o=order(w); print("best:", o)
+  assert(BuffDiggerDB.sort.nearby==nil, "Best by default")
+  assert(o:find("^| Eve | Cid ") and o:find(" Bob$"), "Best: unchanged order "..o)
+  -- No MenuUtil: each click moves to the next criterion, kept in BuffDiggerDB.
+  local expect={
+    {"level","| Eve | Ali Cid Bob Dan"},      -- highest first: who gives the highest ranks
+    {"range","| Eve | %a+ %a+ %a+ Ali"},            -- in spell range, then in sight
+    {"missing","| Eve | Cid Ali Dan Bob"},    -- new, refresh, upgrade, nothing
+    {"name","| Eve | Ali Bob Cid Dan"},
+    {"class","| Eve | Cid Dan Ali Bob"},      -- DRUID, MAGE, PALADIN, PRIEST
+  }
+  for _,x in ipairs(expect) do
+    w.sortBar._OnClick(w.sortBar); o=order(w); print(x[1]..":", o)
+    assert(BuffDiggerDB.sort.nearby==x[1] and o:find("^"..x[2]:gsub("|","%%|").."$"), x[1]..": "..o)
+  end
+  w.sortBar._OnClick(w.sortBar); assert(BuffDiggerDB.sort.nearby==nil and order(w):find("^| Eve | Cid "), "back to Best")
+  -- The game's menu: one radio per criterion, the current one checked; a pick re-sorts.
+  local radios; MenuUtil={CreateContextMenu=function(owner, gen) radios={}
+    gen(owner, {CreateTitle=function() end, CreateRadio=function(_,label,isSel,set) radios[#radios+1]={label=label,isSel=isSel,set=set} end}) end}
+  w.sortBar._OnClick(w.sortBar); assert(#radios==6 and radios[1].isSel() and radios[5].label=="Name", "six radios, Best checked")
+  radios[5].set(); assert(BuffDiggerDB.sort.nearby=="name" and order(w)=="| Eve | Ali Bob Cid Dan")
+  w.sortBar._OnClick(w.sortBar); assert(radios[5].isSel() and not radios[1].isSel(), "Name checked now")
+  MenuUtil=nil
+  -- Under the cursor the list doesn't move: a line I just asked stays where I clicked it.
+  w.IsMouseOver=function() return true end
+  BuffDiggerCharDB.asked["Cid Cole"]={at=time(), key="wild", channel="WHISPER", target="Cid-Cole"}
+  ns.refreshWindow(); assert(order(w)=="| Eve | Ali Bob Cid Dan", "hovered: no move "..order(w))
+  w.IsMouseOver=nil; BuffDiggerCharDB.asked={}
+  -- Asked (amber) and to thank (gold) stay first of their section, whatever the order.
+  BuffDiggerCharDB.asked["Dan Dorn"]={at=time(), key="intellect", channel="WHISPER", target="Dan-Dorn"}
+  ns.refreshWindow(); o=order(w); assert(o=="| Eve | Dan Ali Bob Cid", "asked first: "..o)
+  BuffDiggerDB.sort.nearby="level"; ns.refreshWindow(); o=order(w); assert(o=="| Eve | Dan Ali Cid Bob", "asked first: "..o)
+  -- Gold line out of sight: no unit, still first of Around, still sorted without error.
+  myAuras[1]={auraInstanceID=4201,name="Bénédiction de puissance",spellId=19740,sourceUnit="nameplate91",expirationTime=NOW+600,duration=600}
+  BuffDiggerCharDB.asked["Ali Zed"]={at=time(), key="might", channel="WHISPER", target="Ali-Zed"}
+  fire("UNIT_AURA","player"); assert(ns.askState("Ali Zed")=="thank")
+  fire("NAME_PLATE_UNIT_REMOVED","nameplate91"); units.nameplate91=nil; runTimers()
+  for _,s in ipairs({"best","level","range","missing","name","class"}) do
+    BuffDiggerDB.sort.nearby=s; ns.refreshWindow(); o=order(w)
+    assert(o:find("^| Eve | [AD]%a+ [AD]%a+ "), s..": asked and gold first: "..o)
+  end
+  -- Kept across a /reload: the saved choice is what the bar shows.
+  BuffDiggerDB.sort.nearby="class"; ns.refreshWindow()
+  ns.dismissThank(); BuffDiggerCharDB.asked={}; BuffDiggerDB.nearby=false; ns.applyWindows(); ns.bestBuff=realBest
+  myAuras={}; fire("UNIT_AURA","player")
+  for u in pairs(units) do if u~="player" then fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end end
+  IsInGroup=nil
+
+  -- Give buffs, a priest with Fort and Spirit. Their auras: Fort fading on Ali and Dan, Spirit on
+  -- Eve with its time secret; Bob and Cid lack everything; Cid is out of range.
+  units.player={"Yann","PRIEST",40}; IsPlayerSpell=function(id) return id==1243 or id==14752 end
+  add("nameplate95",{"Ali Zed","WARRIOR",50}); add("nameplate96",{"Bob Brun","MAGE",20}); add("nameplate97",{"Cid Cole","ROGUE",30})
+  add("nameplate98",{"Dan Dorn","WARLOCK",40}); add("nameplate99",{"Eve Ent","PRIEST",10}); runTimers()
+  local FORT, SPIRIT = "Mot de pouvoir : Robustesse", "spell14752"
+  local AURAS={nameplate95={[FORT]={expirationTime=NOW+600}}, nameplate98={[FORT]={expirationTime=NOW+100}},
+    nameplate99={[SPIRIT]={expirationTime=SECRET}}}
+  local realAura=C_UnitAuras.GetAuraDataBySpellName
+  C_UnitAuras.GetAuraDataBySpellName=function(u, name) return AURAS[u] and AURAS[u][name] end
+  C_Spell.IsSpellInRange=function(_, u) return u~="nameplate97" end
+  local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow()
+  o=order(g); print("give best:", o); local nextUnit=_G.BuffDiggerGiveNext.unit; assert(o:find(" Cid$") and #g.entries==5, "Best: in range, then too far "..o)
+  local gexpect={
+    {"level","Eve Bob Cid Dan Ali"},     -- lowest first: who needs it most
+    {"range","%a+ %a+ %a+ %a+ Cid"},
+    {"missing","Bob Cid Dan Ali Eve"},   -- lacking all, then the soonest gone; secret time last
+    {"name","Ali Bob Cid Dan Eve"},
+    {"class","Bob Eve Cid Dan Ali"},     -- MAGE, PRIEST, ROGUE, WARLOCK, WARRIOR
+  }
+  for _,x in ipairs(gexpect) do
+    g.sortBar._OnClick(g.sortBar); o=order(g); print("give "..x[1]..":", o)
+    assert(BuffDiggerDB.sort.give==x[1] and o:find("^"..x[2].."$"), "give "..x[1]..": "..o)
+  end
+  assert(BuffDiggerDB.sort.nearby=="class", "each window keeps its own order")
+  assert(nextUnit and _G.BuffDiggerGiveNext.unit==nextUnit, "the next-player key keeps the Best order")
+  -- Combat: someone's auras turn secret (left out, as before); a click on the bar is harmless.
+  AURAS.nameplate95=nil; C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate95" then return SECRET end return AURAS[u] and AURAS[u][name] end
+  BuffDiggerDB.sort.give="missing"; ns.refreshWindow(); o=order(g); assert(o=="Bob Cid Dan Eve", "secret auras: no error "..o)
+  InCombatLockdown=function() return true end; g.sortBar._OnClick(g.sortBar); InCombatLockdown=function() return false end
+  assert(BuffDiggerDB.sort.give=="name"); ns.refreshWindow(); assert(order(g)=="Bob Cid Dan Eve")
+  BuffDiggerDB.give=false; ns.applyWindows(); C_UnitAuras.GetAuraDataBySpellName=realAura; C_Spell.IsSpellInRange=nil
+  for u in pairs(units) do if u~="player" then fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end end
+  units.player={"Yann","WARRIOR",21}; IsPlayerSpell=function() return false end
+end
 print("SMOKE OK")
 print("=== buffKeyOf: spell names not loaded yet (#34)")
 do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.

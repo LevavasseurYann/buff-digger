@@ -209,3 +209,12 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 78 | Réglages : *Friendly nameplates* sur Full, Name only, Icons only, Off (#22) | Full : barres du jeu. Name only : nom en couleur de classe, icône Buff Digger collée à gauche du nom. Icons only : ni barre ni nom (sauf la cible), icônes de taille normale. Off : plus personne, le bouton dit *Off* en rouge. Changer le réglage dans les options du jeu : les icônes suivent |
 | 79 | Get buffs, sans mots (#22) : un buff qui va expirer ; un rang supérieur ; un joueur à remercier qui s'éloigne ; un membre loin | Rang orange ; rang vert ; nom gris ; icônes rouges. Aucun « (running out) », « (higher rank) », « (out of sight) », « (too far) » ; l'infobulle garde les mots |
 | 80 | Un paladin m'a mis Rois, je préfère Puissance (#22) | Rois grisé à cadre doré ; Puissance avec de petites flèches circulaires en bas à droite, lisibles sur la barre de nom et dans Get buffs ; pas de « (swap) » |
+
+## Trier Get buffs et Give buffs (#42)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 81 | Get buffs ouverte : survoler puis cliquer la petite flèche rouge en haut à gauche de la barre de titre (taille du cadenas, avec une marge) | La flèche s'affiche (bouton rouge, pas un carré vert) ; l'infobulle dit le critère et son sens ; le menu montre 6 choix, Best coché. Choisir Level : les plus hauts niveaux d'abord, le groupe reste en tête, une ligne ambre/or reste première de sa section |
+| 82 | Choisir Name dans Get buffs, Level dans Give buffs, puis `/reload` | Chaque fenêtre garde son tri, l'infobulle de la flèche le dit |
+| 83 | Prêtre (ou mage, druide), hors combat, en ville : Give buffs triée par Missing / fading | D'abord ceux qui n'ont aucun de mes buffs, puis celui dont mon buff expire le plus tôt. En combat : rien ne casse (fenêtre cachée), le tri revient après |
+| 84 | Get buffs triée par Range, un paladin ou un prêtre proche et un autre loin (mais barre de nom visible) | Noter si le jeu distingue « à portée de sort » de « en vue » (sinon : seulement en vue / trop loin, limite connue) |

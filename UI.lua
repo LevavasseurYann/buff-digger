@@ -17,6 +17,17 @@ local DELAYS = { 60, 120, 300, 600 } -- choices for the anti-nagging delay (#6)
 local REFRESH_CHOICES = { 0, 120, 300, 600 } -- ask again when less than this is left (0 = never)
 local SKIP_AFTER_CAST = 10 -- seconds a player I just buffed with the next-player key stays out of its aim
 local MAX_BUFFS = 3 -- a paladin or a priest gives at most 3 of our buffs: one icon slot each
+-- Sort criteria (#42): { key, label, help in Get buffs, help in Give buffs }. Each entry carries
+-- `by[key]`, lower first; ties keep the Best order.
+local SORTS = {
+  { "best", "Best", "Who has the buff you want most, first.", "In range first, then too far." },
+  { "level", "Level", "Highest level first: the highest ranks.", "Lowest level first: who needs it most." },
+  { "range", "Range", "In spell range, then in sight, then too far.", "In range, then in sight, then too far." },
+  { "missing", "Missing / fading", "Buffs you lack, then running out, then swaps and higher ranks.",
+    "Lacking all your buffs first, then whose buff runs out soonest." },
+  { "name", "Name", "A to Z.", "A to Z." },
+  { "class", "Class", "By class, then name.", "By class, then name." },
+}
 local PLATE_CHOICES = { { "off", "Nothing" }, { "hint", "Small icon" }, { "best", "Best buff" }, { "all", "Every buff" } }
 
 local function classColored(text, class)
@@ -721,8 +732,9 @@ end
 
 -- A movable, resizable window holding up to MAX_ROWS lines; with `cast`, its icons cast the buff.
 -- Size kept in BuffDiggerDB.sizes; "Lock windows" stops both moving and resizing.
--- `setting` is the BuffDiggerDB key that remembers whether it is open.
-local function makeWindow(globalName, title, setting, cast, point)
+-- `setting` is the BuffDiggerDB key that remembers whether it is open. `sortable`: the order in the
+-- title bar, left of the title (#42), its choice kept in BuffDiggerDB.sort[setting].
+local function makeWindow(globalName, title, setting, cast, point, sortable)
   local w = CreateFrame("Frame", globalName, UIParent, "BasicFrameTemplateWithInset")
   BuffDiggerDB.sizes = BuffDiggerDB.sizes or {}
   w:SetSize(unpack(BuffDiggerDB.sizes[globalName] or DEFAULT_SIZE))
@@ -747,7 +759,7 @@ local function makeWindow(globalName, title, setting, cast, point)
   w.grip:SetScript("OnMouseUp", function() w:StopMovingOrSizing() end)
   -- Padlock left of the close button: locked = no move, no resize (both list windows at once).
   w.lock = CreateFrame("Button", nil, w)
-  w.lock:SetSize(18, 18)
+  w.lock:SetSize(24, 24) -- its art fills ~2/3 of the frame: shows ~16 px, the sort arrow's size (#42)
   w.lock:SetPoint("RIGHT", w.CloseButton, "LEFT", 2, 0)
   w.lock:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
   w.lock:SetScript("OnClick", function(self)
@@ -987,6 +999,53 @@ local function makeWindow(globalName, title, setting, cast, point)
     return a
   end
   w.up, w.down = arrow("Up", 1, "TOPRIGHT", -28), arrow("Down", -1, "BOTTOMRIGHT", 20)
+  if sortable then
+    -- A red arrow button in the title bar, mirroring the padlock (#42): a click opens the criteria
+    -- as radios; without the game's menu, each click moves to the next one. No text: the title bar
+    -- holds controls (close, padlock), the current order is in the tooltip and checked in the menu.
+    local bar = CreateFrame("Button", nil, w)
+    -- The padlock's family, not the close button's: small and inside the title bar (20 px high,
+    -- centre 11 px down), with a clear margin. Right against the border, the dark strip left
+    -- between the frame and the button's bevel read as a hole.
+    bar:SetSize(16, 16)
+    bar:SetPoint("LEFT", w, "TOPLEFT", 7, -11)
+    -- Blizzard's own red arrow button (character select, shop cart), present in Forever.
+    bar:SetNormalAtlas("128-RedButton-ArrowDown")
+    bar:SetPushedAtlas("128-RedButton-ArrowDown-Pressed")
+    bar:SetHighlightAtlas("128-RedButton-ArrowDown-Highlight", "ADD")
+    local function current()
+      for i, c in ipairs(SORTS) do if c[1] == BuffDiggerDB.sort[setting] then return i, c end end
+      return 1, SORTS[1]
+    end
+    local function choose(key)
+      BuffDiggerDB.sort[setting] = key ~= "best" and key or nil
+      w.offset = 0 -- back to the top of the new order
+      if w.fill and not InCombatLockdown() then w.fill() end
+    end
+    bar:SetScript("OnClick", function(self)
+      if not (MenuUtil and MenuUtil.CreateContextMenu) then
+        choose(SORTS[current() % #SORTS + 1][1])
+        return
+      end
+      MenuUtil.CreateContextMenu(self, function(_, root)
+        root:CreateTitle(L["Sort by"])
+        for _, c in ipairs(SORTS) do
+          root:CreateRadio(L[c[2]], function() return select(2, current()) == c end, function() choose(c[1]) end)
+        end
+      end)
+    end)
+    bar:SetScript("OnEnter", function(self)
+      local c = select(2, current())
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine(L["Sort: %s"]:format(L[c[2]]))
+      GameTooltip:AddLine(L[cast and c[4] or c[3]], 1, 1, 1, true)
+      if not cast then GameTooltip:AddLine(L["Players you asked or have to thank stay first of their section."], 0.6, 0.6, 0.6, true) end
+      GameTooltip:AddLine(L["Click: change the order."], 0.4, 0.8, 1, true)
+      GameTooltip:Show()
+    end)
+    bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    w.sortBar = bar
+  end
   listWindows[#listWindows + 1] = w
   applyLock()
   return w
@@ -1014,11 +1073,31 @@ local function withHeaders(entries, hideGroup)
   return out
 end
 
+-- The list in the window's sort order (#42): a copy, `list` stays in the Best order. Group members
+-- stay first (withHeaders' sections); in Get buffs, so do the lines I asked or have to thank (#24),
+-- as they were when the list was built (`first`): under the cursor a re-fill must not move a line.
+local function sorted(w, list)
+  local by = w.sortBar and BuffDiggerDB.sort[w.setting]
+  if not by then return list end
+  local out, rank, pos = {}, {}, {}
+  for i, e in ipairs(list) do
+    out[i], pos[e] = e, i
+    rank[e] = (e.group and 0 or 2) + (e.first and 0 or 1)
+  end
+  table.sort(out, function(a, b)
+    if rank[a] ~= rank[b] then return rank[a] < rank[b] end
+    local ka, kb = a.by[by], b.by[by]
+    if ka ~= kb then return ka < kb end
+    return pos[a] < pos[b] -- table.sort is not stable
+  end)
+  return out
+end
+
 local function fill(w, list, emptyMessage)
   -- Re-fills (scroll, resize, [-]) start again from the list without headers: headers on headers
   -- piled up "Group / Around" and lost the folded members.
   w.fill = function() fill(w, list, emptyMessage) end
-  local entries = withHeaders(list, BuffDiggerDB.hideGroup[w.setting])
+  local entries = withHeaders(sorted(w, list), BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
   -- A gold line flashes once per buff: forget those no longer to thank, wherever they were thanked
   -- (Thanks window, key, folded group), so their next buff flashes again.
@@ -1235,6 +1314,7 @@ end
 -- my top pick first among them; then the ones whose buffs I all have, for picking by hand
 -- (left out with "nearbyUseful": nothing from my priority list missing, no higher rank, nothing
 -- running out — ns.bestBuff gave no key).
+local MISSING_RANK = { new = 0, refresh = 1, replace = 2, upgrade = 2 } -- "Missing / fading" sort (#42)
 local function nearbyEntries()
   local entries = {}
   for _, unit in ipairs(ns.listUnits()) do
@@ -1262,7 +1342,10 @@ local function nearbyEntries()
       local extra = ns.unanswered(name) and L[" |cffffd100no answer: click a buff to whisper|r"] or ""
       local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far, first = state and true,
+        -- Sort keys (#42). Range: their spell can reach me (when the game says), in sight, too far.
+        by = { level = -level, range = far and 2 or ns.tooFar(BUFFS[offers[1]].id, unit) and 1 or 0,
+          missing = MISSING_RANK[kind] or 3, name = name:lower(), class = class .. " " .. name:lower() },
         -- Members in sight, then members too far, then everyone else; asked or to thank first of each.
         order = state and (ns.isMember(unit) and -7 or -0.5)
           or (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
@@ -1277,7 +1360,8 @@ local function nearbyEntries()
   for n in pairs(picked) do if not listed[n] then picked[n] = nil end end -- off the list: ticks forgotten (#40)
   for _, t in ipairs(ns.thanksWaiting()) do
     if not listed[t.name] then
-      entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5,
+      entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5, first = true,
+        by = { level = 0, range = 2, missing = 3, name = t.name:lower(), class = (t.class or "") .. " " .. t.name:lower() },
         text = "|cff808080" .. t.name .. "|r" } -- grey: out of sight, like an offline friend
     end
   end
@@ -1289,8 +1373,8 @@ end
 
 -- ---------------------------------------------------------------- Give buffs (idea 5)
 
--- Does this unit have this buff (rank 1 or group version)? Second value: cast by me.
--- nil when the game keeps it secret.
+-- Does this unit have this buff (rank 1 or group version)? Second value: cast by me; third: when it
+-- wears off (GetTime(), nil when hidden or none). nil when the game keeps it secret.
 local function unitHas(unit, buff)
   local ids = { buff.id }
   for _, id in ipairs(buff.group or {}) do ids[#ids + 1] = id end
@@ -1304,7 +1388,9 @@ local function unitHas(unit, buff)
       end
       if aura then
         ns.record("others", true)
-        return true, ns.readable(aura.sourceUnit) and aura.sourceUnit == "player"
+        local t = aura.expirationTime
+        return true, ns.readable(aura.sourceUnit) and aura.sourceUnit == "player",
+          ns.readable(t) and type(t) == "number" and t > 0 and t or nil
       end
     end
   end
@@ -1325,8 +1411,10 @@ end
 -- Which of my buffs should this player get, best first? THEIR class's default preferences decide
 -- (not my own edited list: that one says what I want, not what a warrior wants).
 -- A paladin keeps one blessing per target: if mine is already on them, offer nothing.
+-- Second value (#42): seconds left on the first to wear off of those they have; -1: they have none,
+-- math.huge: time hidden or none.
 local function buffsToGive(unit, theirClass, myBuffs)
-  local list = {}
+  local list, left = {}, -1
   local _, myClass = UnitClass("player")
   if myClass == "PALADIN" then
     for _, key in ipairs(myBuffs) do
@@ -1337,13 +1425,14 @@ local function buffsToGive(unit, theirClass, myBuffs)
   for _, key in ipairs(ns.PREFERENCES[theirClass] or {}) do
     for _, mineKey in ipairs(myBuffs) do
       if key == mineKey and #list < MAX_BUFFS then
-        local has = unitHas(unit, BUFFS[key])
+        local has, _, ends = unitHas(unit, BUFFS[key])
         if has == nil then return {} end -- unreadable: stay silent rather than guess
-        if has == false then list[#list + 1] = key end
+        if has == false then list[#list + 1] = key
+        else left = math.min(left < 0 and math.huge or left, ends and math.max(0, ends - GetTime()) or math.huge) end
       end
     end
   end
-  return list
+  return list, left
 end
 
 -- Players I just buffed with the next-player key: "First Last" (ns.unitName) -> GetTime(). They
@@ -1372,7 +1461,8 @@ local function giveEntries(myBuffs)
     local name, class, level = ns.identity(unit)
     local cast = name and justCast[name]
     if cast and GetTime() - cast < SKIP_AFTER_CAST then name = nil end
-    local keys = name and buffsToGive(unit, class, myBuffs) or {}
+    local keys, left = {}, nil
+    if name then keys, left = buffsToGive(unit, class, myBuffs) end
     if #keys > 0 then
       -- Nameplates (and group members, anywhere) can be far beyond a buff's 30 yards: those are
       -- listed with red icons, not clickable, after the ones in range.
@@ -1384,6 +1474,8 @@ local function giveEntries(myBuffs)
       end
       entries[#entries + 1] = {
         unit = unit, who = name, far = far, buffs = buffs, group = ns.isMember(unit),
+        by = { level = level, range = far and (ns.outOfSight(unit) and 2 or 1) or 0, missing = left,
+          name = name:lower(), class = class .. " " .. name:lower() }, -- sort keys (#42)
         text = ("%s %d"):format(classColored(name, class), level),
       }
     end
@@ -1494,8 +1586,8 @@ function ns.buildUI()
   extendGameMenu()
   buildSettings()
   buildMinimapButton()
-  nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Get buffs"], "nearby", false, { "LEFT", 40, 60 })
-  give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 })
+  nearby = makeWindow("BuffDiggerNearby", L["Buff Digger — Get buffs"], "nearby", false, { "LEFT", 40, 60 }, true)
+  give = makeWindow("BuffDiggerGive", L["Buff Digger — Give buffs"], "give", true, { "LEFT", 40, -140 }, true)
   -- Requests: opened by the player and placed where they like; requests never pop it up (#13).
   requests = makeWindow("BuffDiggerRequests", L["Buff Digger — Requests"], "requests", true, { "RIGHT", -40, 60 })
   ns.requestsWindow = requests
