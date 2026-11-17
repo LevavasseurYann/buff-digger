@@ -971,19 +971,35 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
     -- "Sort: Best v": a click opens the criteria as radios, like a settings choice (choiceRow);
     -- without the game's menu, each click moves to the next one.
     local bar = CreateFrame("Button", nil, w)
-    -- In the title bar, left of the title: the list keeps its whole height.
-    bar:SetSize(56, 18)
-    bar:SetPoint("TOPLEFT", 6, -2)
-    bar:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-    bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    bar.text:SetPoint("LEFT", 2, 0)
+    -- In the title bar (20 px high, centre 11 px down), mirroring the padlock: a red button with
+    -- a down arrow at the left edge, then the order in white. The list keeps its whole height.
+    bar:SetSize(70, 18)
+    bar:SetPoint("LEFT", w, "TOPLEFT", 4, -11)
+    bar.arrow = CreateFrame("Button", nil, bar)
+    bar.arrow:SetSize(18, 18)
+    bar.arrow:SetPoint("LEFT")
+    -- The spellbook's next-page button (the padlock's family), turned a quarter clockwise: right -> down.
+    local function turned(file)
+      local tex = bar.arrow:CreateTexture()
+      tex:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-" .. file)
+      tex:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
+      return tex
+    end
+    bar.arrow:SetNormalTexture(turned("Up"))
+    bar.arrow:SetPushedTexture(turned("Down"))
+    bar.arrow:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    bar.arrow:SetScript("OnClick", function() bar:GetScript("OnClick")(bar) end)
+    bar.arrow:SetScript("OnEnter", function() bar:GetScript("OnEnter")(bar) end)
+    bar.arrow:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.text:SetPoint("LEFT", bar.arrow, "RIGHT", 2, 0)
     local function current()
       for i, c in ipairs(SORTS) do if c[1] == BuffDiggerDB.sort[setting] then return i, c end end
       return 1, SORTS[1]
     end
     function bar.update()
       local c = select(2, current())
-      bar.text:SetText(L[c[5] or c[2]] .. " |TInterface\\Buttons\\Arrow-Down-Up:10|t")
+      bar.text:SetText(L[c[5] or c[2]])
     end
     local function choose(key)
       BuffDiggerDB.sort[setting] = key ~= "best" and key or nil
