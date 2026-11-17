@@ -17,7 +17,6 @@ local DELAYS = { 60, 120, 300, 600 } -- choices for the anti-nagging delay (#6)
 local REFRESH_CHOICES = { 0, 120, 300, 600 } -- ask again when less than this is left (0 = never)
 local SKIP_AFTER_CAST = 10 -- seconds a player I just buffed with the next-player key stays out of its aim
 local MAX_BUFFS = 3 -- a paladin or a priest gives at most 3 of our buffs: one icon slot each
-local SORT_HEIGHT = 16 -- the "Sort: Best" line above Get buffs and Give buffs' lists (#42)
 -- Sort criteria (#42): { key, label, help in Get buffs, help in Give buffs }. Each entry carries
 -- `by[key]`, lower first; ties keep the Best order.
 local SORTS = {
@@ -25,7 +24,7 @@ local SORTS = {
   { "level", "Level", "Highest level first: the highest ranks.", "Lowest level first: who needs it most." },
   { "range", "Range", "In spell range, then in sight, then too far.", "In range, then in sight, then too far." },
   { "missing", "Missing / fading", "Buffs you lack, then running out, then swaps and higher ranks.",
-    "Lacking all your buffs first, then whose buff runs out soonest." },
+    "Lacking all your buffs first, then whose buff runs out soonest.", "Fading" }, -- short: title bar
   { "name", "Name", "A to Z.", "A to Z." },
   { "class", "Class", "By class, then name.", "By class, then name." },
 }
@@ -696,22 +695,21 @@ end
 
 -- Rows that fit in the window's current height.
 local function visibleRows(w)
-  return math.max(1, math.min(MAX_ROWS, math.floor((w:GetHeight() - 40 - w.top) / ROW_HEIGHT)))
+  return math.max(1, math.min(MAX_ROWS, math.floor((w:GetHeight() - 40) / ROW_HEIGHT)))
 end
 
 -- A movable, resizable window holding up to MAX_ROWS lines; with `cast`, its icons cast the buff.
 -- Size kept in BuffDiggerDB.sizes; "Lock windows" stops both moving and resizing.
--- `setting` is the BuffDiggerDB key that remembers whether it is open. `sortable`: a "Sort:" line
--- above the list (#42), its choice kept in BuffDiggerDB.sort[setting].
+-- `setting` is the BuffDiggerDB key that remembers whether it is open. `sortable`: the order in the
+-- title bar, left of the title (#42), its choice kept in BuffDiggerDB.sort[setting].
 local function makeWindow(globalName, title, setting, cast, point, sortable)
   local w = CreateFrame("Frame", globalName, UIParent, "BasicFrameTemplateWithInset")
-  w.top = sortable and SORT_HEIGHT or 0 -- room above the rows
   BuffDiggerDB.sizes = BuffDiggerDB.sizes or {}
-  w:SetSize(unpack(BuffDiggerDB.sizes[globalName] or { DEFAULT_SIZE[1], DEFAULT_SIZE[2] + w.top }))
+  w:SetSize(unpack(BuffDiggerDB.sizes[globalName] or DEFAULT_SIZE))
   w:SetPoint(unpack(point))
   w:SetMovable(true)
   w:SetResizable(true)
-  if w.SetResizeBounds then w:SetResizeBounds(220, 80, 600, 40 + w.top + MAX_ROWS * ROW_HEIGHT) end
+  if w.SetResizeBounds then w:SetResizeBounds(220, 80, 600, 40 + MAX_ROWS * ROW_HEIGHT) end
   w:EnableMouse(true)
   w:RegisterForDrag("LeftButton")
   w:SetScript("OnDragStart", function(self) if not BuffDiggerDB.lockWindows then self:StartMoving() end end)
@@ -757,7 +755,7 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
   header:SetPoint("TOP", 0, -5)
   header:SetText(title)
   w.empty = w:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  w.empty:SetPoint("TOPLEFT", 14, -32 - w.top)
+  w.empty:SetPoint("TOPLEFT", 14, -32)
   w.empty:SetPoint("RIGHT", -14, 0)
   w.empty:SetJustifyH("LEFT")
 
@@ -770,7 +768,7 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
     -- Give buffs and Requests cast it on them. The spell's name is only in the icon's tooltip.
     local row = CreateFrame("Button", nil, w, "SecureActionButtonTemplate")
     row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 12, -28 - w.top - (i - 1) * ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
     row:SetPoint("RIGHT", -24, 0) -- room for the scroll arrows
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -968,14 +966,14 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
     a:Hide()
     return a
   end
-  w.up, w.down = arrow("Up", 1, "TOPRIGHT", -28 - w.top), arrow("Down", -1, "BOTTOMRIGHT", 20)
+  w.up, w.down = arrow("Up", 1, "TOPRIGHT", -28), arrow("Down", -1, "BOTTOMRIGHT", 20)
   if sortable then
     -- "Sort: Best v": a click opens the criteria as radios, like a settings choice (choiceRow);
     -- without the game's menu, each click moves to the next one.
     local bar = CreateFrame("Button", nil, w)
-    bar:SetHeight(SORT_HEIGHT)
-    bar:SetPoint("TOPLEFT", 14, -26)
-    bar:SetPoint("RIGHT", -24, 0)
+    -- In the title bar, left of the title: the list keeps its whole height.
+    bar:SetSize(56, 18)
+    bar:SetPoint("TOPLEFT", 6, -2)
     bar:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.text:SetPoint("LEFT", 2, 0)
@@ -984,7 +982,8 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
       return 1, SORTS[1]
     end
     function bar.update()
-      bar.text:SetText(L["Sort: %s"]:format(L[select(2, current())[2]]) .. " |TInterface\\Buttons\\Arrow-Down-Up:10|t")
+      local c = select(2, current())
+      bar.text:SetText(L[c[5] or c[2]] .. " |TInterface\\Buttons\\Arrow-Down-Up:10|t")
     end
     local function choose(key)
       BuffDiggerDB.sort[setting] = key ~= "best" and key or nil

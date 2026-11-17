@@ -1164,7 +1164,7 @@ do
     return table.concat(t," ")
   end
   local o=order(w); print("best:", o)
-  assert(BuffDiggerDB.sort.nearby==nil and w.sortBar.text._t:find("^Sort: Best"), "Best by default")
+  assert(BuffDiggerDB.sort.nearby==nil and w.sortBar.text._t:find("^Best "), "Best by default")
   assert(o:find("^| Eve | Cid ") and o:find(" Bob$"), "Best: unchanged order "..o)
   -- No MenuUtil: each click moves to the next criterion, kept in BuffDiggerDB.
   local expect={
@@ -1183,7 +1183,7 @@ do
   local radios; MenuUtil={CreateContextMenu=function(owner, gen) radios={}
     gen(owner, {CreateTitle=function() end, CreateRadio=function(_,label,isSel,set) radios[#radios+1]={label=label,isSel=isSel,set=set} end}) end}
   w.sortBar._OnClick(w.sortBar); assert(#radios==6 and radios[1].isSel() and radios[5].label=="Name", "six radios, Best checked")
-  radios[5].set(); assert(BuffDiggerDB.sort.nearby=="name" and order(w)=="| Eve | Ali Bob Cid Dan" and w.sortBar.text._t:find("^Sort: Name"))
+  radios[5].set(); assert(BuffDiggerDB.sort.nearby=="name" and order(w)=="| Eve | Ali Bob Cid Dan" and w.sortBar.text._t:find("^Name "))
   w.sortBar._OnClick(w.sortBar); assert(radios[5].isSel() and not radios[1].isSel(), "Name checked now")
   MenuUtil=nil
   -- Under the cursor the list doesn't move: a line I just asked stays where I clicked it.
@@ -1205,7 +1205,7 @@ do
     assert(o:find("^| Eve | [AD]%a+ [AD]%a+ "), s..": asked and gold first: "..o)
   end
   -- Kept across a /reload: the saved choice is what the bar shows.
-  BuffDiggerDB.sort.nearby="class"; ns.refreshWindow(); assert(w.sortBar.text._t:find("^Sort: Class"))
+  BuffDiggerDB.sort.nearby="class"; ns.refreshWindow(); assert(w.sortBar.text._t:find("^Class "))
   ns.dismissThank(); BuffDiggerCharDB.asked={}; BuffDiggerDB.nearby=false; ns.applyWindows(); ns.bestBuff=realBest
   myAuras={}; fire("UNIT_AURA","player")
   for u in pairs(units) do if u~="player" then fire("NAME_PLATE_UNIT_REMOVED",u); units[u]=nil end end
@@ -1224,7 +1224,7 @@ do
   C_Spell.IsSpellInRange=function(_, u) return u~="nameplate97" end
   local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow()
   o=order(g); print("give best:", o); local nextUnit=_G.BuffDiggerGiveNext.unit; assert(o:find(" Cid$") and #g.entries==5, "Best: in range, then too far "..o)
-  assert(g.sortBar.text._t:find("^Sort: Best"))
+  assert(g.sortBar.text._t:find("^Best "))
   local gexpect={
     {"level","Eve Bob Cid Dan Ali"},     -- lowest first: who needs it most
     {"range","%a+ %a+ %a+ %a+ Cid"},
