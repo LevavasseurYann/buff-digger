@@ -56,7 +56,6 @@ ns.DEFAULTS = {
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
   requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
   gameMenu = true, -- buff request lines in the game's right-click menu on a player (#17)
-  multiAsk = true, -- one request names every buff that player can probably give me (#39)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)
@@ -563,19 +562,6 @@ function ns.bestBuff(name, class, level)
   end
 end
 
--- The other buffs a request to this player also names, after their best one `key` of kind `kind`
--- (#39): the ones I lack or that run out, in my preference order. None from a paladin (his blessings
--- replace each other on me), none with an upgrade or a swap, none with "multiAsk" unticked.
-function ns.moreBuffs(class, level, key, kind)
-  local more = {}
-  if not BuffDiggerDB.multiAsk or class == "PALADIN" or not (kind == "new" or kind == "refresh") then return more end
-  local _, myClass = UnitClass("player")
-  for _, k in ipairs(ns.prefsFor(myClass)) do
-    if k ~= key and missingFrom(k, class, level) then more[#more + 1] = k end
-  end
-  return more
-end
-
 -- Forever: UnitName returns "Raide", "Boule": the last name sits where WoW puts the realm (seen in
 -- game 2026-11-09, on nameplates and on the target). A player's name is both, with a space; that is
 -- what windows show and what every list is keyed by. Whispers go to "Raide-Boule" (seen working).
@@ -653,9 +639,9 @@ function ns.hisBlessing(name)
   end
 end
 
--- Ask `unit` for a buff: the best one, or `chosenKey` when the player picked it (#4). The best one,
--- picked or not, comes with the other buffs they can give me, in the same message (#39).
-function ns.request(unit, chosenKey)
+-- Ask `unit` for a buff: the best one, or `chosen` when the player picked it (#4): one key, or the
+-- buffs ticked in Get buffs (#40), all in the same message (#39).
+function ns.request(unit, chosen)
   if InCombatLockdown() then return end
   if not unit or not truthy(UnitExists(unit)) then notice(L["No player targeted."]) return end
   local name, class, level, target = ns.identity(unit)
@@ -664,11 +650,10 @@ function ns.request(unit, chosenKey)
   if ns.outOfSight(unit) then notice(L["%s is too far away: nothing asked."]:format(name)) return end
   local key, kind = ns.bestBuff(name, class, level)
   local keys = { key }
-  if chosenKey and chosenKey ~= key then
-    key, kind = chosenKey, kindFor(name, chosenKey, level)
-    keys = { key }
-  elseif key then -- the best one: every other buff they can give me too
-    for _, k in ipairs(ns.moreBuffs(class, level, key, kind)) do keys[#keys + 1] = k end
+  if chosen then
+    keys = {}
+    for i, k in ipairs(type(chosen) == "table" and chosen or { chosen }) do keys[i] = k end
+    if keys[1] ~= key then key, kind = keys[1], kindFor(name, keys[1], level) end
   end
   if not key then notice(L["%s has nothing better for you right now."]:format(name)) return end
   -- A silent request that brought nothing: this click re-asks them by whisper (#13).
@@ -685,7 +670,7 @@ function ns.request(unit, chosenKey)
     notice(L["Already asked %s %d s ago, give them a moment."]:format(name, ago))
     return
   end
-  if keys[1] ~= key then kind = mine[keys[1]] and "refresh" or "new" end -- the best one was left out
+  if keys[1] ~= key then kind = kindFor(name, keys[1], level) end -- the first one was left out
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
   local text = ns.message(kind, keys, BuffDiggerDB.language)
@@ -695,7 +680,10 @@ function ns.request(unit, chosenKey)
     text = ns.message(kind, keys, BuffDiggerDB.language)
   end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
-  local channel, silent = ns.deliver(name, target, keys, text, useSay, kind, reask)
+  -- Each ticked buff its own kind (#40): one may be a refresh or a higher rank, another one new.
+  local kinds = { kind }
+  for i = 2, #keys do kinds[i] = kindFor(name, keys[i], level) end
+  local channel, silent = ns.deliver(name, target, keys, text, useSay, kinds, reask)
   -- One entry per player, every buff asked in it: an open request to them takes the new buffs (its
   -- Thank line, if any, stays the same), otherwise a new one.
   local e = BuffDiggerCharDB.asked[name]
@@ -704,6 +692,7 @@ function ns.request(unit, chosenKey)
   for _, k in ipairs(keys) do if not asks(e, k) then e.keys[#e.keys + 1] = k end end
   e.at, e.key, e.channel, e.target, e.silent = time(), keys[1], channel, target, silent
   BuffDiggerCharDB.asked[name] = e
+  return true
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -881,15 +870,14 @@ end
 
 local function updateIcon(unit)
   local name, class, level = ns.identity(unit)
-  local key, kind
-  if name then key, kind = ns.bestBuff(name, class, level) end
+  local key
+  if name then key = ns.bestBuff(name, class, level) end
   local his = name and ns.hisBlessing(name)
   local mode = BuffDiggerDB.plates
   if mode == "off" or not name then return end
   -- "all": every buff they can give, I pick (my priorities left to right).
   -- "best": that choice only. "hint": a small Buff Digger icon saying "this one can buff you".
   local keys = mode == "all" and ns.offers(class, level) or { key }
-  local more = key and #ns.moreBuffs(class, level, key, kind) or 0 -- asked along with the best one (#39)
   for i, k in ipairs(keys) do
     local button = iconFor(unit, i)
     if not button then return end
@@ -906,7 +894,6 @@ local function updateIcon(unit)
       ns.styleBuff(button, k, key, his)
     end
     button.peer:SetShown(i == 1 and mode ~= "hint" and ns.isPeer(name))
-    ns.showMore(button, mode ~= "hint" and k == key and more or 0)
     button:Show()
   end
 end
@@ -975,16 +962,6 @@ function ns.styleBuff(button, k, best, his)
     button.his:SetColorTexture(1, 0.82, 0) -- gold, like a quest reward border
   end
   button.his:SetShown(k ~= nil and k == his)
-end
-
--- "+1" in the icon's top corner: a click on it also asks for that many more buffs (#39).
-function ns.showMore(button, n)
-  if not button.more then
-    button.more = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    button.more:SetPoint("TOPRIGHT", 4, 2)
-    button.more:SetTextColor(0.4, 0.8, 1) -- Buff Digger's blue, not a rank's white
-  end
-  button.more:SetText(n and n > 0 and "+" .. n or "")
 end
 
 -- Recompute everything visible: icons and the windows. In a capital, nameplates and auras change
@@ -1207,7 +1184,7 @@ function ns.castMacro(unit, spell, who)
 end
 
 -- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
--- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
+-- "*type1": any modifier, so Shift-click (the other channel) and Ctrl-click (a tick, #40) still target.
 function ns.aimTarget(button, unit, who)
   if who == nil then who = unit and targetName(unit) end
   who = unit and who

@@ -37,7 +37,7 @@ GetCursorPosition=function() return 0,0 end; IsPlayerSpell=function() return fal
 DoEmote=function(e,n) sent[#sent+1]="EMOTE "..e.." "..n end
 local NAMES={[19740]="Bénédiction de puissance",[20217]="Bénédiction des rois",[19742]="Bénédiction de sagesse",[1243]="Mot de pouvoir : Robustesse"}
 SECRET={}; issecretvalue=function(v) return v==SECRET end
-SHIFT=false; IsShiftKeyDown=function() return SHIFT end; IsControlKeyDown=function() return false end
+SHIFT=false; IsShiftKeyDown=function() return SHIFT end; CTRL=false; IsControlKeyDown=function() return CTRL end
 C_Spell={GetSpellLink=function(id) return "|cff71d5ff|Hspell:"..id..":0|h["..(NAMES[id] or "x").."]|h|r" end, GetSpellName=function(id) return NAMES[id] or ("spell"..id) end, GetSpellTexture=function() return 1 end}
 myAuras={} -- a function in it stands for a read that fails: it is called (it raises the error)
 C_UnitAuras={GetAuraDataByIndex=function(u,i) if u=="player" then local a=myAuras[i]; if type(a)=="function" then return a() end; return a end end,

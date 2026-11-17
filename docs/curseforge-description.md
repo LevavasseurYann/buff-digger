@@ -19,7 +19,7 @@ No commands, no macros. Everything is a click in a window.
 - **The right buff for your class.** Warriors get Might before Wisdom, casters get Wisdom and Intellect, locks get Fort first. Don't agree? Reorder it in the settings.
 - **The best rank around.** That level 15 priest's Fort is weak: Buff Digger waits for the level 45 one running by.
 - **Running out?** Five minutes before a buff drops, it asks again.
-- **One whisper per player.** Fort and Spirit from the same priest? Asked together.
+- **One whisper per player.** Fort and Spirit from the same priest? Ctrl+click both icons in Get buffs, hit the arrow: asked together.
 - **Never nags.** Same player, same buff: it waits before asking again.
 - **Pally, priest, mage or druid?** The Give buffs window lists who around lacks your buff. Click, they're buffed.
 - **Two Buff Digger users?** No whisper at all: the buffer gets the request in a window and buffs you in one click.

@@ -203,6 +203,6 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 74 | Sans Robustesse ni Esprit divin, clic sur l'icône du prêtre (barre de nom en « Best buff ») | Un petit « +1 » bleu sur l'icône. **Une seule** MP, avec les deux liens cliquables (« [Robustesse] and [Esprit divin] ») ; la MP part bien (le serveur accepte deux liens) |
+| 74 | Sans Robustesse ni Esprit divin, dans Get buffs : clic simple sur la Robustesse du prêtre. Puis (après le délai, ou un autre prêtre) Ctrl+clic sur Robustesse et Esprit divin, puis clic sur la flèche au bout de la ligne (#40) | Clic simple : une MP avec la Robustesse **seule**. Ctrl+clic : rien ne part, une coche sur chaque icône, la flèche apparaît. Flèche : **une seule** MP avec les deux liens cliquables (« [Robustesse] and [Esprit divin] »), la MP part bien (le serveur accepte deux liens) ; coches et flèche disparaissent. Maj+clic sur la flèche : en /s. Un paladin : cocher une 2ᵉ bénédiction décoche la 1ʳᵉ |
 | 75 | Il lance la Robustesse seule | La ligne dorée Thank arrive. Il lance ensuite l'Esprit : toujours une seule ligne, deux icônes. Un clic *Thank* : un seul merci |
 | 76 | Deux Buff Digger : le prêtre a la fenêtre Requests ouverte | Une ligne pour le mage, deux icônes ; chaque clic lance son sort, la ligne part quand les deux sont posés |
