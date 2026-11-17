@@ -272,7 +272,12 @@ local function choiceRow(x, y, caption, key, choices, translate)
 end
 
 -- Friendly nameplates (#22): off, or how they look; read from the game's settings, not saved by us.
-local PLATE_STYLES = { { "full", "Full" }, { "name", "Name only" }, { "icons", "Icons only" }, { "off", "Off" } }
+local PLATE_STYLES = {
+  { "full", "Full", "The game's nameplates: name and health bar. Buff Digger's icons next to the bar." },
+  { "name", "Name only", "Just their name, in class colour, Buff Digger's icons next to it." },
+  { "icons", "Icons only", "No bar, no name (except your target): only Buff Digger's icons float over players." },
+  { "off", "Off", "No friendly nameplates: Buff Digger can't see anyone around you (group members still listed)." },
+}
 local function nameplateRow(x, y)
   local label = text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, "")
   local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
@@ -288,7 +293,7 @@ local function nameplateRow(x, y)
   button:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(L["Friendly nameplates"])
-    GameTooltip:AddLine(L["Buff Digger sees players through them. Name only: just their name. Icons only: just Buff Digger's icons (the name shows on your target). Name only and Icons only also colour names by class."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["Buff Digger sees players through them. Pick how they look; hover each choice for more."], 1, 1, 1, true)
     GameTooltip:Show()
   end)
   button:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -305,7 +310,15 @@ local function nameplateRow(x, y)
     end
     MenuUtil.CreateContextMenu(self, function(_, root)
       for _, c in ipairs(PLATE_STYLES) do
-        if c[1] ~= "icons" or ns.canSimplify() then root:CreateRadio(L[c[2]], function() return ns.plateStyle() == c[1] end, function() choose(c[1]) end) end
+        if c[1] ~= "icons" or ns.canSimplify() then
+          local radio = root:CreateRadio(L[c[2]], function() return ns.plateStyle() == c[1] end, function() choose(c[1]) end)
+          if radio and radio.SetTooltip then
+            radio:SetTooltip(function(tooltip)
+              GameTooltip_SetTitle(tooltip, L[c[2]])
+              GameTooltip_AddNormalLine(tooltip, L[c[3]])
+            end)
+          end
+        end
       end
     end)
   end)
