@@ -30,8 +30,10 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   lisibles hors combat. `UnitIsVisible` = `false` lisible pour un membre loin. La cible d'un sort
   (UNIT_SPELLCAST_SENT) arrive en « Prénom Nom ».
 - Combat (journal du 2026-11-15, audit § 3) : mes auras sont illisibles (erreur, nil ou secret) tant
-  qu'une restriction est active, combat ou carte restreinte. Lisibilité : `C_Secrets.ShouldAurasBeSecret()`
-  et `ADDON_RESTRICTION_STATE_CHANGED` ; `PLAYER_REGEN_ENABLED` seul ne suffit pas.
+  qu'une restriction est active, combat ou carte restreinte. `C_Secrets.ShouldAurasBeSecret()` renvoie
+  toujours `false` en jeu, même en combat (recette du 2026-11-15) : `aurasReadable()` tient donc à
+  `InCombatLockdown()`, et une aura illisible marque la lecture `stale`. Suivre aussi
+  `ADDON_RESTRICTION_STATE_CHANGED` ; `PLAYER_REGEN_ENABLED` seul ne suffit pas.
 - Merci (décision #37) : à la main seulement, buffs demandés seulement, pas de cadeaux. Une ligne Thank =
   une demande ouverte honorée (même joueur, même buff), relecture comprise : jamais de ligne sans demande.
 
