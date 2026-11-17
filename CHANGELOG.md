@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - **Thank lines for players who just walked off.** In a crowd, nameplates come and go every half second; a buff you asked for that landed right then had no giver and no Thank line. Buff Digger now asks the game who cast it.
 - **Spirit for warriors.** Divine Spirit now counts as useful to a warrior (last pick, after Thorns): Spirit speeds up health regen out of combat, your only downtime.
