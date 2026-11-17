@@ -1022,7 +1022,7 @@ function ns.styleBuff(button, k, best, his)
   if not button.swap then
     button.swap = button:CreateTexture(nil, "OVERLAY", nil, 3)
     button.swap:SetSize(10, 10)
-    button.swap:SetPoint("BOTTOMRIGHT", 3, -3)
+    button.swap:SetPoint("TOPLEFT", -3, 3) -- top left: under the rank it vanished
     button.swap:SetTexture("Interface\\Buttons\\UI-RefreshButton")
   end
   -- A paladin's blessings never stack: his best other one replaces the one he gave, even when his is

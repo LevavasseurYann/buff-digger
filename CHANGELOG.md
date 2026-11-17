@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Swap arrows you can see.** The small circling arrows on a paladin's blessing moved to the icon's top left corner: under the rank number they were hidden.
+
 ## 1.1.1
 
 - **Friendly nameplates, your way.** Many of you hide friendly nameplates, and Buff Digger needs them to see anyone. The settings now offer a look for them: *Full* (the game's bars), *Name only* (just their name, in class colour, with Buff Digger's icon next to it) or *Icons only* (no bar, no name but on your target: only Buff Digger's icons float over players). Both use the game's own settings; *Off* is there too.
