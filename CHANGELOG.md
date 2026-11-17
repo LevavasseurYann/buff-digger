@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Swap arrows you can see.** The small circling arrows on a paladin's blessing moved to the icon's top left corner: under the rank number they were hidden.
+- **Swap arrows you can see.** The small circling arrows on a paladin's blessing moved to the icon's bottom left corner: under the rank number they were hidden.
 
 ## 1.1.1
 
