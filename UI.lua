@@ -49,19 +49,13 @@ end
 
 -- Hovering a buff icon (nameplate or Get buffs): the spell, the rank they can probably give me,
 -- what a click does. No name: it is on the line (or above the nameplate) already.
-function ns.buffTooltip(owner, unit, key)
+-- `tickable`: Get buffs, where Ctrl+click ticks it (#40).
+function ns.buffTooltip(owner, unit, key, tickable)
   if not (key and unit) or InCombatLockdown() then return end
   local name, class, level = ns.identity(unit)
   if not name then return end
   local buff = BUFFS[key]
   spellLines(owner, key, level)
-  -- The best one asks for the others too, in the same message (#39).
-  local best, kind = ns.bestBuff(name, class, level)
-  if best == key then
-    local more = ns.moreBuffs(class, level, key, kind)
-    for i, k in ipairs(more) do more[i] = spellName(k) end
-    if #more > 0 then GameTooltip:AddLine(L["Also asks for: %s"]:format(table.concat(more, ", ")), 0.4, 0.8, 1, true) end
-  end
   -- A paladin's blessings replace each other: say which one he gave me, and what asking would cost.
   local his = ns.hisBlessing(name)
   if his == key then
@@ -73,6 +67,7 @@ function ns.buffTooltip(owner, unit, key)
     end
   end
   GameTooltip:AddLine(L["Click: ask for it. Right click: other buffs."], 0.4, 0.8, 1, true)
+  if tickable then GameTooltip:AddLine(L["Ctrl+click: tick it, then the arrow asks for every ticked buff at once."], 0.4, 0.8, 1, true) end
   GameTooltip:Show()
 end
 
@@ -142,7 +137,6 @@ local SECTIONS = {
   }, nameplates = true, plates = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
-    { key = "multiAsk", label = "Ask for all their buffs at once (one message)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
     { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
     { key = "requestSound", label = "Sound when a request arrives" },
@@ -646,6 +640,28 @@ end
 local listWindows = {} -- Get buffs, Give buffs and Requests: they share the padlock
 local pulsed = {} -- name -> their Get buffs band already flashed gold (#24)
 
+-- Get buffs (#40): name -> the buffs ticked on their line with Ctrl+click, in click order; the arrow
+-- at the end of the line asks for them all in one request. Forgotten once sent or off the list.
+local picked = {}
+local function togglePick(name, key)
+  local list = picked[name] or {}
+  for i, k in ipairs(list) do
+    if k == key then
+      table.remove(list, i)
+      picked[name] = #list > 0 and list or nil
+      return
+    end
+  end
+  -- A paladin's blessings replace each other on me: ticking one unticks his other one (#39).
+  if BUFFS[key].class == "PALADIN" then list = {} end
+  list[#list + 1] = key
+  picked[name] = list
+end
+local function isPicked(name, key)
+  for _, k in ipairs(picked[name] or {}) do if k == key then return true end end
+  return false
+end
+
 -- A colour fading out to the right (section lines, Get buffs bands); plain without SetGradient.
 -- On white: SetGradient tints the texture, a coloured one would get the colour twice.
 local function fadeRight(tex, r, g, b, a)
@@ -837,6 +853,26 @@ local function makeWindow(globalName, title, setting, cast, point)
         if not InCombatLockdown() then w.fill() end
       end)
       row.thankButton:Hide()
+      -- Buffs ticked on this line (#40): the arrow sends them, one request; Shift: the other channel.
+      row.send = CreateFrame("Button", nil, row)
+      row.send:SetSize(18, 18)
+      row.send:SetNormalTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+      row.send:SetPushedTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Down")
+      row.send:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+      row.send:SetScript("OnClick", function()
+        local keys = picked[row.entry.who]
+        if InCombatLockdown() or not keys or gone() then return end
+        picked[row.entry.who] = nil
+        ns.request(row.unit, keys)
+        w.fill()
+      end)
+      row.send:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(L["Ask for the ticked buffs"])
+        GameTooltip:Show()
+      end)
+      row.send:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      row.send:Hide()
       -- The buff just landed: the band and its edge flash twice.
       row.pulse = row:CreateAnimationGroup()
       for k = 1, 4 do
@@ -868,15 +904,26 @@ local function makeWindow(globalName, title, setting, cast, point)
           ns.castOn()
         end)
       else
+        -- Ticked with Ctrl+click (#40): a check mark in the corner.
+        b.pick = b:CreateTexture(nil, "OVERLAY", nil, 2)
+        b.pick:SetSize(14, 14)
+        b.pick:SetPoint("TOPLEFT", -4, 4)
+        b.pick:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        b.pick:Hide()
         b:HookScript("PostClick", function(self, mouse)
           if gone() then return end
           if mouse == "RightButton" then ns.openMenu(self, row.unit)
-          elseif mouse == "LeftButton" then ns.request(row.unit, self.key) end
+          elseif mouse ~= "LeftButton" then return
+          elseif IsControlKeyDown() then
+            if InCombatLockdown() then return end
+            togglePick(row.entry.who, self.key)
+            w.fill()
+          else ns.request(row.unit, self.key) end
         end)
       end
       b:SetScript("OnEnter", function(self)
         if cast then ns.castTooltip(self, self.key, self:GetAttribute("type") and row.entry.who or nil)
-        else ns.buffTooltip(self, row.unit, self.key) end
+        else ns.buffTooltip(self, row.unit, self.key, true) end
       end)
       b:SetScript("OnLeave", function() GameTooltip:Hide() end)
       row.buffs[j] = b
@@ -979,8 +1026,12 @@ local function fill(w, list, emptyMessage)
           row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Waiting")
           row.status:SetPoint("RIGHT", -20, 0)
         end
-        -- Never under them, whatever the width of "Thank".
-        if state then row.text:SetPoint("RIGHT", row.status, "LEFT", -4, 0) else row.text:SetPoint("RIGHT", -18, 0) end
+        -- The arrow (#40) before the status icon, if any; the name never under them, whatever the width of "Thank".
+        local ticked = e.who and picked[e.who] ~= nil
+        row.send:SetShown(ticked)
+        if state then row.send:SetPoint("RIGHT", row.status, "LEFT", -2, 0) else row.send:SetPoint("RIGHT", -20, 0) end
+        local stop = ticked and row.send or state and row.status
+        if stop then row.text:SetPoint("RIGHT", stop, "LEFT", -4, 0) else row.text:SetPoint("RIGHT", -18, 0) end
         -- Flash once when it turns gold, not on every refresh or scroll; the flash is the row's,
         -- not the player's: a row scrolled to someone else stops it.
         if row.pulseFor ~= e.who then row.pulse:Stop(); row.pulseFor = nil end
@@ -1010,7 +1061,7 @@ local function fill(w, list, emptyMessage)
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
           b.rank:SetText(buff.rank or "")
-          ns.showMore(b, buff.more)
+          if b.pick then b.pick:SetShown(isPicked(e.who, buff.key)) end
           -- Green: higher than the one I have, like an upgrade in a loot tooltip.
           if buff.upgrade then b.rank:SetTextColor(0.1, 1, 0.1) else b.rank:SetTextColor(1, 1, 1) end
           if w.cast then
@@ -1162,12 +1213,11 @@ local function nearbyEntries()
       local far = ns.outOfSight(unit)
       local his = ns.hisBlessing(name)
       local buffs = {}
-      local more = key and #ns.moreBuffs(class, level, key, kind) or 0 -- asked along with the best one (#39)
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
         buffs[j] = {
           key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
-          upgrade = k == key and kind == "upgrade", best = key, his = his, more = k == key and more or 0,
+          upgrade = k == key and kind == "upgrade", best = key, his = his,
         }
       end
       local extra = kind == "replace" and L[" (swap)"] or kind == "upgrade" and L[" (higher rank)"]
@@ -1189,6 +1239,7 @@ local function nearbyEntries()
   -- them, close it or ns.thanksWaiting lets them go: no jump to the Thanks window (#24).
   local listed = {}
   for _, e in ipairs(entries) do listed[e.who] = true end
+  for n in pairs(picked) do if not listed[n] then picked[n] = nil end end -- off the list: ticks forgotten (#40)
   for _, t in ipairs(ns.thanksWaiting()) do
     if not listed[t.name] then
       entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5,
