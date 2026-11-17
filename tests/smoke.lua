@@ -494,6 +494,23 @@ local said2; UIErrorsFrame={AddMessage=function(_, m) said2=m end}
 CVARS.nameplateShowFriendlyPlayers=nil; setmetatable(CVARS, {__newindex=function() end})
 ns.turnOnFriendlyPlates(); assert(said2:find("^Couldn't"), tostring(said2))
 setmetatable(CVARS, nil); ns.turnOnFriendlyPlates(); assert(said2=="Friendly nameplates are on." and ns.friendlyPlatesOn())
+-- Look of the plates (#22): full, name only, icons only (name only + simplified bit), off.
+local BITS={}; Enum=Enum or {}; Enum.NamePlateSimplifiedType={FriendlyPlayer=3}
+C_CVar={GetCVar=GetCVar, SetCVar=SetCVar, GetCVarBitfield=function(k,i) return BITS[k..i]==true end,
+  SetCVarBitfield=function(k,i,v) BITS[k..i]=v end}
+for _,style in ipairs({"name","icons","full","off","icons"}) do
+  ns.setPlateStyle(style); assert(ns.plateStyle()==style, style.." -> "..ns.plateStyle())
+end
+assert(CVARS.nameplateUseClassColorForFriendlyPlayerUnitNames=="1", "a bare name in class colour")
+ns.setPlateStyle("full"); assert(not BITS.nameplateSimplifiedTypes3, "full: not simplified")
+-- Changed in the game's options: icons follow; a write that doesn't take is said.
+fire("CVAR_UPDATE","nameplateShowOnlyNameForFriendlyPlayerUnits","1")
+said2=nil; setmetatable(CVARS, {__newindex=function() end}); CVARS.nameplateShowOnlyNameForFriendlyPlayerUnits=nil
+ns.setPlateStyle("name"); assert(said2 and said2:find("^Couldn't change"), tostring(said2)); setmetatable(CVARS, nil)
+said2=nil; ns.setPlateStyle("icons"); assert(said2==nil and ns.plateStyle()=="icons", tostring(said2))
+local fakeUnit=Enum.NamePlateSimplifiedType; Enum.NamePlateSimplifiedType=nil; assert(not ns.canSimplify()); Enum.NamePlateSimplifiedType=fakeUnit
+ns.setPlateStyle("full")
+C_CVar=nil
 UIErrorsFrame=nil; ns.nearbyUnits=realNearby; CVARS.nameplateShowFriendlyPlayers=cv
 -- A cast sent at "Jean-Dupont" skips them for a while.
 fire("UNIT_SPELLCAST_SENT","player","Jean-Dupont","guid",1243); ns.refreshWindow()
@@ -921,7 +938,7 @@ myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","pl
 assert(r.state=="thank" and not _G.BuffDiggerThanks._shown)
 -- She walks out of sight: her gold line stays on Get buffs (no icons), never the Thanks window.
 units.nameplate43=nil; fire("NAME_PLATE_UNIT_REMOVED","nameplate43"); ns.refreshWindow(); r=lineOf("Shandris")
-print("gone line:", r and r.text._t); assert(r and r.state=="thank" and #r.entry.buffs==0 and r.text._t:find("out of sight") and not _G.BuffDiggerThanks._shown, "out of sight: still on Get buffs")
+print("gone line:", r and r.text._t); assert(r and r.state=="thank" and #r.entry.buffs==0 and r.text._t:find("^|cff808080Shandris") and not _G.BuffDiggerThanks._shown, "out of sight: still on Get buffs, name grey")
 gw2:Hide(); ns.refreshThanks(); assert(_G.BuffDiggerThanks._shown, "Get buffs closed: Thanks")
 -- The Thanks window moves even with the windows locked, from a line too, and stays where I left it.
 local tw2=_G.BuffDiggerThanks; BuffDiggerDB.lockWindows=true; local moved=0; tw2.StartMoving=function() moved=moved+1 end

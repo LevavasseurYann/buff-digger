@@ -30,7 +30,7 @@ No commands, no macros. Everything is a click in a window.
 
 ## Getting started
 
-Open the settings from the minimap button and click **Turn on** next to friendly nameplates. Buff Digger finds players through them: WoW gives addons no other way to see who's around. Then go somewhere busy.
+Open the settings from the minimap button and pick a look for friendly nameplates: **Name only** keeps just their name, **Icons only** keeps just Buff Digger's icons. Buff Digger finds players through them: WoW gives addons no other way to see who's around. Then go somewhere busy.
 
 ---
 

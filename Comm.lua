@@ -156,7 +156,7 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
     end
     local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req,
       group = member, buffs = icons,
-      text = far and req.name .. L[" (too far)"] or unit and req.name or L["%s (out of sight)"]:format(req.name) }
+      text = far and req.name .. L[" (too far)"] or unit and req.name or "|cff808080" .. req.name .. "|r" } -- grey: out of sight
     -- Group members first, even far away (#16); like Give buffs: castable first, red icons after.
     tinsert(parts[(member and 0 or 2) + (castable and 1 or 2)], e)
   end
