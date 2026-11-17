@@ -1186,6 +1186,11 @@ do
   radios[5].set(); assert(BuffDiggerDB.sort.nearby=="name" and order(w)=="| Eve | Ali Bob Cid Dan" and w.sortBar.text._t:find("^Sort: Name"))
   w.sortBar._OnClick(w.sortBar); assert(radios[5].isSel() and not radios[1].isSel(), "Name checked now")
   MenuUtil=nil
+  -- Under the cursor the list doesn't move: a line I just asked stays where I clicked it.
+  w.IsMouseOver=function() return true end
+  BuffDiggerCharDB.asked["Cid Cole"]={at=time(), key="wild", channel="WHISPER", target="Cid-Cole"}
+  ns.refreshWindow(); assert(order(w)=="| Eve | Ali Bob Cid Dan", "hovered: no move "..order(w))
+  w.IsMouseOver=nil; BuffDiggerCharDB.asked={}
   -- Asked (amber) and to thank (gold) stay first of their section, whatever the order.
   BuffDiggerCharDB.asked["Dan Dorn"]={at=time(), key="intellect", channel="WHISPER", target="Dan-Dorn"}
   ns.refreshWindow(); o=order(w); assert(o=="| Eve | Dan Ali Bob Cid", "asked first: "..o)
@@ -1218,7 +1223,7 @@ do
   C_UnitAuras.GetAuraDataBySpellName=function(u, name) return AURAS[u] and AURAS[u][name] end
   C_Spell.IsSpellInRange=function(_, u) return u~="nameplate97" end
   local g=_G.BuffDiggerGive; BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow()
-  o=order(g); print("give best:", o); assert(o:find(" Cid$") and #g.entries==5, "Best: in range, then too far "..o)
+  o=order(g); print("give best:", o); local nextUnit=_G.BuffDiggerGiveNext.unit; assert(o:find(" Cid$") and #g.entries==5, "Best: in range, then too far "..o)
   assert(g.sortBar.text._t:find("^Sort: Best"))
   local gexpect={
     {"level","Eve Bob Cid Dan Ali"},     -- lowest first: who needs it most
@@ -1232,6 +1237,7 @@ do
     assert(BuffDiggerDB.sort.give==x[1] and o:find("^"..x[2].."$"), "give "..x[1]..": "..o)
   end
   assert(BuffDiggerDB.sort.nearby=="class", "each window keeps its own order")
+  assert(nextUnit and _G.BuffDiggerGiveNext.unit==nextUnit, "the next-player key keeps the Best order")
   -- Combat: someone's auras turn secret (left out, as before); a click on the bar is harmless.
   AURAS.nameplate95=nil; C_UnitAuras.GetAuraDataBySpellName=function(u, name) if u=="nameplate95" then return SECRET end return AURAS[u] and AURAS[u][name] end
   BuffDiggerDB.sort.give="missing"; ns.refreshWindow(); o=order(g); assert(o=="Bob Cid Dan Eve", "secret auras: no error "..o)

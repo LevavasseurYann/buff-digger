@@ -1045,14 +1045,15 @@ local function withHeaders(entries, hideGroup)
 end
 
 -- The list in the window's sort order (#42): a copy, `list` stays in the Best order. Group members
--- stay first (withHeaders' sections); in Get buffs, so do the lines I asked or have to thank (#24).
+-- stay first (withHeaders' sections); in Get buffs, so do the lines I asked or have to thank (#24),
+-- as they were when the list was built (`first`): under the cursor a re-fill must not move a line.
 local function sorted(w, list)
   local by = w.sortBar and BuffDiggerDB.sort[w.setting]
   if not by then return list end
   local out, rank, pos = {}, {}, {}
   for i, e in ipairs(list) do
     out[i], pos[e] = e, i
-    rank[e] = (e.group and 0 or 2) + ((not w.cast and e.who and ns.askState(e.who)) and 0 or 1)
+    rank[e] = (e.group and 0 or 2) + (e.first and 0 or 1)
   end
   table.sort(out, function(a, b)
     if rank[a] ~= rank[b] then return rank[a] < rank[b] end
@@ -1311,10 +1312,10 @@ local function nearbyEntries()
       if far then extra = L[" (too far)"] end
       local tail = ("%s %d%s"):format(ns.isPeer(name) and " |TInterface\\COMMON\\FavoritesIcon:12|t" or "", level, extra)
       entries[#entries + 1] = {
-        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far,
+        unit = unit, who = name, buffs = buffs, group = ns.isMember(unit), far = far, first = state and true,
         -- Sort keys (#42). Range: their spell can reach me (when the game says), in sight, too far.
         by = { level = -level, range = far and 2 or ns.tooFar(BUFFS[offers[1]].id, unit) and 1 or 0,
-          missing = MISSING_RANK[kind] or 3, name = name, class = class .. " " .. name },
+          missing = MISSING_RANK[kind] or 3, name = name:lower(), class = class .. " " .. name:lower() },
         -- Members in sight, then members too far, then everyone else; asked or to thank first of each.
         order = state and (ns.isMember(unit) and -7 or -0.5)
           or (ns.isMember(unit) and (far and -3 or -6) or 0) + (key and (top and 0 or 1) or 2),
@@ -1329,8 +1330,8 @@ local function nearbyEntries()
   for n in pairs(picked) do if not listed[n] then picked[n] = nil end end -- off the list: ticks forgotten (#40)
   for _, t in ipairs(ns.thanksWaiting()) do
     if not listed[t.name] then
-      entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5,
-        by = { level = 0, range = 2, missing = 3, name = t.name, class = (t.class or "") .. " " .. t.name },
+      entries[#entries + 1] = { who = t.name, buffs = {}, order = -0.5, first = true,
+        by = { level = 0, range = 2, missing = 3, name = t.name:lower(), class = (t.class or "") .. " " .. t.name:lower() },
         text = classColored(t.name, t.class) .. L[" (out of sight)"] }
     end
   end
@@ -1444,7 +1445,7 @@ local function giveEntries(myBuffs)
       entries[#entries + 1] = {
         unit = unit, who = name, far = far, buffs = buffs, group = ns.isMember(unit),
         by = { level = level, range = far and (ns.outOfSight(unit) and 2 or 1) or 0, missing = left,
-          name = name, class = class .. " " .. name }, -- sort keys (#42)
+          name = name:lower(), class = class .. " " .. name:lower() }, -- sort keys (#42)
         text = ("%s %d%s"):format(classColored(name, class), level, far and L[" (too far)"] or ""),
       }
     end
