@@ -860,7 +860,16 @@ do
   fire("UNIT_AURA","player"); assert(#ns.thanksWaiting()==0, "restricted: nothing read")
   SECRET_AURAS=false; fire("ADDON_RESTRICTION_STATE_CHANGED", 4, 0)
   assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Lin Dupont", "readable again: the GUID names her")
-  ns.dismissThank(); BuffDiggerCharDB.asked={}; PLAYERS={}; myAuras=savedAuras; fire("UNIT_AURA","player"); runTimers()
+  ns.dismissThank()
+  -- A stale token (now an NPC, then a druid) or a secret one: the GUID names her; her level hidden is fine.
+  units.nameplate70={"Elune","DRUID",40}; PLAYERS["Player-1-A"][3]=nil
+  for i, src in ipairs({"nameplate71", "nameplate70", SECRET}) do
+    ask("Lin Dupont","kings"); NOW=NOW+30; kings.auraInstanceID=7010+i; kings.sourceUnit=src; kings.expirationTime=NOW+600
+    fire("UNIT_AURA","player")
+    assert(#ns.thanksWaiting()==1 and ns.thanksWaiting()[1].name=="Lin Dupont", "stale or secret token "..i..": the GUID wins")
+    ns.dismissThank()
+  end
+  units.nameplate70=nil; BuffDiggerCharDB.asked={}; PLAYERS={}; myAuras=savedAuras; fire("UNIT_AURA","player"); runTimers()
 end
 print("=== Get buffs: my request amber, the buff gold (#24)")
 BuffDiggerCharDB.asked={}; ns.dismissThank()

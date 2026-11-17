@@ -315,10 +315,12 @@ end
 -- buff given after that request: a full read or a new ID (Ghost Wolf) for a buff I already had is not.
 -- The giver from the caster's GUID, when no unit token names him (his nameplate just went, recette 2,
 -- #41). Only called while my auras are readable: restricted, the call fails. Returns name, target,
--- class, level (level may be nil), or nil.
+-- class, level (level may be nil), false when I cast it, or nil.
 local function giverByGUID(aura)
   local ok, guid = pcall(C_UnitAuras.GetAuraCasterGUID, "player", aura.auraInstanceID)
-  if not (ok and readable(guid) and guid) or guid == UnitGUID("player") then return end
+  if not (ok and readable(guid) and guid) then return end
+  local me = UnitGUID("player")
+  if readable(me) and guid == me then return false end
   local ok2, _, class, _, _, _, name, last, level = pcall(GetPlayerInfoByGUID, guid)
   if not (ok2 and readable(name) and readable(last) and readable(class) and readable(level) and name and name ~= "") then return end
   -- As ns.unitName: the last name sits where the realm goes (to check in game for this call, #41).
@@ -331,15 +333,19 @@ local function onBuffLanded(aura, info, kind)
   if not readable(aura.spellId) then record("source", false, "spell secret") return end
   local name, class, level, target, _
   if source and readable(source) then
-    if truthy(UnitIsUnit(source, "player")) or not truthy(UnitIsPlayer(source)) then return end
-    name, target = ns.unitName(source) -- target: "First-Last", the whisper form
-    _, class = UnitClass(source)
-    level = UnitLevel(source)
-    if not (name and readable(class) and readable(level)) then name = nil end
+    if truthy(UnitIsUnit(source, "player")) then return end
+    if truthy(UnitIsPlayer(source)) then
+      name, target = ns.unitName(source) -- target: "First-Last", the whisper form
+      _, class = UnitClass(source)
+      level = UnitLevel(source)
+    end
+    -- Unreadable, or a stale token (an NPC, a mage for Fortitude): ask the caster's GUID instead.
+    if not (name and readable(class) and readable(level)) or BUFFS[info.key].class ~= class then name = nil end
   end
   if not name then name, target, class, level = giverByGUID(aura) end
+  if name == false then return end -- my own cast
   if not name and (not readable(source) or source ~= nil) then record("source", false, "giver secret") return end
-  -- A mage can't give Fortitude: the source is wrong (a stale unit token), so the giver is unknown.
+  -- A mage can't give Fortitude: the GUID is wrong too, so the giver is unknown.
   if name and BUFFS[info.key].class ~= class then
     debug("Ignored: " .. name .. " can't give " .. show(aura.name))
     name = nil
