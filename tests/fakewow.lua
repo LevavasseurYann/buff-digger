@@ -56,7 +56,8 @@ UnitClass=function(u) return "x", units[u] and units[u][2] end
 UnitLevel=function(u) return units[u] and units[u][3] end
 -- GUID -> { "First Last", CLASS, level }; the name comes back split as UnitName does (to check in game, #41).
 PLAYERS={}; UnitGUID=function(u) return u=="player" and "Player-me" or nil end
-GetPlayerInfoByGUID=function(g) local p=PLAYERS[g]; if not p then return end; local f, l = split(p[1]); return "x", p[2], "x", "x", 2, f, l or "", p[3] end
+-- As seen in game (2026-11-17): the whole "First Last" in name, the real realm next, then a number that is not the level.
+GetPlayerInfoByGUID=function(g) local p=PLAYERS[g]; if not p then return end; return "x", p[2], "x", "x", 3, p[1], "CAMWOWEU4Realm6PvP", 6 end
 GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) local f, l = split(units[u][1]) return f, l or "Realm" end
 UnitIsPlayer=function(u) return units[u]~=nil end; UnitExists=UnitIsPlayer
 UnitIsUnit=function(a,b) return a==b end; UnitIsVisible=UnitIsPlayer; UnitIsConnected=function(u) return units[u]~=nil and not OFFLINE[u] end; OFFLINE={}; UnitIsDeadOrGhost=function() return false end; UnitIsFriend=function() return true end

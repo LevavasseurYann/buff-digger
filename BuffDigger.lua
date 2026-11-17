@@ -314,17 +314,17 @@ end
 -- buff given after that request: a full read or a new ID (Ghost Wolf) for a buff I already had is not.
 -- The giver from the caster's GUID, when no unit token names him (his nameplate just went, recette 2,
 -- #41). Only called while my auras are readable: restricted, the call fails. Returns name, target,
--- class, level (level may be nil), false when I cast it, or nil.
+-- class (no level), false when I cast it, or nil.
 local function giverByGUID(aura)
   local ok, guid = pcall(C_UnitAuras.GetAuraCasterGUID, "player", aura.auraInstanceID)
   if not (ok and readable(guid) and guid) then return end
   local me = UnitGUID("player")
   if readable(me) and guid == me then return false end
-  local ok2, _, class, _, _, _, name, last, level = pcall(GetPlayerInfoByGUID, guid)
-  if not (ok2 and readable(name) and readable(last) and readable(class) and readable(level) and name and name ~= "") then return end
-  -- As ns.unitName: the last name sits where the realm goes (to check in game for this call, #41).
-  if last and last ~= "" then return name .. " " .. last, name .. "-" .. last, class, level end
-  return name, name, class, level
+  -- Seen in game (2026-11-17): name is already "First Last", then the real realm, then a number that
+  -- is not the level (6 for a level 60). No level: the rank stays the one read on the buff.
+  local ok2, _, class, _, _, _, name = pcall(GetPlayerInfoByGUID, guid)
+  if not (ok2 and readable(name) and readable(class) and type(name) == "string" and name ~= "") then return end
+  return name, (name:gsub(" ", "-")), class
 end
 
 local function onBuffLanded(aura, info, kind)
