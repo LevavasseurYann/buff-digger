@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Sort Get buffs and Give buffs your way.** A thin *Sort: Best* line now sits at the top of both lists: click it and pick Best (the usual order), Level, Range, Missing / fading, Name or Class. Get buffs puts the highest levels first (better ranks), Give buffs the lowest (who needs it most); *Missing / fading* in Give buffs shows who lacks all your buffs first, then whose buff runs out soonest. Each window remembers its own choice, even after a /reload. Your group still comes first, and in Get buffs the players you asked (amber) or have to thank (gold) stay at the top of their section.
+
 ## 1.1.0
 
 - **Thank lines for players who just walked off.** In a crowd, nameplates come and go every half second; a buff you asked for that landed right then had no giver and no Thank line. Buff Digger now asks the game who cast it.

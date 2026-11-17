@@ -1233,6 +1233,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.noSource = BuffDiggerDB.noSource or 0
     BuffDiggerDB.prefs = BuffDiggerDB.prefs or {}
     BuffDiggerDB.hideGroup = BuffDiggerDB.hideGroup or {} -- window setting -> true: Group folded (#16)
+    BuffDiggerDB.sort = BuffDiggerDB.sort or {} -- window setting -> sort criterion, nil = "best" (#42)
     BuffDiggerDB.custom = BuffDiggerDB.custom or {} -- my own phrases (#20)
     BuffDiggerDB.customText = BuffDiggerDB.customText or {}
     -- My requests are per character (#38). Up to 1.0.0 they were shared by the whole account: the

@@ -206,3 +206,12 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 74 | Sans Robustesse ni Esprit divin, dans Get buffs : clic simple sur la Robustesse du prêtre. Puis (après le délai, ou un autre prêtre) Ctrl+clic sur Robustesse et Esprit divin, puis clic sur la flèche au bout de la ligne (#40) | Clic simple : une MP avec la Robustesse **seule**. Ctrl+clic : rien ne part, une coche sur chaque icône, la flèche apparaît. Flèche : **une seule** MP avec les deux liens cliquables (« [Robustesse] and [Esprit divin] »), la MP part bien (le serveur accepte deux liens) ; coches et flèche disparaissent. Maj+clic sur la flèche : en /s. Un paladin : cocher une 2ᵉ bénédiction décoche la 1ʳᵉ |
 | 75 | Il lance la Robustesse seule | La ligne dorée Thank arrive. Il lance ensuite l'Esprit : toujours une seule ligne, deux icônes. Un clic *Thank* : un seul merci |
 | 76 | Deux Buff Digger : le prêtre a la fenêtre Requests ouverte | Une ligne pour le mage, deux icônes ; chaque clic lance son sort, la ligne part quand les deux sont posés |
+
+## Trier Get buffs et Give buffs (#42)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 77 | Get buffs ouverte : survoler puis cliquer la ligne « Sort: Best » en haut de la liste | La flèche ▾ s'affiche (petite flèche, pas un carré vide) ; l'infobulle dit le critère et son sens ; le menu montre 6 choix, Best coché. Choisir Level : les plus hauts niveaux d'abord, le groupe reste en tête, une ligne ambre/or reste première de sa section |
+| 78 | Choisir Name dans Get buffs, Level dans Give buffs, puis `/reload` | Chaque fenêtre garde son tri, la ligne « Sort: » le dit |
+| 79 | Prêtre (ou mage, druide), hors combat, en ville : Give buffs triée par Missing / fading | D'abord ceux qui n'ont aucun de mes buffs, puis celui dont mon buff expire le plus tôt. En combat : rien ne casse (fenêtre cachée), le tri revient après |
+| 80 | Get buffs triée par Range, un paladin ou un prêtre proche et un autre loin (mais barre de nom visible) | Noter si le jeu distingue « à portée de sort » de « en vue » (sinon : seulement en vue / trop loin, limite connue) |
