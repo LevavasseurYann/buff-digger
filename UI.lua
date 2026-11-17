@@ -972,8 +972,11 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
     -- as radios; without the game's menu, each click moves to the next one. No text: the title bar
     -- holds controls (close, padlock), the current order is in the tooltip and checked in the menu.
     local bar = CreateFrame("Button", nil, w)
-    bar:SetSize(20, 20)
-    bar:SetPoint("LEFT", w, "TOPLEFT", 3, -11) -- the title bar: 20 px high, centre 11 px down
+    -- The padlock's family, not the close button's: small and inside the title bar (20 px high,
+    -- centre 11 px down), with a clear margin. Right against the border, the dark strip left
+    -- between the frame and the button's bevel read as a hole.
+    bar:SetSize(16, 16)
+    bar:SetPoint("LEFT", w, "TOPLEFT", 7, -11)
     -- Blizzard's own red arrow button (character select, shop cart), present in Forever.
     bar:SetNormalAtlas("128-RedButton-ArrowDown")
     bar:SetPushedAtlas("128-RedButton-ArrowDown-Pressed")
