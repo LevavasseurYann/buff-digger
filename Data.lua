@@ -73,8 +73,9 @@ ns.BUFFS = {
 -- Why, class by class (leveling, solo, out of combat):
 ns.PREFERENCES = {
   -- Rage, no mana: Might feeds damage directly; Fortitude and Mark keep you alive between pulls;
-  -- Kings is 10% of small stat totals while leveling, so below Might.
-  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns" },
+  -- Kings is 10% of small stat totals while leveling, so below Might. Spirit last: faster health
+  -- regen out of combat, a warrior's only downtime.
+  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns", "spirit" },
   ROGUE   = { "might", "fortitude", "kings", "wild" },
   -- Might only raises MELEE attack power in vanilla, useless for a bow. Mana matters (Aspects, Serpent Sting).
   HUNTER  = { "kings", "fortitude", "wild", "wisdom", "intellect" },
