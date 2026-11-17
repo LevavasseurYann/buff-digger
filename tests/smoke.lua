@@ -1051,6 +1051,10 @@ do
   r.send._OnClick(r.send); r=row40("Anduin")
   assert(whispers(b)==1 and last("^WHISPER"):find("|r and |c") and sent[b+1]=="ADDON>Anduin: REQ:fortitude:new" and sent[b+2]=="ADDON>Anduin: ADD:spirit:new", "the arrow: one request, both buffs")
   assert(#BuffDiggerCharDB.asked.Anduin.keys==2 and not r.send._shown and not icon40(r,"fortitude").pick._shown, "sent: ticks cleared")
+  -- Both asked a moment ago: the arrow sends nothing and the ticks stay.
+  CTRL=true; click(icon40(r,"fortitude")); r=row40("Anduin"); click(icon40(r,"spirit")); CTRL=false; r=row40("Anduin")
+  b=#sent; r.send._OnClick(r.send); r=row40("Anduin"); assert(#sent==b and r.send._shown and icon40(r,"spirit").pick._shown, "refused: ticks kept")
+  CTRL=true; click(icon40(r,"fortitude")); r=row40("Anduin"); click(icon40(r,"spirit")); CTRL=false; r=row40("Anduin")
   -- Ctrl+click again unticks.
   BuffDiggerCharDB.asked={}; ns.refreshWindow(); r=row40("Anduin")
   CTRL=true; click(icon40(r,"spirit")); r=row40("Anduin"); click(icon40(r,"spirit")); CTRL=false; r=row40("Anduin")

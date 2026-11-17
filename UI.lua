@@ -530,7 +530,7 @@ local function buildPhrases()
 end
 
 local HOW_TO = {
-  "Click a buff icon to ask for that buff, a name in Get buffs to target them. Shift/Ctrl-click: /say instead of whisper (or the reverse).",
+  "Click a buff icon to ask for that buff, a name in Get buffs to target them. Shift-click: /say instead of whisper (or the reverse). Get buffs: Ctrl-click ticks buffs, the arrow asks for them all at once.",
   "Right-click: every buff that player can give.",
   "Minimap button: right click = Get buffs.",
   "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
@@ -862,13 +862,14 @@ local function makeWindow(globalName, title, setting, cast, point)
       row.send:SetScript("OnClick", function()
         local keys = picked[row.entry.who]
         if InCombatLockdown() or not keys or gone() then return end
-        picked[row.entry.who] = nil
-        ns.request(row.unit, keys)
+        -- Refused (too far, all asked a moment ago): the ticks stay, ns.request said why.
+        if ns.request(row.unit, keys) then picked[row.entry.who] = nil end
         w.fill()
       end)
       row.send:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:AddLine(L["Ask for the ticked buffs"])
+        GameTooltip:AddLine(L["Shift-click: /say instead of whisper (or the reverse)."], 0.4, 0.8, 1, true)
         GameTooltip:Show()
       end)
       row.send:SetScript("OnLeave", function() GameTooltip:Hide() end)

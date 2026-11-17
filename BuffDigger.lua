@@ -658,7 +658,10 @@ function ns.request(unit, chosen)
     text = ns.message(kind, keys, BuffDiggerDB.language)
   end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
-  local channel, silent = ns.deliver(name, target, keys, text, useSay, kind, reask)
+  -- Each ticked buff its own kind (#40): one may be a refresh or a higher rank, another one new.
+  local kinds = { kind }
+  for i = 2, #keys do kinds[i] = kindFor(name, keys[i], level) end
+  local channel, silent = ns.deliver(name, target, keys, text, useSay, kinds, reask)
   -- One entry per player, every buff asked in it: an open request to them takes the new buffs (its
   -- Thank line, if any, stays the same), otherwise a new one.
   local e = BuffDiggerCharDB.asked[name]
@@ -667,6 +670,7 @@ function ns.request(unit, chosen)
   for _, k in ipairs(keys) do if not asks(e, k) then e.keys[#e.keys + 1] = k end end
   e.at, e.key, e.channel, e.target, e.silent = time(), keys[1], channel, target, silent
   BuffDiggerCharDB.asked[name] = e
+  return true
 end
 
 -- One key press, no aiming: among the players around me, ask the one who can give the buff I
@@ -1158,7 +1162,7 @@ function ns.castMacro(unit, spell, who)
 end
 
 -- A left click on this secure button targets `unit` (Get buffs, #14); nil = the click targets nobody.
--- "*type1": any modifier, so Shift/Ctrl-click (the other channel) still targets.
+-- "*type1": any modifier, so Shift-click (the other channel) and Ctrl-click (a tick, #40) still target.
 function ns.aimTarget(button, unit, who)
   if who == nil then who = unit and targetName(unit) end
   who = unit and who

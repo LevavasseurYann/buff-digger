@@ -47,16 +47,16 @@ function ns.isPeer(name) return name and BuffDiggerDB.peers[name] ~= nil end
 -- Sends the request; returns the channel the thank-you should use later ("SAY" or "WHISPER"), and
 -- true when it went out silently (addon message only). `reask`: a whisper whatever the peer (#13).
 -- `keys`: the buffs asked for, best first (#39). The first goes as "REQ", the others as "ADD" right
--- after it: an older Buff Digger ignores "ADD" and still gets the first one.
-function ns.deliver(name, target, keys, text, useSay, kind, reask)
+-- after it: an older Buff Digger ignores "ADD" and still gets the first one. `kinds`: each one's kind.
+function ns.deliver(name, target, keys, text, useSay, kinds, reask)
   local function visible()
     if useSay then sendChat(name .. " : " .. text, "SAY") else sendChat(text, "WHISPER", nil, target) end
   end
   if reask or not canTalk() then visible() return useSay and "SAY" or "WHISPER" end
 
-  sendAddon(PREFIX, "REQ:" .. keys[1] .. ":" .. (kind or "new"), "WHISPER", target)
+  sendAddon(PREFIX, "REQ:" .. keys[1] .. ":" .. (kinds[1] or "new"), "WHISPER", target)
   for i = 2, #keys do
-    sendAddon(PREFIX, "ADD:" .. keys[i] .. ":" .. (ns.haveBuff(keys[i]) and "refresh" or "new"), "WHISPER", target)
+    sendAddon(PREFIX, "ADD:" .. keys[i] .. ":" .. (kinds[i] or "new"), "WHISPER", target)
   end
   if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
   return "WHISPER", true
