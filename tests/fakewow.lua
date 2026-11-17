@@ -43,13 +43,20 @@ myAuras={} -- a function in it stands for a read that fails: it is called (it ra
 C_UnitAuras={GetAuraDataByIndex=function(u,i) if u=="player" then local a=myAuras[i]; if type(a)=="function" then return a() end; return a end end,
   GetAuraDataBySpellName=function() return nil end,
   GetAuraDataByAuraInstanceID=function(u,id) if u~="player" then return end
-    for _,a in ipairs(myAuras) do if type(a)=="function" then return a() end; if a.auraInstanceID==id then return a end end end}
+    for _,a in ipairs(myAuras) do if type(a)=="function" then return a() end; if a.auraInstanceID==id then return a end end end,
+  -- The caster's GUID (#41): a test gives it as casterGUID on the aura; restricted, the call fails as in game.
+  GetAuraCasterGUID=function(u,id) if u~="player" then return end
+    if SECRET_AURAS then error("GetAuraCasterGUID(): Auras cannot be accessed when secret") end
+    for _,a in ipairs(myAuras) do if type(a)=="table" and a.auraInstanceID==id then return a.casterGUID end end end}
 units={}
 -- Forever: "Jean Dupont" comes back as "Jean", "Dupont" (the last name where WoW puts the realm).
 local function split(n) if not n then return nil end local f, l = n:match("^(%S+) (.+)$") if f then return f, l end return n end
 UnitName=function(u) return split(units[u] and units[u][1]) end
 UnitClass=function(u) return "x", units[u] and units[u][2] end
 UnitLevel=function(u) return units[u] and units[u][3] end
+-- GUID -> { "First Last", CLASS, level }; the name comes back split as UnitName does (to check in game, #41).
+PLAYERS={}; UnitGUID=function(u) return u=="player" and "Player-me" or nil end
+GetPlayerInfoByGUID=function(g) local p=PLAYERS[g]; if not p then return end; local f, l = split(p[1]); return "x", p[2], "x", "x", 2, f, l or "", p[3] end
 GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) local f, l = split(units[u][1]) return f, l or "Realm" end
 UnitIsPlayer=function(u) return units[u]~=nil end; UnitExists=UnitIsPlayer
 UnitIsUnit=function(a,b) return a==b end; UnitIsVisible=UnitIsPlayer; UnitIsConnected=function(u) return units[u]~=nil and not OFFLINE[u] end; OFFLINE={}; UnitIsDeadOrGhost=function() return false end; UnitIsFriend=function() return true end
