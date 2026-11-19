@@ -42,6 +42,7 @@ ns.DEFAULTS = {
   nearby = false,    -- "Nearby" window
   nearbyUseful = false, -- Get buffs: hide players with nothing better for me
   lockWindows = false, -- windows can't be moved or resized
+  windowStyle = "classic", -- list windows: "classic" (Blizzard's frame) or "minimal" (see-through, fades) (#44)
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- /thank emote with a Thank click
   thankMessage = true, -- thank-you message in the request's channel once the buff lands

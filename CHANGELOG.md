@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
+- **A quieter look for the windows.** Settings > Display > *Window style*: *Classic* keeps the game's frame, *Minimal* drops it for a flat, see-through dark background, like the borderless skins of Details! or Skada. A minimal window also fades while your mouse is elsewhere and comes back in full under it, so Get buffs can sit on screen all the time without getting in the way. Applies to Get buffs, Give buffs, Requests and Thanks; Thanks never fades, so a Thank line stays easy to spot.
 - **Swap arrows you can see.** The small circling arrows on a paladin's blessing moved to the icon's bottom left corner: under the rank number they were hidden.
 
 ## 1.1.1

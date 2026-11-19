@@ -29,6 +29,7 @@ local SORTS = {
   { "class", "Class", "By class, then name.", "By class, then name." },
 }
 local PLATE_CHOICES = { { "off", "Nothing" }, { "hint", "Small icon" }, { "best", "Best buff" }, { "all", "Every buff" } }
+local WINDOW_STYLES = { { "classic", "Classic" }, { "minimal", "Minimal" } } -- #44
 
 local function classColored(text, class)
   local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -145,7 +146,7 @@ local SECTIONS = {
     { key = "nearby",  label = "Get buffs window: who can buff me" },
     { key = "nearbyUseful", label = "Get buffs: only those with something better" },
     { key = "give",    label = "Give buffs window: who lacks my buffs" },
-  }, nameplates = true, plates = true },
+  }, nameplates = true, plates = true, style = true },
   { title = "Requests", options = {
     { key = "useSay",  label = "Ask in /say by default (not whisper)" },
     { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
@@ -251,7 +252,7 @@ end
 
 -- A label and a button showing the current choice, opening the list. choices = { { value, label }, ... }
 -- (labels are shown as is: language names stay in their own language).
-local function choiceRow(x, y, caption, key, choices, translate)
+local function choiceRow(x, y, caption, key, choices, translate, after)
   text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, L[caption])
   local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
   button:SetSize(104, 22)
@@ -267,6 +268,7 @@ local function choiceRow(x, y, caption, key, choices, translate)
     BuffDiggerDB[key] = value
     button:SetText(select(2, current()))
     ns.refreshAll()
+    if after then after() end
   end
   button:SetScript("OnShow", function(self) self:SetText(select(2, current())) end)
   button:SetScript("OnClick", function(self)
@@ -347,6 +349,10 @@ local function buildOptions()
     end
     if section.plates then
       choiceRow(LEFT_X, y - 4, "On nameplates", "plates", PLATE_CHOICES, true)
+      y = y - 28
+    end
+    if section.style then
+      choiceRow(LEFT_X, y - 4, "Window style", "windowStyle", WINDOW_STYLES, true, function() ns.applyStyle() end)
       y = y - 28
     end
     if section.nameplates then
@@ -681,6 +687,45 @@ end
 -- ---------------------------------------------------------------- list windows
 
 local listWindows = {} -- Get buffs, Give buffs and Requests: they share the padlock
+
+-- Window style (#44). "classic": Blizzard's frame. "minimal": like the borderless skins of Details!
+-- or Skada, a flat see-through dark background without the frame art, and the window fades while
+-- the mouse is elsewhere (full again under it, like the chat frame). The template's textures are
+-- only hidden: back to classic shows them again.
+local MINIMAL_BG, MINIMAL_REST = 0.45, 0.6 -- background opacity; window opacity with the mouse away
+local styled = {} -- the list windows and Thanks
+-- `solid`: never fades (Thanks: a line there is waiting for a click).
+local function skin(w, solid)
+  w.solid = solid
+  w.chrome = { w:GetRegions() } -- the template's own textures: call right after CreateFrame
+  w.flat = w:CreateTexture(nil, "BACKGROUND")
+  w.flat:SetAllPoints()
+  w.flat:SetColorTexture(0, 0, 0, MINIMAL_BG)
+  styled[#styled + 1] = w
+end
+
+function ns.applyStyle()
+  local minimal = BuffDiggerDB.windowStyle == "minimal"
+  for _, w in ipairs(styled) do
+    for _, r in ipairs(w.chrome) do r:SetShown(not minimal) end
+    w.flat:SetShown(minimal)
+    w:SetAlpha(1) -- minimal: the fader takes it from there
+  end
+end
+
+-- Minimal: each shown window eases to full opacity under the mouse, to MINIMAL_REST elsewhere.
+-- Not secure (alpha only): fine in combat too.
+local fader = CreateFrame("Frame")
+fader:SetScript("OnUpdate", function(_, elapsed)
+  if not (BuffDiggerDB and BuffDiggerDB.windowStyle == "minimal") then return end
+  for _, w in ipairs(styled) do
+    if w:IsShown() and not w.solid then
+      local a, target = w:GetAlpha(), w:IsMouseOver() and 1 or MINIMAL_REST
+      if a < target then w:SetAlpha(math.min(target, a + elapsed * 5)) -- quick in, slow out
+      elseif a > target then w:SetAlpha(math.max(target, a - elapsed * 1.5)) end
+    end
+  end
+end)
 local pulsed = {} -- name -> their Get buffs band already flashed gold (#24)
 
 -- Get buffs (#40): name -> the buffs ticked on their line with Ctrl+click, in click order; the arrow
@@ -736,6 +781,7 @@ end
 -- title bar, left of the title (#42), its choice kept in BuffDiggerDB.sort[setting].
 local function makeWindow(globalName, title, setting, cast, point, sortable)
   local w = CreateFrame("Frame", globalName, UIParent, "BasicFrameTemplateWithInset")
+  skin(w)
   BuffDiggerDB.sizes = BuffDiggerDB.sizes or {}
   w:SetSize(unpack(BuffDiggerDB.sizes[globalName] or DEFAULT_SIZE))
   w:SetPoint(unpack(point))
@@ -1211,6 +1257,7 @@ local nearby, give, giveNext, requests, thanksWindow
 
 local function buildThanks()
   local w = CreateFrame("Frame", "BuffDiggerThanks", UIParent, "BasicFrameTemplateWithInset")
+  skin(w, true)
   w:SetSize(240, 60)
   -- Where I dragged it last (BuffDiggerDB.thanksPos), else top middle. No padlock on it, so the
   -- windows' lock doesn't apply: it used to stay stuck mid-screen once Get buffs was locked.
@@ -1610,6 +1657,7 @@ function ns.buildUI()
   -- and the next-player key's aim when it is bound).
   C_Timer.NewTicker(1, ns.refreshWindow)
   buildThanks()
+  ns.applyStyle()
   C_Timer.NewTicker(5, ns.refreshThanks) -- lines older than 5 minutes go
   ns.applyWindows()
 end

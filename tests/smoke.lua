@@ -1282,3 +1282,14 @@ do -- A fresh Buff Digger whose first name lookups come back nil: the buff is kn
   C_Spell.GetSpellName = real
 end
 print("BUFFKEYOF OK")
+print("=== window style (#44)")
+do -- Minimal hides the frame art and shows the flat background; Classic the reverse, on every window.
+  local w, t = _G.BuffDiggerNearby, _G.BuffDiggerThanks
+  local art = CreateFrame("Frame"); w.chrome[1] = art
+  BuffDiggerDB.windowStyle = "minimal"; ns.applyStyle()
+  assert(w.flat._shown and t.flat._shown and art._shown == false, "minimal: flat background, no frame art")
+  BuffDiggerDB.windowStyle = "classic"; ns.applyStyle()
+  assert(w.flat._shown == false and t.flat._shown == false and art._shown, "classic: Blizzard's frame back")
+  w.chrome[1] = nil
+end
+print("STYLE OK")
