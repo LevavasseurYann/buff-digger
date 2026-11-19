@@ -123,7 +123,7 @@ local function extendGameMenu()
       local unit = data and data.unit
       if not (BuffDiggerDB.gameMenu and unit) or InCombatLockdown() then return end
       if not ns.truthy(UnitIsPlayer(unit)) or ns.truthy(UnitIsUnit(unit, "player"))
-        or not ns.truthy(UnitIsFriend("player", unit)) then return end
+        or not ns.onMySide(unit) then return end
       local name, class, level = ns.identity(unit)
       local offers = name and ns.offers(class, level) or {}
       if #offers == 0 then return end

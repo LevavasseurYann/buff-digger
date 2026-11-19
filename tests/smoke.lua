@@ -1293,3 +1293,15 @@ do -- Minimal hides the frame art and shows the flat background; Classic the rev
   w.chrome[1] = nil
 end
 print("STYLE OK")
+print("=== other faction (#45)")
+do -- A Horde paladin around an Alliance player: no icon, no line, no tooltip offer; back to Alliance, he is.
+  reset(); fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+  local function listed() for _, u in ipairs(ns.nearbyUnits()) do if u == "nameplate1" then return true end end return false end
+  assert(listed(), "Alliance paladin listed")
+  FACTION.nameplate1 = "Horde"
+  assert(not listed() and not ns.onMySide("nameplate1"), "Horde paladin: not listed")
+  FACTION.nameplate1 = SECRET
+  assert(listed(), "faction unreadable: kept")
+  FACTION.nameplate1 = nil
+end
+print("FACTION OK")
