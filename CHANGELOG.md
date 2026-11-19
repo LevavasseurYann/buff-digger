@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 
 - **Your faction only.** Players of the other faction no longer get Buff Digger icons on their nameplate, a Get buffs line, the tooltip line or the right-click menu lines: they can't buff you anyway.
 
