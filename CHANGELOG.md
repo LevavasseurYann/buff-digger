@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Your faction only.** Players of the other faction no longer get Buff Digger icons on their nameplate, a Get buffs line, the tooltip line or the right-click menu lines: they can't buff you anyway.
+
 ## 1.2.0
 
 - **A quieter look for the windows.** Settings > Display > *Window style*: *Classic* keeps the game's frame, *Minimal* drops it for a flat, see-through dark background, like the borderless skins of Details! or Skada. A minimal window also fades while your mouse is elsewhere and comes back in full under it, so Get buffs can sit on screen all the time without getting in the way. Applies to Get buffs, Give buffs, Requests and Thanks; Thanks never fades, so a Thank line stays easy to spot.

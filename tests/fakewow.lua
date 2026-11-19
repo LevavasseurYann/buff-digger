@@ -61,6 +61,7 @@ GetPlayerInfoByGUID=function(g) local p=PLAYERS[g]; if not p then return end; re
 GetNormalizedRealmName=function() return "Realm" end; GetRealmName=function() return "Realm" end; UnitFullName=function(u) local f, l = split(units[u][1]) return f, l or "Realm" end
 UnitIsPlayer=function(u) return units[u]~=nil end; UnitExists=UnitIsPlayer
 UnitIsUnit=function(a,b) return a==b end; UnitIsVisible=UnitIsPlayer; UnitIsConnected=function(u) return units[u]~=nil and not OFFLINE[u] end; OFFLINE={}; UnitIsDeadOrGhost=function() return false end; UnitIsFriend=function() return true end
+FACTION={}; UnitFactionGroup=function(u) return FACTION[u] or "Alliance" end -- the other faction: FACTION[unit]="Horde"
 C_NamePlate={GetNamePlates=function() return {} end,
   GetNamePlateForUnit=function() return {} end}
 C_ChatInfo={SendChatMessage=function(m,c,_,t) sent[#sent+1]=c.." "..tostring(t)..": "..m end, RegisterAddonMessagePrefix=function() end, SendAddonMessage=function(p,m,c,t) sent[#sent+1]="ADDON>"..t..": "..m end}

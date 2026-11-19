@@ -791,12 +791,20 @@ end
 -- C_NamePlate.GetNamePlates() does not list friendly players' plates (seen 2026-11-08), the events do.
 local shownPlates = {}
 
--- Friendly players whose nameplate is visible (friendly nameplates must be turned on).
+-- A player who can buff me: friendly AND of my faction (#45). Seen in game: players of the other
+-- faction got icons, Get buffs lines and the tooltip line. Faction unreadable (secret, nil): kept.
+function ns.onMySide(unit)
+  if not truthy(UnitIsFriend("player", unit)) then return false end
+  local theirs, mine = UnitFactionGroup(unit), UnitFactionGroup("player")
+  return not (readable(theirs) and readable(mine) and theirs and mine and theirs ~= mine)
+end
+
+-- Friendly players of my faction whose nameplate is visible (friendly nameplates must be turned on).
 function ns.nearbyUnits()
   local units = {}
   for unit in pairs(shownPlates) do
     if truthy(UnitExists(unit)) and truthy(UnitIsPlayer(unit)) and not truthy(UnitIsUnit(unit, "player"))
-      and truthy(UnitIsFriend("player", unit)) then
+      and ns.onMySide(unit) then
       units[#units + 1] = unit
     end
   end
@@ -1074,7 +1082,7 @@ local function hookTooltip()
     if tooltip ~= GameTooltip or InCombatLockdown() or not BuffDiggerDB.tooltip then return end
     local _, unit = tooltip:GetUnit()
     if not unit or not readable(unit) or not truthy(UnitIsPlayer(unit)) then return end
-    if truthy(UnitIsUnit(unit, "player")) then return end
+    if truthy(UnitIsUnit(unit, "player")) or not ns.onMySide(unit) then return end
     local name, class, level = ns.identity(unit)
     if not name then return end
     local key, kind, top = ns.bestBuff(name, class, level)
