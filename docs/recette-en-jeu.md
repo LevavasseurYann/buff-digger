@@ -218,3 +218,11 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 82 | Choisir Name dans Get buffs, Level dans Give buffs, puis `/reload` | Chaque fenêtre garde son tri, l'infobulle de la flèche le dit |
 | 83 | Prêtre (ou mage, druide), hors combat, en ville : Give buffs triée par Missing / fading | D'abord ceux qui n'ont aucun de mes buffs, puis celui dont mon buff expire le plus tôt. En combat : rien ne casse (fenêtre cachée), le tri revient après |
 | 84 | Get buffs triée par Range, un paladin ou un prêtre proche et un autre loin (mais barre de nom visible) | Noter si le jeu distingue « à portée de sort » de « en vue » (sinon : seulement en vue / trop loin, limite connue) |
+
+## Style des fenêtres (#44)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 85 | Réglages > Display > *Window style* : Minimal, Get buffs et Give buffs ouvertes | Plus de cadre Blizzard (bordure, fond pierre, barre de titre) : fond noir uni transparent, on voit le monde derrière. Titre, croix, cadenas, flèche de tri, poignée et défilement restent et marchent. Rien ne dépasse ni ne reste du cadre |
+| 86 | Souris hors des fenêtres, puis dessus | Elles pâlissent doucement (~60 %) puis reviennent pleines dès que la souris entre ; noms et rangs lisibles pâlis, sur fond clair (neige) comme sombre |
+| 87 | En Minimal : une ligne dorée Thank, la fenêtre Thanks, un combat, `/reload`, puis retour à Classic | Ligne dorée visible ; Thanks en fond Minimal mais jamais pâlie ; après combat les fenêtres reviennent en Minimal ; le style tient après `/reload` ; Classic remet le cadre complet, opacité pleine |
