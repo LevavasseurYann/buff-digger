@@ -275,10 +275,15 @@ function ns.thankBuffer(name, flip)
   lastThank[e.name] = time()
 end
 
+-- Their line in the list of players to thank, or nil: { name, keys (buffs landed), request (.gift) }.
+function ns.thankEntry(name)
+  for _, x in ipairs(ns.thanksWaiting()) do if x.name == name then return x end end
+end
+
 -- How Get buffs shows this player (#24): "thank" (buffed me, waits for my click), "asked" (my
 -- request is open and I can't ask them again yet: BuffDiggerDB.delay), or nil.
 function ns.askState(name)
-  for _, x in ipairs(ns.thanksWaiting()) do if x.name == name then return "thank" end end
+  if ns.thankEntry(name) then return "thank" end
   local e = BuffDiggerCharDB.asked[name]
   if type(e) == "table" and not e.thanked and time() - e.at < BuffDiggerDB.delay then return "asked" end
 end
@@ -1183,7 +1188,10 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
   thankLast = function()
-    local last = ns.thanksWaiting()[1]
+    -- My honoured request first (I owe it), then the newest gift (#43).
+    local list = ns.thanksWaiting()
+    local last = list[1]
+    for _, x in ipairs(list) do if not x.request.gift then last = x break end end
     if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
   end,
   -- Dev only (dev/BuffDiggerJournal): copies of what Buff Digger knows, never its own tables.

@@ -1262,7 +1262,7 @@ end
 print("SMOKE OK")
 print("=== buffKeyOf: spell names not loaded yet (#34)")
 do -- A fresh Buff Digger whose first name lookups come back nil: the buff is known once names arrive.
-  local ns34, real, ready = {}, C_Spell.GetSpellName, false
+  local ns34, real, ready, keep = {}, C_Spell.GetSpellName, false, BuffDigger
   C_Spell.GetSpellName = function(id) if ready then return real(id) end end
   for _,f in ipairs{"Locales","Data","BuffDigger"} do assert(setfenv(loadfile(DIR..f..".lua"), addonEnv))("BuffDigger", ns34) end
   ns34.isPeer = function() return false end -- no Comm.lua here; its frames still get the later events
@@ -1274,6 +1274,7 @@ do -- A fresh Buff Digger whose first name lookups come back nil: the buff is kn
   assert(ns34.buffKeyOf("Mot de pouvoir : Robustesse")=="fortitude", "names arrived: Fort known without /reload")
   fire("UNIT_AURA","player"); assert(ns34.haveBuff("fortitude"), "the Fort read too early is mine now")
   C_Spell.GetSpellName = real
+  BuffDigger = keep -- the key bindings stay the first Buff Digger's
 end
 print("BUFFKEYOF OK")
 print("=== window style (#44)")
@@ -1340,6 +1341,22 @@ do -- A buff I didn't ask for, from a known giver, seen landing: a Thank line, b
   BuffDiggerCharDB.asked={Malfurion2={at=time(), key="thorns", channel="PARTY", target="Malfurion2"}}
   myAuras[#myAuras+1]=aura(9631,"spell467",467,"party1"); fire("UNIT_AURA","player"); assert(waiting("Malfurion2"), "member, asked: a line")
   IsInGroup=nil; IsInRaid=nil; GetNumSubgroupMembers=nil; units.party1=nil; units.nameplate70=nil; BuffDiggerCharDB.asked={}; ns.dismissThank()
+  -- The Thank key thanks my honoured request first, then the newest gift (a request is owed, a gift is a bonus).
+  myAuras={}; fire("UNIT_AURA","player")
+  units.nameplate71={"Giver7","DRUID",40}; units.nameplate72={"Asked7","DRUID",40}; units.nameplate73={"Giver8","PRIEST",40}
+  myAuras[#myAuras+1]=aura(9640,"spell1126",1126,"nameplate71"); fire("UNIT_AURA","player")
+  BuffDiggerCharDB.asked={Asked7={at=time(), key="thorns", channel="WHISPER", target="Asked7"}}
+  myAuras[#myAuras+1]=aura(9641,"spell467",467,"nameplate72"); fire("UNIT_AURA","player")
+  myAuras[#myAuras+1]=aura(9642,"Mot de pouvoir : Robustesse",1243,"nameplate73"); fire("UNIT_AURA","player")
+  assert(#ns.thanksWaiting()==3 and ns.thanksWaiting()[1].name=="Giver8", "three lines, newest gift on top")
+  -- Get buffs: one gold band for both; a gift shows the buff it brought instead of the tick (#43).
+  local nw=_G.BuffDiggerNearby; BuffDiggerDB.nearby=true; ns.applyWindows(); nw.fill()
+  local rg, ra; for _,r in ipairs(nw.rows) do if r.entry and r.entry.who=="Giver8" then rg=r elseif r.entry and r.entry.who=="Asked7" then ra=r end end
+  assert(rg and rg.state=="thank" and rg.gift and rg.thank._shown, "gift: gold line, Thank, the buff's icon")
+  assert(ra and ra.state=="thank" and not ra.gift, "my request: the tick")
+  BuffDigger.thankLast(); assert(not waiting("Asked7") and waiting("Giver8"), "key: my request first")
+  BuffDigger.thankLast(); assert(not waiting("Giver8") and waiting("Giver7"), "then the newest gift")
+  BuffDiggerCharDB.asked={}; ns.dismissThank()
   -- Full list: gifts go before my request.
   units.nameplate65={"Remulos2","DRUID",40}; BuffDiggerCharDB.asked={Remulos2={at=time(), key="thorns", channel="WHISPER", target="Remulos2"}}
   myAuras[#myAuras+1]=aura(9620,"spell467",467,"nameplate65"); fire("UNIT_AURA","player")

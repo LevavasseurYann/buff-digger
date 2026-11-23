@@ -941,6 +941,16 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
         ns.thankBuffer(row.entry.who, IsShiftKeyDown() or IsControlKeyDown())
         if not InCombatLockdown() then w.fill() end
       end)
+      row.thankButton:SetScript("OnEnter", function(self)
+        local t = row.gift
+        if not t then return end
+        local names = {}
+        for i, k in ipairs(t.keys) do names[i] = spellName(k) end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(L["Gift: %s (unasked)"]:format(table.concat(names, ", ")))
+        GameTooltip:Show()
+      end)
+      row.thankButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
       row.thankButton:Hide()
       -- Buffs ticked on this line (#40): the arrow sends them, one request; Shift: the other channel.
       row.send = CreateFrame("Button", nil, row)
@@ -1173,10 +1183,22 @@ local function fill(w, list, emptyMessage)
         row.status:SetShown(state ~= nil)
         row.thank:SetShown(state == "thank")
         row.thankButton:SetShown(state == "thank")
+        -- A gift (#43): the buff they gave instead of the tick (my request honoured); same gold band.
+        local t = state == "thank" and ns.thankEntry(e.who)
+        local gift = t and t.request.gift and t.keys[#t.keys]
+        row.gift = gift and t or nil
+        if gift then
+          row.status:SetTexture(C_Spell.GetSpellTexture(BUFFS[gift].id) or 134400)
+          row.status:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- the icon's border trimmed, like action buttons
+        else
+          row.status:SetTexCoord(0, 1, 0, 1)
+        end
+        row.status:SetDesaturated(gift and not e.unit or false) -- out of sight: grey, like the name
+        if GameTooltip:IsOwned(row.thankButton) then row.thankButton:GetScript("OnEnter")(row.thankButton) end
         if state == "thank" then
           fadeRight(row.band, 1, 0.82, 0, 0.35)
           row.edge:SetColorTexture(1, 0.82, 0, 0.9)
-          row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+          if not gift then row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready") end
           row.status:SetPoint("RIGHT", row.thank, "LEFT", -2, 0)
         else
           fadeRight(row.band, 1, 0.5, 0.1, 0.25)

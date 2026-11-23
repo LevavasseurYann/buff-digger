@@ -240,3 +240,5 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 94 | Le joueur A m'a donné Robustesse ; B la relance par-dessus | Ligne cadeau pour B (attendu) |
 | 95 | Une demande ouverte reçue, puis 5 cadeaux d'autres joueurs (ville) | La ligne de la demande reste ; c'est le plus vieux cadeau qui part |
 | 96 | En groupe (donjon, hors combat) : un membre me rebuffe sans demande ; puis je lui demande un buff qu'il me donne | Pas de ligne pour le rebuff ; une ligne dorée pour la demande |
+| 97 | Une demande honorée et un cadeau en même temps (Get buffs ouverte) | Même bande dorée ; la demande a la coche ✓, le cadeau l'icône du buff reçu ; survol de l'icône du cadeau : « Gift: … (unasked) ». Lisible en Minimal et sur une ligne grise (hors de vue) |
+| 98 | Même situation, cadeau arrivé après la demande : touche *Thank the last player* deux fois | 1er appui = la demande, 2e = le cadeau |
