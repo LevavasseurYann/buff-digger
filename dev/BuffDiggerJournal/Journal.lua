@@ -6,7 +6,7 @@
 -- Only watches: reads Buff Digger through BuffDigger.debugState() (copies), never changes it.
 -- Install: copy this folder next to BuffDigger in Interface/AddOns (restart WoW the first time).
 
-local MAX = 800
+local MAX = 20000 -- lines: ~800 per half hour in a crowded town
 local log
 
 local function show(v)
@@ -162,7 +162,7 @@ end
 -- ---------------------------------------------------------------- raw events, to replay off the game (#27)
 
 -- BuffDiggerJournalDB.events: { t = GetTime(), ev = "UNIT_AURA", ... }, the last MAX_EVENTS only.
-local MAX_EVENTS = 5000
+local MAX_EVENTS = 60000 -- ~5000 per half hour in town, ~18 MB: dev/save-journal.ps1 keeps each save (ponytail: a session past ~6 h loses its start, /reload now and then)
 local events
 
 -- A copy that the SavedVariables file can hold and dofile read back: a secret becomes "<secret>", a
