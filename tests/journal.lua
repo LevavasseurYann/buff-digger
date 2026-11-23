@@ -76,10 +76,10 @@ local snap = by.PLAYER_REGEN_DISABLED.snapshot
 assert(snap.secret == true and snap.lockdown == true and snap.auras[1].spellId == 1243 and snap.auras[2].err)
 assert(snap.restrictions.Combat == 2 and snap.restrictions.Encounter.err)
 
--- The ring: never more than 5000, the oldest dropped.
+-- The ring: never more than 60000, the oldest dropped.
 BuffDiggerJournalDB = saved
-for i = 1, 5100 do NOW = 1000 + i; fire("NAME_PLATE_UNIT_REMOVED", "nameplate1") end
-assert(#saved.events == 5000 and saved.events[5000].t == 6100 and saved.events[1].t == 1101, "ring bounded")
+for i = 1, 60100 do NOW = 1000 + i; fire("NAME_PLATE_UNIT_REMOVED", "nameplate1") end
+assert(#saved.events == 60000 and saved.events[60000].t == 61100 and saved.events[1].t == 1101, "ring bounded")
 SlashCmdList.BUFFDIGGERJOURNAL("clear")
 assert(#saved.events == 0)
 

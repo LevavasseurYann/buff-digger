@@ -60,5 +60,15 @@ fermeture du jeu (ou au `/reload`). `/bdj` compte les lignes, `/bdj clear` repar
 cp -r dev/BuffDiggerJournal "/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/"
 ```
 
+Le jeu réécrit ce fichier à chaque sauvegarde : `dev/save-journal.ps1` garde chaque version, zippée et
+datée, dans `%USERPROFILE%\BuffDigger-journaux` (hors OneDrive : vrais noms, chat privé). Une tâche
+planifiée Windows le lance toutes les 5 minutes, sans fenêtre :
+
+```sh
+W=$(wslpath "$(cmd.exe /c 'echo %USERPROFILE%' | tr -d '\r')")/BuffDigger-journaux
+mkdir -p "$W" && cp dev/save-journal.ps1 "$W/"
+schtasks.exe /Create /F /SC MINUTE /MO 5 /TN "BuffDigger journal" /TR "conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File $(wslpath -w "$W")\save-journal.ps1"
+```
+
 Publier : pousser un tag `vX.Y.Z` (`-alpha` / `-beta` pour ces types) ; `.github/workflows/release.yml`
 envoie le zip sur CurseForge et dans les GitHub Releases.

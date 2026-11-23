@@ -158,6 +158,7 @@ local SECTIONS = {
   { title = "Thanks", options = {
     { key = "thank",   label = "/thank emote when I click Thank" },
     { key = "thankMessage", label = "Thank-you in my request's channel" },
+    { key = "thankGifts", label = "Thank line for buffs I didn't ask for too" },
   } },
   { title = "Advanced", options = {
     { key = "debug",   label = "Debug messages in chat" },
@@ -693,10 +694,8 @@ local listWindows = {} -- Get buffs, Give buffs and Requests: they share the pad
 -- the mouse is elsewhere (full again under it, like the chat frame). The template's textures are
 -- only hidden: back to classic shows them again.
 local MINIMAL_BG, MINIMAL_REST = 0.45, 0.6 -- background opacity; window opacity with the mouse away
-local styled = {} -- the list windows and Thanks
--- `solid`: never fades (Thanks: a line there is waiting for a click).
-local function skin(w, solid)
-  w.solid = solid
+local styled = {} -- the list windows
+local function skin(w)
   w.chrome = { w:GetRegions() } -- the template's own textures: call right after CreateFrame
   w.flat = w:CreateTexture(nil, "BACKGROUND")
   w.flat:SetAllPoints()
@@ -719,7 +718,7 @@ local fader = CreateFrame("Frame")
 fader:SetScript("OnUpdate", function(_, elapsed)
   if not (BuffDiggerDB and BuffDiggerDB.windowStyle == "minimal") then return end
   for _, w in ipairs(styled) do
-    if w:IsShown() and not w.solid then
+    if w:IsShown() then
       local a, target = w:GetAlpha(), w:IsMouseOver() and 1 or MINIMAL_REST
       if a < target then w:SetAlpha(math.min(target, a + elapsed * 5)) -- quick in, slow out
       elseif a > target then w:SetAlpha(math.max(target, a - elapsed * 1.5)) end
@@ -942,6 +941,16 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
         ns.thankBuffer(row.entry.who, IsShiftKeyDown() or IsControlKeyDown())
         if not InCombatLockdown() then w.fill() end
       end)
+      row.thankButton:SetScript("OnEnter", function(self)
+        local t = row.gift
+        if not t then return end
+        local names = {}
+        for i, k in ipairs(t.keys) do names[i] = spellName(k) end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(L["Gift: %s (unasked)"]:format(table.concat(names, ", ")))
+        GameTooltip:Show()
+      end)
+      row.thankButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
       row.thankButton:Hide()
       -- Buffs ticked on this line (#40): the arrow sends them, one request; Shift: the other channel.
       row.send = CreateFrame("Button", nil, row)
@@ -1103,7 +1112,8 @@ end
 --   not castable) }, ... } }, ... }
 -- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
 -- then "Around" and everyone else. Out of a group, the list as it is.
--- Folded (hideGroup): the header stays, with its count, the members don't.
+-- Folded (hideGroup): the header stays, with its count, the members don't, but those I asked or have
+-- to thank (`first`): no other place shows a gold line (#43).
 local function withHeaders(entries, hideGroup)
   local members = 0
   for _, e in ipairs(entries) do if e.group then members = members + 1 end end
@@ -1114,7 +1124,7 @@ local function withHeaders(entries, hideGroup)
       around = true
       out[#out + 1] = { header = true, text = L["Around"], buffs = {} }
     end
-    if not (e.group and hideGroup) then out[#out + 1] = e end
+    if not (e.group and hideGroup and not e.first) then out[#out + 1] = e end
   end
   return out
 end
@@ -1146,7 +1156,7 @@ local function fill(w, list, emptyMessage)
   local entries = withHeaders(sorted(w, list), BuffDiggerDB.hideGroup[w.setting])
   w.entries = entries
   -- A gold line flashes once per buff: forget those no longer to thank, wherever they were thanked
-  -- (Thanks window, key, folded group), so their next buff flashes again.
+  -- (key, folded group), so their next buff flashes again.
   if not w.cast then
     for n in pairs(pulsed) do if ns.askState(n) ~= "thank" then pulsed[n] = nil end end
   end
@@ -1173,10 +1183,22 @@ local function fill(w, list, emptyMessage)
         row.status:SetShown(state ~= nil)
         row.thank:SetShown(state == "thank")
         row.thankButton:SetShown(state == "thank")
+        -- A gift (#43): the buff they gave instead of the tick (my request honoured); same gold band.
+        local t = state == "thank" and ns.thankEntry(e.who)
+        local gift = t and t.request.gift and t.keys[#t.keys]
+        row.gift = gift and t or nil
+        if gift then
+          row.status:SetTexture(C_Spell.GetSpellTexture(BUFFS[gift].id) or 134400)
+          row.status:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- the icon's border trimmed, like action buttons
+        else
+          row.status:SetTexCoord(0, 1, 0, 1)
+        end
+        row.status:SetDesaturated(gift and not e.unit or false) -- out of sight: grey, like the name
+        if GameTooltip:IsOwned(row.thankButton) then row.thankButton:GetScript("OnEnter")(row.thankButton) end
         if state == "thank" then
           fadeRight(row.band, 1, 0.82, 0, 0.35)
           row.edge:SetColorTexture(1, 0.82, 0, 0.9)
-          row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+          if not gift then row.status:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready") end
           row.status:SetPoint("RIGHT", row.thank, "LEFT", -2, 0)
         else
           fadeRight(row.band, 1, 0.5, 0.1, 0.25)
@@ -1247,113 +1269,7 @@ local function fill(w, list, emptyMessage)
   w.down:SetShown(#entries - w.offset > shown)
 end
 
-local nearby, give, giveNext, requests, thanksWindow
-
--- ---------------------------------------------------------------- Thanks window (#21)
--- Who just gave me a buff I asked for, one line each (ns.thanksWaiting keeps at most 5), when Get
--- buffs can't show them: Get buffs closed, in combat, group folded, line scrolled away. Shown only
--- while someone waits; click = thank them, right click = forget them, close = forget them all.
--- Nothing secure here, so it also works in combat.
-
-local function buildThanks()
-  local w = CreateFrame("Frame", "BuffDiggerThanks", UIParent, "BasicFrameTemplateWithInset")
-  skin(w, true)
-  w:SetSize(240, 60)
-  -- Where I dragged it last (BuffDiggerDB.thanksPos), else top middle. No padlock on it, so the
-  -- windows' lock doesn't apply: it used to stay stuck mid-screen once Get buffs was locked.
-  local pos = BuffDiggerDB.thanksPos
-  if pos then w:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4]) else w:SetPoint("TOP", 0, -220) end
-  w:SetMovable(true)
-  w:SetClampedToScreen(true)
-  w:EnableMouse(true)
-  local function startMove() w:StartMoving() end
-  local function stopMove()
-    w:StopMovingOrSizing()
-    local point, _, relPoint, x, y = w:GetPoint()
-    BuffDiggerDB.thanksPos = { point, relPoint, math.floor(x + 0.5), math.floor(y + 0.5) }
-  end
-  w:RegisterForDrag("LeftButton")
-  w:SetScript("OnDragStart", startMove)
-  w:SetScript("OnDragStop", stopMove)
-  w:Hide()
-  -- Only the lines shown: a line on Get buffs stays there.
-  w.CloseButton:HookScript("OnClick", function()
-    for _, e in ipairs(w.list or {}) do ns.dismissThank(e.name) end
-  end)
-  local header = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  header:SetPoint("TOP", 0, -5)
-  header:SetText(L["Buff Digger — Thanks"])
-  w.rows = {}
-  for i = 1, 5 do
-    local row = CreateFrame("Button", nil, w)
-    row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * ROW_HEIGHT)
-    row:SetPoint("RIGHT", -12, 0)
-    row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    row:SetScript("OnClick", function(self, mouse)
-      if mouse == "RightButton" then ns.dismissThank(self.name) else ns.thankBuffer(self.name, IsShiftKeyDown() or IsControlKeyDown()) end
-    end)
-    -- The lines fill the window: dragging one moves the window (a drag is not a click, nothing sent).
-    row:RegisterForDrag("LeftButton")
-    row:SetScript("OnDragStart", startMove)
-    row:SetScript("OnDragStop", stopMove)
-    row:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine(L["Click: thank %s. Right click: forget it."]:format(self.name), 0.4, 0.8, 1, true)
-      GameTooltip:Show()
-    end)
-    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    row.icons = {}
-    for j = 1, MAX_BUFFS do
-      local icon = row:CreateTexture(nil, "ARTWORK")
-      icon:SetSize(18, 18)
-      icon:SetPoint("LEFT", 2 + (j - 1) * 22, 0)
-      row.icons[j] = icon
-    end
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.text:SetPoint("LEFT", 2 + MAX_BUFFS * 22 + 4, 0)
-    row.text:SetPoint("RIGHT", -2, 0)
-    row.text:SetJustifyH("LEFT")
-    row:Hide()
-    w.rows[i] = row
-  end
-  thanksWindow = w
-end
-
--- Is this player on a Get buffs line I can see (not scrolled away)? There, the gold line thanks them (#24).
-local function onGetBuffs(name)
-  if not (nearby and nearby:IsShown()) then return false end
-  for _, row in ipairs(nearby.rows) do
-    if row:IsShown() and row.entry and row.entry.who == name then return true end
-  end
-  return false
-end
-
-function ns.refreshThanks()
-  if not thanksWindow then return end
-  -- Buffs I asked for that Get buffs doesn't show (closed, nameplate gone, group folded).
-  local list = {}
-  for _, e in ipairs(ns.thanksWaiting()) do
-    if not onGetBuffs(e.name) then list[#list + 1] = e end
-  end
-  thanksWindow.list = list
-  for i, row in ipairs(thanksWindow.rows) do
-    local e = list[i]
-    if e then
-      row.name = e.name
-      row.text:SetText(classColored(e.name, e.class))
-      for j, icon in ipairs(row.icons) do
-        local key = e.keys[j]
-        if key then icon:SetTexture(C_Spell.GetSpellTexture(BUFFS[key].id)) end
-        icon:SetShown(key ~= nil)
-      end
-    end
-    row:SetShown(e ~= nil)
-  end
-  thanksWindow:SetHeight(40 + math.max(#list, 1) * ROW_HEIGHT)
-  thanksWindow:SetShown(#list > 0)
-end
+local nearby, give, giveNext, requests
 
 -- ---------------------------------------------------------------- Get buffs (idea 4)
 
@@ -1401,7 +1317,7 @@ local function nearbyEntries()
     end
   end
   -- Someone to thank who walked out of sight keeps their gold line (no unit, no icons) until I thank
-  -- them, close it or ns.thanksWaiting lets them go: no jump to the Thanks window (#24).
+  -- them, close it or ns.thanksWaiting lets them go (#24).
   local listed = {}
   for _, e in ipairs(entries) do listed[e.who] = true end
   for n in pairs(picked) do if not listed[n] then picked[n] = nil end end -- off the list: ticks forgotten (#40)
@@ -1564,7 +1480,6 @@ ns.refreshWindow = ns.timed("refreshWindow", function()
     -- while I still hover the icon I clicked turns the line gold without waiting for the mouse to leave.
     nearby.fill()
   end
-  ns.refreshThanks() -- who Get buffs shows (or no longer shows) leaves (or comes back to) Thanks
   -- The next-player key works without the window, once it is bound.
   local nextBound = GetBindingKey and GetBindingKey("CLICK BuffDiggerGiveNext:LeftButton")
   if not ((give and give:IsShown()) or nextBound) then return end
@@ -1620,7 +1535,6 @@ function ns.onCombat(inCombat)
     nearby:Hide()
     give:Hide()
     requests:Hide()
-    ns.refreshThanks() -- Get buffs gone: its gold lines go to Thanks now (not secure: fine in combat)
     -- Still allowed during PLAYER_REGEN_DISABLED: in combat the key can't be re-aimed (nameplate
     -- tokens move to other players), so it does nothing until combat ends.
     giveNext:SetAttribute("type", nil)
@@ -1656,8 +1570,6 @@ function ns.buildUI()
   -- Players walk in and out of range without any event: look again every second (the windows,
   -- and the next-player key's aim when it is bound).
   C_Timer.NewTicker(1, ns.refreshWindow)
-  buildThanks()
   ns.applyStyle()
-  C_Timer.NewTicker(5, ns.refreshThanks) -- lines older than 5 minutes go
   ns.applyWindows()
 end

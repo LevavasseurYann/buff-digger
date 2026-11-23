@@ -166,7 +166,7 @@ for i, e in ipairs(events) do
   local after = thanks()
   for name, x in pairs(after) do
     local new = not before[name] or before[name].at ~= x.at
-    if new and not x.request and not (live[name] and e.t - live[name] <= 3) then
+    if new and (not x.request or x.request.gift) and not (live[name] and e.t - live[name] <= 3) then
       fail(e, "I1 Thank line without a pose seen live or an open request", name)
     end
   end
@@ -175,7 +175,7 @@ for i, e in ipairs(events) do
   elseif e.ev == "PLAYER_REGEN_ENABLED" and combat then
     for name, x in pairs(after) do
       local was = combat.before[name]
-      if not combat.added and not x.request and not (was and was.at == x.at) then
+      if not combat.added and (not x.request or x.request.gift) and not (was and was.at == x.at) then
         fail(e, "I2 a fight without a pose changed toThank", name)
       end
     end

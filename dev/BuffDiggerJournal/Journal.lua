@@ -6,7 +6,7 @@
 -- Only watches: reads Buff Digger through BuffDigger.debugState() (copies), never changes it.
 -- Install: copy this folder next to BuffDigger in Interface/AddOns (restart WoW the first time).
 
-local MAX = 800
+local MAX = 20000 -- lines: ~800 per half hour in a crowded town
 local log
 
 local function show(v)
@@ -66,15 +66,11 @@ end
 
 -- ---------------------------------------------------------------- who waits for a thank-you (#21, #24)
 
--- The Thanks window's lines and the gold/amber Get buffs lines, logged when they change: which aura
+-- The gold/amber Get buffs lines, logged when they change: which aura
 -- (aura-in, just before) put someone there.
 local lastThanks
 local function snapshotThanks()
   local items = {}
-  local tw = _G.BuffDiggerThanks
-  if tw and tw:IsShown() then
-    for _, e in ipairs(tw.list or {}) do items[#items + 1] = "window:" .. show(e.name) end
-  end
   local gw = _G.BuffDiggerNearby
   if gw and gw:IsShown() then
     for _, row in ipairs(gw.rows or {}) do
@@ -162,7 +158,7 @@ end
 -- ---------------------------------------------------------------- raw events, to replay off the game (#27)
 
 -- BuffDiggerJournalDB.events: { t = GetTime(), ev = "UNIT_AURA", ... }, the last MAX_EVENTS only.
-local MAX_EVENTS = 5000
+local MAX_EVENTS = 60000 -- ~5000 per half hour in town, ~18 MB: dev/save-journal.ps1 keeps each save (ponytail: a session past ~6 h loses its start, /reload now and then; Lua 5.1 caps a chunk at 262143 constants, ~80k used here)
 local events
 
 -- A copy that the SavedVariables file can hold and dofile read back: a secret becomes "<secret>", a
