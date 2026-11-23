@@ -1102,7 +1102,8 @@ end
 --   not castable) }, ... } }, ... }
 -- In a group (#16): a "Group (n)" header line, the members (entries say `group`, and come first),
 -- then "Around" and everyone else. Out of a group, the list as it is.
--- Folded (hideGroup): the header stays, with its count, the members don't.
+-- Folded (hideGroup): the header stays, with its count, the members don't, but those I asked or have
+-- to thank (`first`): no other place shows a gold line (#43).
 local function withHeaders(entries, hideGroup)
   local members = 0
   for _, e in ipairs(entries) do if e.group then members = members + 1 end end
@@ -1113,7 +1114,7 @@ local function withHeaders(entries, hideGroup)
       around = true
       out[#out + 1] = { header = true, text = L["Around"], buffs = {} }
     end
-    if not (e.group and hideGroup) then out[#out + 1] = e end
+    if not (e.group and hideGroup and not e.first) then out[#out + 1] = e end
   end
   return out
 end

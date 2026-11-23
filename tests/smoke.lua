@@ -589,7 +589,7 @@ local heads=0; for _,x in ipairs(_G.BuffDiggerNearby.entries) do if x.header the
 assert(heads==2, "re-fills never pile up headers: "..heads)
 fe=_G.BuffDiggerNearby.entries
 assert(fe[1].header and fe[1].fold and fe[1].text=="Group (3)", "folded: header kept")
-for _,x in ipairs(fe) do assert(not x.group, "folded: no member listed") end
+for _,x in ipairs(fe) do assert(not x.group or x.first, "folded: only members I asked or have to thank listed") end
 BuffDiggerDB.hideGroup.nearby=nil; BuffDiggerDB.nearby=false; ns.applyWindows()
 UnitIsVisible=realVis; units.party3=nil; GetNumSubgroupMembers=function() return 2 end
 -- The ask key looks at members too (in a dungeon, the only players it can see).
@@ -926,20 +926,20 @@ units.nameplate44={"Mathrengyl","DRUID",40}; fire("NAME_PLATE_UNIT_ADDED","namep
 ns.request("nameplate44", "wild"); ns.refreshWindow(); assert(lineOf("Mathrengyl").state=="asked"); gw2.IsMouseOver=function() return true end
 myAuras[#myAuras+1]=aura(315,"spell1126",1126,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Mathrengyl")
 assert(r.state=="thank", "hovered: gold on Get buffs"); gw2.IsMouseOver=nil
--- Combat hides Get buffs: Thanks takes him at once.
+-- Combat hides Get buffs: his line waits.
 InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED"); assert(not gw2._shown and ns.askState("Mathrengyl")=="thank", "combat: Get buffs hidden, the line waits")
 InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); gw2:Show(); ns.refreshWindow()
 -- The cross on his gold line, while I asked him for something else since: that request stays open.
 BuffDiggerCharDB.asked.Mathrengyl={at=time(), key="thorns", channel="WHISPER"}; ns.closeAsk("Mathrengyl")
 assert(not BuffDiggerCharDB.asked.Mathrengyl.thanked and ns.askState("Mathrengyl")=="asked", "skipping a thank-you keeps the open request")
--- His thank-you skipped away from his line (closeAsk, like the Thanks window): the Thorns I asked flashes again.
+-- His thank-you skipped away from his line (closeAsk): the Thorns I asked flashes again.
 local flashes=0; for _,row in ipairs(gw2.rows) do row.pulse.Play=function() flashes=flashes+1 end end
 ns.refreshWindow(); myAuras[#myAuras+1]=aura(316,"spell467",467,"nameplate44"); fire("UNIT_AURA","player"); ns.refreshWindow()
 assert(lineOf("Mathrengyl").state=="thank" and flashes==1, "a new buff from him flashes again"); ns.dismissThank("Mathrengyl")
--- A late buff (asked less than 10 minutes ago, past the delay) while Get buffs is closed: the Thanks window takes it.
+-- A late buff (asked less than 10 minutes ago, past the delay) while Get buffs is closed: it waits for Get buffs.
 myAuras[#myAuras+1]=aura(314,"spell467",467,"nameplate43"); fire("UNIT_AURA","player"); ns.refreshWindow(); r=lineOf("Shandris")
 assert(r.state=="thank")
--- She walks out of sight: her gold line stays on Get buffs (no icons), never the Thanks window.
+-- She walks out of sight: her gold line stays on Get buffs (no icons).
 units.nameplate43=nil; fire("NAME_PLATE_UNIT_REMOVED","nameplate43"); ns.refreshWindow(); r=lineOf("Shandris")
 print("gone line:", r and r.text._t); assert(r and r.state=="thank" and #r.entry.buffs==0 and r.text._t:find("^|cff808080Shandris"), "out of sight: still on Get buffs, name grey")
 ns.dismissThank(); ns.bestBuff=realBest2; BuffDiggerDB.nearbyUseful=false
@@ -1265,6 +1265,7 @@ do -- A fresh Buff Digger whose first name lookups come back nil: the buff is kn
   local ns34, real, ready = {}, C_Spell.GetSpellName, false
   C_Spell.GetSpellName = function(id) if ready then return real(id) end end
   for _,f in ipairs{"Locales","Data","BuffDigger"} do assert(setfenv(loadfile(DIR..f..".lua"), addonEnv))("BuffDigger", ns34) end
+  ns34.isPeer = function() return false end -- no Comm.lua here; its frames still get the later events
   -- Fort already on me at login, read before its name loads: known once the name is there.
   for i=#myAuras,1,-1 do myAuras[i]=nil end; myAuras[1]=aura(3401,"Mot de pouvoir : Robustesse",1243)
   fire("UNIT_AURA","player")
@@ -1320,5 +1321,21 @@ do -- A buff I didn't ask for, from a known giver, seen landing: a Thank line, b
   BuffDiggerDB.thankGifts=false; units.nameplate62={"Cenarius2","DRUID",40}
   myAuras[#myAuras+1]=aura(9605,"spell1126",1126,"nameplate62"); fire("UNIT_AURA","player"); assert(not waiting("Cenarius2"), "option off: no gift line")
   BuffDiggerDB.thankGifts=true; ns.dismissThank()
+  -- No stray gift (#43, the reason #37 dropped them): a buff landed mid-fight, a full update, the same auras under new IDs.
+  units.nameplate63={"Tyrande2","DRUID",40}; units.nameplate64={"Velen2","PRIEST",40}
+  InCombatLockdown=function() return true end; fire("PLAYER_REGEN_DISABLED")
+  myAuras[#myAuras+1]=aura(9610,"spell1126",1126,"nameplate63"); fire("UNIT_AURA","player",SECRET)
+  InCombatLockdown=function() return false end; fire("PLAYER_REGEN_ENABLED"); runTimers(); fire("UNIT_AURA","player"); runTimers()
+  assert(#ns.thanksWaiting()==0, "landed mid-fight: no gift line after it")
+  myAuras[#myAuras+1]=aura(9611,"Mot de pouvoir : Robustesse",1243,"nameplate64"); fire("UNIT_AURA","player",{isFullUpdate=true}); runTimers()
+  assert(#ns.thanksWaiting()==0, "full update: no gift line")
+  for i,a in ipairs(myAuras) do local c={}; for k,v in pairs(a) do c[k]=v end; c.auraInstanceID=a.auraInstanceID+1000; myAuras[i]=c end
+  fire("UNIT_AURA","player"); runTimers(); assert(#ns.thanksWaiting()==0, "same auras, new IDs (Ghost Wolf, zoning): no gift line")
+  -- Full list: gifts go before my request.
+  units.nameplate65={"Remulos2","DRUID",40}; BuffDiggerCharDB.asked={Remulos2={at=time(), key="thorns", channel="WHISPER", target="Remulos2"}}
+  myAuras[#myAuras+1]=aura(9620,"spell467",467,"nameplate65"); fire("UNIT_AURA","player")
+  for i=1,5 do units["nameplate"..(65+i)]={"Giver"..i,"DRUID",40}; myAuras[#myAuras+1]=aura(9620+i,"spell1126",1126,"nameplate"..(65+i)); myAuras[#myAuras].expirationTime=NOW+600+10*i; fire("UNIT_AURA","player") end
+  assert(#ns.thanksWaiting()==5 and waiting("Remulos2"), "full: my request stays, the oldest gift goes")
+  ns.dismissThank()
 end
 print("GIFTS OK")

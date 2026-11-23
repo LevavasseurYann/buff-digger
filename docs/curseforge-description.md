@@ -8,7 +8,7 @@ Buff Digger shows you which players around you can buff you, and asks them for y
 
 1. **Look:** an icon shows up next to every friendly player who can give you a buff you're missing. Fort, Kings, Might, Mark, Intellect.
 2. **Click:** a polite whisper goes out, with the spell linked. Different wording every time, so you don't sound like a bot.
-3. **Thank:** the buff lands, the line turns gold. Click it: /thank and a thank-you. Only for what you asked, never on its own.
+3. **Thank:** the buff lands, the line turns gold. Click it: /thank and a thank-you. Never on its own. Someone buffed you unasked? Their line turns gold too (one box in the settings to turn that off).
 
 No commands, no macros. Everything is a click in a window.
 

@@ -45,7 +45,7 @@ jouer normalement puis coller `/bd` : la plupart des lignes se remplissent toute
 | 5 | Se faire buffer après une demande, puis cliquer *Thank* sur sa ligne | Rien ne part tout seul ; sa ligne devient dorée dans Get buffs ; le clic envoie `/merci` + message dans le canal de la demande | Know who put a buff on me / Send /thank |
 | 42 | Sans rien demander, hors combat : manger, boire, prendre à une table de rafraîchissement | Aucune ligne *Thank* (un buff spontané d'un joueur en donne une depuis #43, voir 88) | — |
 | 43 | Juste après avoir reçu un buff, demander à un joueur plus fort de le remettre (« Ton buff est plus costaud… ») ; il le relance dans la minute | Une ligne *Thank* pour lui ; clic = `/merci` **et** le message lui arrivent | Send /thank |
-| 53 | Demander la Robustesse à un prêtre A ; un autre prêtre B la donne d'abord ; puis A la donne ; et, prêtre, se la lancer soi-même avec une demande ouverte | Ligne *Thank* pour A seulement, rien pour B ni pour soi. Puis `/bd` : noter la ligne *Buffs received with no identifiable giver* (si elle grimpe avec des inconnus, leurs lignes manquent) | Send /thank |
+| 53 | Demander la Robustesse à un prêtre A ; un autre prêtre B la donne d'abord ; puis A la donne ; et, prêtre, se la lancer soi-même avec une demande ouverte | Ligne *Thank* pour A (sa demande) et pour B (cadeau, #43), rien pour soi. Puis `/bd` : noter la ligne *Buffs received with no identifiable giver* (si elle grimpe avec des inconnus, leurs lignes manquent) | Send /thank |
 | 77 | En ville, demander un buff à un joueur dont la barre de nom clignote (foule), ou qui s'éloigne juste après avoir lancé le sort (#41) | Une ligne *Thank* à son nom complet « Prénom Nom », comme sur sa barre de nom (le nom vient de `GetPlayerInfoByGUID` : s'il arrive sans le nom de famille ou avec le royaume, aucune ligne : le noter, ce joueur en cible : `/dump GetPlayerInfoByGUID(UnitGUID("target"))`, 6ᵉ et 7ᵉ valeurs) | Know who put a buff on me |
 | 19 | Avec un buff déjà sur soi, faire une demande puis se transformer (Loup fantôme, forme de druide) | Aucune ligne *Thank* | — |
 | 20 | Réglages > *On nameplates* : essayer les 4 choix ; en *Every buff*, clic sur la 2e icône d'un paladin | Rien / petite icône Buff Digger / une icône / une par béné ; la demande porte sur l'icône cliquée ; survol = nom du sort et rang ; en foule, les icônes ne gênent pas le clic sur un voisin | Receive a click on that icon |
@@ -150,17 +150,17 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 
 ## Merci à la main (#21, #37) — n'importe quelle classe, un ou deux buffeurs croisés
 
-Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demandé.
+Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un joueur connu (#43, réglage *Thank line for buffs I didn't ask for too*).
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
 | 54 | *Retiré : plus de fenêtre Thanks, la ligne dorée reste dans Get buffs (68)* | — |
 | 55 | Clic sur sa ligne (demande en MP, puis une autre en /dire) | `/merci` et le message partent **tout de suite**, sans autre clic, y compris en /dire ; la ligne redevient normale |
 | 56 | *Retiré (#37) : un buff non demandé ne donne plus de ligne, voir 42* | — |
-| 57 | Demander la Marque à un druide, qui pose Marque puis Épines | Une seule ligne, une icône (Marque) : Épines n'était pas demandée |
-| 58 | Clic droit sur une ligne ; bouton fermer avec deux lignes ; attendre 5 min une ligne | Ligne retirée sans rien envoyer ; les lignes affichées vidées (un doré dans Get buffs reste) ; la ligne s'efface seule (au plus 5 s après) |
-| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Fenêtre affichée : remercie sa ligne du haut ; sinon le dernier buff demandé reçu ; sans personne, « Nobody to thank right now. » |
-| 60 | En donjon puis en monde ouvert, en groupe : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé | Seule la demande donne une ligne ; la fenêtre se déplace (même cadenas fermé) ; elle reste en combat |
+| 57 | Demander la Marque à un druide, qui pose Marque puis Épines | Une seule ligne : Marque (demandée) puis Épines (cadeau, #43) ; le merci part dans le canal de la demande |
+| 58 | Croix sur une ligne dorée ; attendre 5 min une autre | Ligne retirée sans rien envoyer ; l'autre redevient normale seule après 5 min |
+| 59 | Raccourcis > AddOns > Buff Digger > *Thank the last player who buffed me* | Remercie la ligne dorée la plus récente (Get buffs fermée aussi, en combat aussi) ; sans personne, « Nobody to thank right now. » |
+| 60 | En donjon puis en monde ouvert, en groupe : buff de groupe (Intelligence des arcanes de groupe) puis un buff demandé | La demande donne une ligne ; le buff de groupe d'un membre aussi (cadeau, #43), noter si c'est gênant en donjon (rebuffs). Groupe replié : les lignes dorées restent visibles |
 ## Mes propres phrases (#20) — n'importe quelle classe, un buffeur croisé
 
 | # | Test | Ce qu'on doit voir |
@@ -236,3 +236,6 @@ Le merci ne part que d'un clic ou d'une touche, et seulement pour un buff demand
 | 90 | Un buff reçu en combat, sans demande | Aucune ligne après le combat |
 | 91 | Réglages > Thanks : décocher *Thank line for buffs I didn't ask for too*, se faire buffer | Aucune ligne ; une demande honorée en donne toujours une |
 | 92 | Réglages > Thanks : décocher */thank emote when I click Thank*, cliquer *Thank* | Seul le message part, dans le canal de la demande (MP pour un cadeau), pas d'émote |
+| 93 | Cadeaux actifs : Loup fantôme / forme, changement de zone, fin de combat | Aucune ligne *Thank* nouvelle |
+| 94 | Le joueur A m'a donné Robustesse ; B la relance par-dessus | Ligne cadeau pour B (attendu) |
+| 95 | Une demande ouverte reçue, puis 5 cadeaux d'autres joueurs (ville) | La ligne de la demande reste ; c'est le plus vieux cadeau qui part |

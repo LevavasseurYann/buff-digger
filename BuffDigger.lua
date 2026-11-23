@@ -230,7 +230,11 @@ local function addToThank(name, class, target, key, request)
   -- The latest request (the one in BuffDiggerCharDB.asked); a gift (#43) never hides it.
   if not (request.gift and e.request) then e.request = request end
   table.insert(toThank, 1, e)
-  if #toThank > TO_THANK_MAX then table.remove(toThank) end -- full: the oldest goes
+  if #toThank > TO_THANK_MAX then -- full: the oldest gift goes, else the oldest line (#43)
+    local drop = #toThank
+    for i = #toThank, 1, -1 do if toThank[i].request.gift then drop = i break end end
+    table.remove(toThank, drop)
+  end
 end
 
 -- Who is waiting for a thank-you (expired ones dropped).

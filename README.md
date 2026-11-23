@@ -65,8 +65,9 @@ datée, dans `%USERPROFILE%\BuffDigger-journaux` (hors OneDrive : vrais noms, ch
 planifiée Windows le lance toutes les 5 minutes, sans fenêtre :
 
 ```sh
-mkdir -p /mnt/c/Users/levav/BuffDigger-journaux && cp dev/save-journal.ps1 /mnt/c/Users/levav/BuffDigger-journaux/
-schtasks.exe /Create /F /SC MINUTE /MO 5 /TN "BuffDigger journal" /TR 'conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\levav\BuffDigger-journaux\save-journal.ps1'
+W=$(wslpath "$(cmd.exe /c 'echo %USERPROFILE%' | tr -d '\r')")/BuffDigger-journaux
+mkdir -p "$W" && cp dev/save-journal.ps1 "$W/"
+schtasks.exe /Create /F /SC MINUTE /MO 5 /TN "BuffDigger journal" /TR "conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File $(wslpath -w "$W")\save-journal.ps1"
 ```
 
 Publier : pousser un tag `vX.Y.Z` (`-alpha` / `-beta` pour ces types) ; `.github/workflows/release.yml`
