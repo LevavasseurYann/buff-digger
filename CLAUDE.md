@@ -36,8 +36,9 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
   toujours `false` en jeu, même en combat (recette du 2026-11-15) : `aurasReadable()` tient donc à
   `InCombatLockdown()`, et une aura illisible marque la lecture `stale`. Suivre aussi
   `ADDON_RESTRICTION_STATE_CHANGED` ; `PLAYER_REGEN_ENABLED` seul ne suffit pas.
-- Merci (décision #37) : à la main seulement, buffs demandés seulement, pas de cadeaux. Une ligne Thank =
-  une demande ouverte honorée (même joueur, même buff), relecture comprise : jamais de ligne sans demande.
+- Merci (décisions #37, #43) : à la main seulement, ligne dorée dans Get buffs (plus de fenêtre Thanks). Une ligne
+  Thank = une demande ouverte honorée (même joueur, même buff), ou un cadeau (#43, option `thankGifts`) : lanceur
+  connu, aura vue arriver (`new`, jamais une relecture), ni sa relance ni moins d'une minute après mon merci.
 
 ## Vérifier
 - Test sans le jeu (fausse API `tests/fakewow.lua`, scénarios `tests/smoke.lua`, rejeu des journaux

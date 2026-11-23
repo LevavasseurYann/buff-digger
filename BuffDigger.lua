@@ -46,6 +46,7 @@ ns.DEFAULTS = {
   give = false,      -- "Give buffs" window (buffer classes)
   thank = true,      -- /thank emote with a Thank click
   thankMessage = true, -- thank-you message in the request's channel once the buff lands
+  thankGifts = true, -- a Thank line for a buff I didn't ask for too (#43)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
   debug = false,     -- print bet verdicts in chat
@@ -225,10 +226,11 @@ local function addToThank(name, class, target, key, request)
   local known = false
   for _, k in ipairs(e.keys) do known = known or k == key end
   if not known then e.keys[#e.keys + 1] = key end
-  e.at, e.request = time(), request -- the latest: the one in BuffDiggerCharDB.asked
+  e.at = time()
+  -- The latest request (the one in BuffDiggerCharDB.asked); a gift (#43) never hides it.
+  if not (request.gift and e.request) then e.request = request end
   table.insert(toThank, 1, e)
   if #toThank > TO_THANK_MAX then table.remove(toThank) end -- full: the oldest goes
-  if ns.refreshThanks then ns.refreshThanks() end
 end
 
 -- Who is waiting for a thank-you (expired ones dropped).
@@ -253,7 +255,6 @@ function ns.dismissThank(name)
     end
     if e and e.request then e.request.thanked = true end
   end
-  if ns.refreshThanks then ns.refreshThanks() end
   return e
 end
 
@@ -365,8 +366,17 @@ local function onBuffLanded(aura, info, kind)
   end
 
   -- Giver unknown (no unit token, stale token): no guessing — guessing thanked people who gave nothing.
+  if not (BuffDiggerDB.thank or BuffDiggerDB.thankMessage) then return end
   local request = findRequest(name, info.key)
-  if not request or not (BuffDiggerDB.thank or BuffDiggerDB.thankMessage) then return end
+  if not request then
+    -- A gift (#43): a buff I didn't ask for, from a known giver, seen landing live (never a full read);
+    -- not his own buff back (Ghost Wolf, his recast) nor someone I thanked a minute ago. Thanked by whisper.
+    if name and kind == "new" and BuffDiggerDB.thankGifts and not twin(info) and not heldFrom(info, name)
+      and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
+      addToThank(name, class, target, info.key, { channel = "WHISPER", target = target, gift = true })
+    end
+    return
+  end
   local after = kind == "renew" or startedAfter(info, request)
   if after == nil and kind == "new" then after = not heldFrom(info, name) end -- time hidden
   if after then addToThank(name, class, target, info.key, request) end
@@ -1160,9 +1170,7 @@ BuffDigger = {
   toggleWindow = function() COMMANDS.get() end,
   toggleGive = function() COMMANDS.give() end,
   thankLast = function()
-    -- The Thanks window shown: its top line, the one I see.
-    local w = _G.BuffDiggerThanks
-    local last = w and w:IsShown() and w.list and w.list[1] or ns.thanksWaiting()[1]
+    local last = ns.thanksWaiting()[1]
     if last then ns.thankBuffer(last.name) else notice(L["Nobody to thank right now."]) end
   end,
   -- Dev only (dev/BuffDiggerJournal): copies of what Buff Digger knows, never its own tables.
@@ -1302,6 +1310,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerDB.icons = nil
     -- Up to 0.6.x: automatic thanks, now gone (#37).
     BuffDiggerDB.thankByHand, BuffDiggerDB.thankByHandOn, BuffDiggerDB.emoteNeedsClick = nil, nil, nil
+    BuffDiggerDB.thanksPos = nil -- the Thanks window, gone
     for k, v in pairs(ns.DEFAULTS) do
       if BuffDiggerDB[k] == nil then BuffDiggerDB[k] = v end
     end
