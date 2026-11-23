@@ -239,3 +239,4 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 93 | Cadeaux actifs : Loup fantôme / forme, changement de zone, fin de combat | Aucune ligne *Thank* nouvelle |
 | 94 | Le joueur A m'a donné Robustesse ; B la relance par-dessus | Ligne cadeau pour B (attendu) |
 | 95 | Une demande ouverte reçue, puis 5 cadeaux d'autres joueurs (ville) | La ligne de la demande reste ; c'est le plus vieux cadeau qui part |
+| 96 | En groupe (donjon, hors combat) : un membre me rebuffe sans demande ; puis je lui demande un buff qu'il me donne | Pas de ligne pour le rebuff ; une ligne dorée pour la demande |

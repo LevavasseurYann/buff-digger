@@ -333,6 +333,13 @@ local function giverByGUID(aura)
   return name, (name:gsub(" ", "-")), class
 end
 
+-- A member of my group, by name: UnitIsUnit(nameplate, party) fails in Forever (CLAUDE.md « Groupe »).
+local function inMyGroup(name)
+  for _, unit in ipairs(ns.groupUnits()) do
+    if ns.unitName(unit) == name then return true end
+  end
+end
+
 local function onBuffLanded(aura, info, kind)
   local source = aura.sourceUnit
   if not readable(aura.spellId) then record("source", false, "spell secret") return end
@@ -374,8 +381,10 @@ local function onBuffLanded(aura, info, kind)
   local request = findRequest(name, info.key)
   if not request then
     -- A gift (#43): a buff I didn't ask for, from a known giver, seen landing live (never a full read);
-    -- not his own buff back (Ghost Wolf, his recast) nor someone I thanked a minute ago. Thanked by whisper.
+    -- not his own buff back (Ghost Wolf, his recast) nor someone I thanked a minute ago, nor a group member
+    -- (his rebuffs would flood a dungeon). Thanked by whisper.
     if name and kind == "new" and BuffDiggerDB.thankGifts and not twin(info) and not heldFrom(info, name)
+      and not inMyGroup(name)
       and not (lastThank[name] and time() - lastThank[name] < THANK_GAP) then
       addToThank(name, class, target, info.key, { channel = "WHISPER", target = target, gift = true })
     end

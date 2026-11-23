@@ -1331,6 +1331,15 @@ do -- A buff I didn't ask for, from a known giver, seen landing: a Thank line, b
   assert(#ns.thanksWaiting()==0, "full update: no gift line")
   for i,a in ipairs(myAuras) do local c={}; for k,v in pairs(a) do c[k]=v end; c.auraInstanceID=a.auraInstanceID+1000; myAuras[i]=c end
   fire("UNIT_AURA","player"); runTimers(); assert(#ns.thanksWaiting()==0, "same auras, new IDs (Ghost Wolf, zoning): no gift line")
+  -- A group member's buff is no gift (rebuffs in a dungeon would flood); seen by his nameplate, the name
+  -- decides (UnitIsUnit(nameplate, party) fails in Forever). My request to a member keeps its line.
+  units.party1={"Malfurion2","DRUID",40}; units.nameplate70={"Malfurion2","DRUID",40}
+  IsInGroup=function() return true end; IsInRaid=function() return false end; GetNumSubgroupMembers=function() return 1 end
+  myAuras={}; fire("UNIT_AURA","player")
+  myAuras[#myAuras+1]=aura(9630,"spell1126",1126,"nameplate70"); fire("UNIT_AURA","player"); assert(not waiting("Malfurion2"), "member's buff: no gift line")
+  BuffDiggerCharDB.asked={Malfurion2={at=time(), key="thorns", channel="PARTY", target="Malfurion2"}}
+  myAuras[#myAuras+1]=aura(9631,"spell467",467,"party1"); fire("UNIT_AURA","player"); assert(waiting("Malfurion2"), "member, asked: a line")
+  IsInGroup=nil; IsInRaid=nil; GetNumSubgroupMembers=nil; units.party1=nil; units.nameplate70=nil; BuffDiggerCharDB.asked={}; ns.dismissThank()
   -- Full list: gifts go before my request.
   units.nameplate65={"Remulos2","DRUID",40}; BuffDiggerCharDB.asked={Remulos2={at=time(), key="thorns", channel="WHISPER", target="Remulos2"}}
   myAuras[#myAuras+1]=aura(9620,"spell467",467,"nameplate65"); fire("UNIT_AURA","player")

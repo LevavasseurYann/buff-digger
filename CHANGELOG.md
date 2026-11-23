@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Thank the ones who buff you unasked.** A buff you didn't ask for, from a player Buff Digger can name, now turns their Get buffs line gold too: click *Thank* to whisper them and /thank. Their own recast, or a second buff within a minute of your thanks, doesn't bring the line back, and nothing comes from a buff landed mid-fight. Settings > Thanks > *Thank line for buffs I didn't ask for too* turns it off.
+- **Thank the ones who buff you unasked.** A buff you didn't ask for, from a player Buff Digger can name, now turns their Get buffs line gold too: click *Thank* to whisper them and /thank. Their own recast, or a second buff within a minute of your thanks, doesn't bring the line back, and nothing comes from a buff landed mid-fight. Buffs from your own group don't count (their rebuffs would flood a dungeon), unless you asked for them. Settings > Thanks > *Thank line for buffs I didn't ask for too* turns it off.
 - **No more Thanks window.** The small window that popped up mid-screen is gone: a player to thank keeps their gold line in Get buffs (grey when out of sight) for 5 minutes, even with the Group section folded, and the *Thank the last player who buffed me* key still works, even with Get buffs closed or in a fight. A crowd of gifts never pushes out the buff you asked for: the oldest gift goes first.
 - Reminder: Settings > Thanks > */thank emote when I click Thank* off sends only your message, for players who find the emote too much.
 
