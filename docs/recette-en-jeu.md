@@ -236,7 +236,7 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 90 | Un buff reçu en combat, sans demande | Aucune ligne après le combat |
 | 91 | Réglages > Thanks : décocher *Thank line for buffs I didn't ask for too*, se faire buffer | Aucune ligne ; une demande honorée en donne toujours une |
 | 92 | Réglages > Thanks : décocher */thank emote when I click Thank*, cliquer *Thank* | Seul le message part, dans le canal de la demande (MP pour un cadeau), pas d'émote |
-| 93 | Cadeaux actifs : Loup fantôme / forme, changement de zone, fin de combat | Aucune ligne *Thank* nouvelle |
+| 93 | Cadeaux actifs, déjà buffé par d'autres : tout ce qui fait relire mes buffs au jeu (écran de chargement, fin de combat, `/reload` ; forme pour un chaman ou un druide) | Aucune ligne *Thank* nouvelle |
 | 94 | Le joueur A m'a donné Robustesse ; B la relance par-dessus | Ligne cadeau pour B (attendu) |
 | 95 | Une demande ouverte reçue, puis 5 cadeaux d'autres joueurs (ville) | La ligne de la demande reste ; c'est le plus vieux cadeau qui part |
 | 96 | En groupe (donjon, hors combat) : un membre me rebuffe sans demande ; puis je lui demande un buff qu'il me donne | Pas de ligne pour le rebuff ; une ligne dorée pour la demande |
