@@ -242,3 +242,16 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 96 | En groupe (donjon, hors combat) : un membre me rebuffe sans demande ; puis je lui demande un buff qu'il me donne | Pas de ligne pour le rebuff ; une ligne dorée pour la demande |
 | 97 | Une demande honorée et un cadeau en même temps (Get buffs ouverte) | Même bande dorée ; la demande a la coche ✓, le cadeau l'icône du buff reçu ; survol de l'icône du cadeau : « Gift: … (unasked) ». Lisible en Minimal et sur une ligne grise (hors de vue) |
 | 98 | Même situation, cadeau arrivé après la demande : touche *Thank the last player* deux fois | 1er appui = la demande, 2e = le cadeau |
+
+## Ton des messages (#49, #23)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 99 | Réglages > Requests : *Tone* sous *Write to players in* ; choisir Polite, `/reload` | Le réglage se voit et se lit (Casual / Polite / Role play) ; Polite est toujours choisi après `/reload` |
+| 100 | *My own phrases* > *Try one*, dans les 3 tons, en anglais puis en français | La phrase suit le ton : familière en Casual, soignée (vous en français) en Polite, RP en Role play ; *Start from Buff Digger's* copie les phrases du ton choisi |
+| 101 | Une vraie demande en MP puis en /s, dans chaque ton | Le message part, le lien du sort est cliquable, rien n'est coupé |
+| 102 | Role play : demander un nouveau buff à un prêtre ou un paladin, puis à un druide, puis à un mage | Une touche de Lumière, de nature ou d'arcane ; pour un rang supérieur ou un rafraîchissement, la phrase RP neutre |
+| 103 | Demande puis *Thank* au même joueur, plusieurs fois, dans chaque ton | La fin du merci n'est jamais celle de la demande (plus de « Safe travels! » deux fois) |
+| 104 | *Write to players in* : Deutsch, *Tone* : Role play, *Try one* | Une phrase Polite allemande (Sie), pas d'anglais |
+| 105 | Une phrase perso dans *My own phrases*, puis une demande dans chaque ton | La phrase perso part quel que soit le ton |
+| 106 | Un ancien profil (mise à jour depuis 1.3.0, sans toucher aux réglages) | *Tone* : Casual |

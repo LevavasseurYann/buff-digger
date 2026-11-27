@@ -24,6 +24,7 @@ No commands, no macros. Everything is a click in a window.
 - **Pally, priest, mage or druid?** The Give buffs window lists who around lacks your buff. Click, they're buffed.
 - **Two Buff Digger users?** No whisper at all: the buffer gets the request in a window and buffs you in one click.
 - **Eight languages** for the messages you send: English, French, German, Spanish, Italian, Portuguese, Polish, Russian. Or write your own.
+- **Your tone.** Casual, Polite or Role play ("Well met! Might I beg [Power Word: Fortitude] of thee, friend?"), for requests and thank-yous alike.
 - **Out of combat only.** Everything hides when the pull starts.
 
 ---
