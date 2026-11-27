@@ -97,8 +97,8 @@ function ns.onRequestClick(self) -- self: the buff icon of a Requests line
   local entry = self:GetParent().entry
   local req = entry and entry.request
   if not (req and self:GetAttribute("type")) then return end
-  for i, b in ipairs(req.buffs) do
-    if b.key == self.key and b.kind ~= "new" then tremove(req.buffs, i) break end
+  for i, b in ipairs(req.buffs) do -- water and food (#47) leave no aura either
+    if b.key == self.key and (b.kind ~= "new" or BUFFS[b.key].item) then tremove(req.buffs, i) break end
   end
   if #req.buffs == 0 then drop(req) end
 end
@@ -161,8 +161,16 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
     local icons = {}
     for j, b in ipairs(req.buffs) do
       local spell = BUFFS[b.key]
-      icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = ns.rankAt(spell, myLevel),
-        spell = castable and C_Spell.GetSpellName(spell.id) or nil }
+      local rank, cast = ns.rankAt(spell, myLevel), C_Spell.GetSpellName(spell.id)
+      if spell.item then
+        -- Water or food (#47): the rank they can use, read on their unit (not in the message, which
+        -- older versions parse), among the ranks I bought; cast by that rank's own spell ID.
+        local level = unit and UnitLevel(unit)
+        rank = ns.itemRank(spell, myLevel, ns.readable(level) and level or math.huge)
+        while rank > 1 and not IsPlayerSpell(spell.spells[rank]) do rank = rank - 1 end
+        cast = spell.spells[rank]
+      end
+      icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = rank, spell = castable and cast or nil }
     end
     local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req,
       group = member, buffs = icons,

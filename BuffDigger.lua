@@ -1303,9 +1303,13 @@ function ns.aimTarget(button, unit, who)
   button:SetAttribute("macrotext", who and "/target " .. firstName(who) or nil)
 end
 
+-- `spell`: a name (a buff, cast on them by macro), or a spell ID (water or food, #47: that rank,
+-- conjured on myself; the mage then opens the trade).
 function ns.aimCast(button, unit, spell, who)
-  local macro = ns.castMacro(unit, spell, who)
-  button:SetAttribute("type", macro and "macro" or nil)
+  local id = type(spell) == "number" and spell or nil
+  local macro = not id and ns.castMacro(unit, spell, who) or nil
+  button:SetAttribute("type", id and "spell" or macro and "macro" or nil)
+  button:SetAttribute("spell", id)
   button:SetAttribute("macrotext", macro)
 end
 

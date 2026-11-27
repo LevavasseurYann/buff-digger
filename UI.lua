@@ -64,7 +64,9 @@ end
 function ns.castTooltip(owner, key, who)
   if not key or InCombatLockdown() then return end
   spellLines(owner, key, UnitLevel("player"), owner.shownRank)
-  if who then GameTooltip:AddLine(L["Click: cast it."], 0.4, 0.8, 1, true)
+  if who and BUFFS[key].item then -- water or food (#47): the trade is the mage's own click
+    GameTooltip:AddLine(L["Click: conjure it. Then click their name and open a trade."], 0.4, 0.8, 1, true)
+  elseif who then GameTooltip:AddLine(L["Click: cast it."], 0.4, 0.8, 1, true)
   else GameTooltip:AddLine(L["Too far"], 0.6, 0.6, 0.6) end
   GameTooltip:Show()
 end

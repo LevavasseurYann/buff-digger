@@ -1612,4 +1612,34 @@ do
   fire("CHAT_MSG_ADDON","BuffDigger","ACK:2","WHISPER","Yann-Realm"); assert(BuffDiggerDB.protocol.Yann==nil)
   units.nameplate97=nil; BuffDiggerCharDB.asked={}; ns.dismissThank()
 end
+do
+  -- Mage side (#47): a mage of 40 gets REQ:water from a warrior of 23. The line shows the water at
+  -- rank 3 (what a 23 can drink); a click conjures that rank (its own spell ID), then the mage trades.
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==587 end
+  units.nameplate97={"Medivh","WARRIOR",23}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+  BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows(); NOW=NOW+60
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm"); ns.refreshIncoming()
+  local function line() for _,r in ipairs(_G.BuffDiggerRequests.rows) do
+    if r._shown and r.entry.request.name=="Medivh" then return r end end end
+  local r=line(); assert(r, "a Requests line")
+  local b=r.buffs[1]
+  assert(r.entry.buffs[1].rank==3 and b:GetAttribute("type")=="spell" and b:GetAttribute("spell")==5506,
+    "rank 3, cast by ID: "..tostring(r.entry.buffs[1].rank).." "..tostring(b:GetAttribute("type")).." "..tostring(b:GetAttribute("spell")))
+  -- Its tooltip: the rank, from which level it can be drunk, and the trade left to do.
+  local tip={}; GameTooltip.AddLine=function(_,x) tip[#tip+1]=x end
+  b._OnEnter(b); local all=table.concat(tip,"\n"); GameTooltip.AddLine=nil
+  assert(all:find("Rank 3") and all:find("usable from level 15") and all:find("trade"), all)
+  -- Rank 3 not bought at the trainer: rank 2.
+  IsPlayerSpell=function(id) return id==5504 or id==5505 or id==587 end; ns.refreshIncoming(); r=line()
+  assert(r.entry.buffs[1].rank==2 and r.buffs[1]:GetAttribute("spell")==5505, "the rank I know")
+  -- A buff on the same line keeps its macro.
+  IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==1459 end
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:intellect:new","WHISPER","Medivh-Realm"); ns.refreshIncoming(); r=line()
+  assert(r.buffs[2]:GetAttribute("type")=="macro" and r.buffs[2]:GetAttribute("spell")==nil, "a buff: the macro")
+  -- The click closes the water (no aura will tell), the buff stays until it lands.
+  click(r.buffs[1], false); ns.refreshIncoming(); r=line()
+  assert(r and #r.entry.request.buffs==1 and r.entry.request.buffs[1].key=="intellect", "water closed by the click")
+  BuffDiggerDB.requests=false; ns.applyWindows(); units.nameplate97=nil
+  units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end
+end
 print("ITEMS OK")
