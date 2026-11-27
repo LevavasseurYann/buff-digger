@@ -1074,7 +1074,7 @@ do
   local function hover(w) tip = {}; assert(w._OnEnter, "no tooltip"); w._OnEnter(w); return tip end
   for _, r in ipairs(rows()) do
     local what = r.def.key or r.def.kind
-    if what and r.def.kind ~= "help" and r.def.kind ~= "prefs" and r.def.kind ~= "phrases" then
+    if what and r.def.kind ~= "help" and r.def.kind ~= "prefs" then
       assert(r.def.tip and r.def.tip ~= "", "no tip: "..what)
       for _, w in ipairs({ r.control, r }) do
         hover(w); assert(tip[1] == r.def.label and tip[2] == r.def.tip, "tooltip of "..what..": "..tostring(tip[1]))
@@ -1114,6 +1114,12 @@ do
   adv.GetChecked = nil; click(adv); assert(BuffDiggerDB.showAdvanced == true and rowFor("debug"):IsShown() and rowFor("delay"):IsShown(), "every tab laid out again")
   for _, p in ipairs(s.panels) do noHole(p) end
   BuffDiggerDB.debug = false
+  -- Phrases: the 4th tab, a panel of the window, no window of its own; no advanced box on it.
+  local pw = _G.BuffDiggerPhrases
+  assert(s.panels[4] == pw and pw:GetParent() == s, "Phrases is a tab")
+  for _, name in ipairs(UISpecialFrames) do assert(name ~= "BuffDiggerPhrases", "no window of its own") end
+  click(s.tabButtons[4]); assert(pw:IsShown() and not s.panels[1]:IsShown() and not s.advanced:IsShown())
+  click(s.tabButtons[1]); assert(s.advanced:IsShown() and not pw:IsShown())
   BuffDiggerDB.showAdvanced = saved; s:Hide()
 end
 print("SETTINGS OK")

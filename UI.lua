@@ -207,7 +207,6 @@ local TABS = {
       tip = "The language of what Buff Digger sends to other players: requests and thank-yous. Buff Digger's own windows stay in English." },
     { key = "tone", kind = "choice", choices = ns.TONES, translate = true, label = "Tone", -- #49
       tip = "How those messages sound: Casual, Polite or Role play. Try one in the Phrases tab." },
-    { kind = "phrases", label = "My own phrases" },
     { key = "useSay", label = "Ask in /say by default (not whisper)",
       tip = "A click on a buff icon asks in /say instead of a whisper. Shift + click does the other one." },
     { key = "targetOnAsk", advanced = true, label = "Get buffs: target the player I ask",
@@ -228,9 +227,10 @@ local TABS = {
     { key = "requestMarkers", advanced = true, label = "Marker above players who request a buff",
       tip = "Shows a big pulsing icon above the nameplate of a player asking you for a buff." },
   } },
+  { "Phrases" }, -- its own panel: buildPhrases()
 }
 
-local settings, prefRows, refreshPrefs, phrases
+local settings, prefRows, refreshPrefs
 
 -- My class's priority list, copied from the defaults the first time it is edited (#5).
 local function myPrefs(create)
@@ -427,14 +427,6 @@ function BUILD.plates(row)
   return button, 28
 end
 
--- Until the Phrases tab: a button opening the Phrases window.
-function BUILD.phrases(row, def)
-  local edit = labelButton(row, L[def.label], 104, COL_W - 120)
-  edit:SetText(L["Edit..."])
-  edit:SetScript("OnClick", function() phrases:SetShown(not phrases:IsShown()) end)
-  return edit, 28
-end
-
 function BUILD.help(row)
   local lines = {}
   for i, line in ipairs(HOW_TO) do lines[i] = L[line] end
@@ -612,6 +604,7 @@ local function selectTab(i)
   PanelTemplates_SetTab(settings, i)
   for j, panel in ipairs(settings.panels) do panel:SetShown(j == i) end
   layout(settings.panels[i])
+  settings.advanced:SetShown(#settings.panels[i].rows > 0) -- not on Phrases
 end
 
 -- ---------------------------------------------------------------- my own phrases (#20)
@@ -626,30 +619,21 @@ local PHRASE_KINDS = {
   { "thanks", "Thank-you", "Thanking someone who just buffed you." },
 }
 
+-- The Phrases tab (#52): a panel of the settings window, no layout() rows.
 local function buildPhrases()
-  local w = CreateFrame("Frame", "BuffDiggerPhrases", UIParent, "BasicFrameTemplateWithInset")
-  local width = 5 * 88 - 4
-  w:SetSize(2 * PAD + width, 376) -- room for 4 error lines above the buttons
-  w:SetPoint("CENTER", 0, 40)
-  w:SetFrameStrata("DIALOG") -- above the settings
-  w:SetMovable(true)
-  w:EnableMouse(true)
-  w:RegisterForDrag("LeftButton")
-  w:SetScript("OnDragStart", w.StartMoving)
-  w:SetScript("OnDragStop", w.StopMovingOrSizing)
-  w:Hide()
-  tinsert(UISpecialFrames, "BuffDiggerPhrases") -- Escape closes it
-  local title = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  title:SetPoint("TOP", 0, -5)
-  title:SetText(L["Buff Digger — My own phrases"])
-  text(w, "GameFontHighlightSmall", PAD, -30, width,
+  local w = CreateFrame("Frame", "BuffDiggerPhrases", settings)
+  w:SetAllPoints()
+  w.rows, w.columns = {}, {}
+  local width = WIDTH - 2 * PAD
+  text(w, "GameFontNormal", PAD, TOP, width, L["My own phrases"])
+  text(w, "GameFontHighlightSmall", PAD, TOP - 20, width,
     L["Write what you want to say, one phrase per line: Buff Digger picks one at random. {spell} becomes the buff's link."])
 
-  w.when = text(w, "GameFontNormal", PAD, -86, width, "")
+  w.when = text(w, "GameFontNormal", PAD, TOP - 80, width, "")
 
   local box = CreateFrame("ScrollFrame", nil, w, "UIPanelScrollFrameTemplate")
-  box:SetPoint("TOPLEFT", PAD + 4, -108)
-  box:SetSize(width - 28, 140)
+  box:SetPoint("TOPLEFT", PAD + 4, TOP - 102)
+  box:SetSize(width - 28, 160)
   local bg = box:CreateTexture(nil, "BACKGROUND") -- the box shows where to type
   bg:SetPoint("TOPLEFT", -4, 4)
   bg:SetPoint("BOTTOMRIGHT", 4, -4)
@@ -669,8 +653,8 @@ local function buildPhrases()
   box:EnableMouse(true)
   box:SetScript("OnMouseDown", function() edit:SetFocus() end)
   w.edit = edit
-  w.status = text(w, "GameFontHighlightSmall", PAD, -258, width, "")
-  w.errors = text(w, "GameFontRedSmall", PAD, -274, width, "")
+  w.status = text(w, "GameFontHighlightSmall", PAD, TOP - 272, width, "")
+  w.errors = text(w, "GameFontRedSmall", PAD, TOP - 288, width, "") -- room for 4 lines above the buttons
 
   -- Copy ours into an empty box, to edit them rather than start from nothing.
   local copy = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
@@ -706,10 +690,11 @@ local function buildPhrases()
   for i, k in ipairs(PHRASE_KINDS) do
     local t = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
     t:SetSize(84, 22)
-    t:SetPoint("TOPLEFT", PAD + (i - 1) * 88, -58)
+    t:SetPoint("TOPLEFT", PAD + (i - 1) * 88, TOP - 52)
     t:SetText(L[k[2]])
     t.kind = k[1]
     t:SetScript("OnClick", function() show(k[1]) end)
+    tip(t, L[k[2]], L[k[3]])
     w.tabs[i] = t
   end
   w:SetScript("OnShow", function() show(w.kind or "new") end)
@@ -730,7 +715,7 @@ local function buildPhrases()
       or ns.message(w.kind, w.kind == "replace" and "kings" or "fortitude", lang, tone))
   end)
   w.preview = preview
-  phrases = w
+  return w
 end
 
 local function buildSettings()
@@ -751,10 +736,9 @@ local function buildSettings()
   title:SetPoint("TOP", 0, -5)
   title:SetText("Buff Digger")
 
-  buildPhrases()
   settings.panels, settings.tabButtons = {}, {}
   for i, tab in ipairs(TABS) do
-    settings.panels[i] = buildPanel(tab)
+    settings.panels[i] = tab[2] and buildPanel(tab) or buildPhrases()
     local button = CreateFrame("Button", "BuffDiggerSettingsTab" .. i, settings, "PanelTabButtonTemplate")
     button:SetID(i)
     button:SetText(L[tab[1]])
@@ -762,6 +746,7 @@ local function buildSettings()
     settings.tabButtons[i] = button
   end
   settings.tabButtons[1]:SetPoint("TOPLEFT", settings, "BOTTOMLEFT", 12, 2)
+  PanelTemplates_SetNumTabs(settings, #TABS) -- anchors the other tabs, each after the one before
 
   -- Bottom left, on every tab: simple (the default) or every setting. A first try (#52), easy to
   -- take out: nothing else depends on it but layout().
@@ -772,7 +757,6 @@ local function buildSettings()
   settings.advanced:ClearAllPoints()
   settings.advanced:SetPoint("BOTTOMLEFT", PAD, PAD)
   tip(settings.advanced, L[def.label], L[def.tip])
-  PanelTemplates_SetNumTabs(settings, #TABS) -- anchors the other tabs, each after the one before
 end
 
 -- Minimap left click, /bd config: always opens on General (#52).
