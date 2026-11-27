@@ -16,6 +16,8 @@ local function obj() local o = {} ; return setmetatable(o, {__index=function(t,k
   if k=="GetHeight" then return function(s) return rawget(s,"_h") or 0 end end
   if k=="GetCenter" then return function() return 0,0 end end
   if k=="SetScript" then return function(s,e,f) s["_"..e]=f end end
+  if k=="GetScript" then return function(s,e) return rawget(s,"_"..e) end end
+  if k=="SetChecked" then return function(s,v) rawset(s,"_checked",v) end end
   if k=="HookScript" then return function(s,e,f) local h=rawget(s,"_hooks") or {}; rawset(s,"_hooks",h); h[e]=h[e] or {}; table.insert(h[e],f) end end
   if k=="SetVertexColor" then return function(s,r) rawset(s,"_red",r<1) end end
   if k=="SetText" then return function(s,t) rawset(s,"_t",t) end end

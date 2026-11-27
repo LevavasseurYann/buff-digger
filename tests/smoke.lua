@@ -1041,6 +1041,8 @@ do
     local k = r.def.key
     if r.def.kind then kinds[r.def.kind] = true end
     if k then assert(ns.DEFAULTS[k] ~= nil, "row for an unknown key: "..k); assert(not seen[k], "two rows for "..k); seen[k] = true end
+    local want = ({ check = "boolean", choice = "string", cycle = "number" })[r.def.kind or "check"]
+    if k and want then assert(type(ns.DEFAULTS[k]) == want, ("%s: a %s row for a %s"):format(k, r.def.kind or "check", type(ns.DEFAULTS[k]))) end
   end
   for k in pairs(ns.DEFAULTS) do assert(seen[k] or noBox[k], "setting in no tab: "..k) end
   assert(kinds.prefs and kinds.plates and kinds.keys, "priorities, the game's nameplates, key bindings")
@@ -1068,6 +1070,18 @@ do
   box.GetChecked = nil; click(box); assert(BuffDiggerDB.useSay == true); BuffDiggerDB.useSay = false
   BuffDiggerDB.tone = "casual"; click(rowFor("tone").control); assert(BuffDiggerDB.tone == "polite"); BuffDiggerDB.tone = "casual"
   BuffDiggerDB.delay = 120; click(rowFor("delay").control); assert(BuffDiggerDB.delay == 300); BuffDiggerDB.delay = 120
+  -- Each widget shows what is saved when it shows.
+  local function shown(key) local w = rowFor(key).control; w._OnShow(w); return w end
+  BuffDiggerDB.useSay = true; assert(shown("useSay")._checked == true)
+  BuffDiggerDB.useSay = false; assert(shown("useSay")._checked == false, "box shows the saved value")
+  BuffDiggerDB.tone = "polite"; assert(shown("tone")._t == "Polite", shown("tone")._t); BuffDiggerDB.tone = "casual"
+  assert(shown("tone")._t == "Casual")
+  BuffDiggerDB.delay = 300; assert(shown("delay")._t == "5 min", shown("delay")._t); BuffDiggerDB.delay = 120
+  -- A window closed by its own button unticks its box, settings open.
+  click(s.tabButtons[1]); BuffDiggerDB.give = true; ns.applyWindows()
+  local giveBox = rowFor("give").control; giveBox._OnShow(giveBox); assert(giveBox._checked == true)
+  local close = _G.BuffDiggerGive.CloseButton; for _, f in ipairs(close._hooks.OnClick) do f(close) end
+  assert(BuffDiggerDB.give == false and giveBox._checked == false, "Get buffs box unticked")
   -- A tooltip on every setting, on its control and on its label (the row): the label, then the tip.
   local tip = {}
   GameTooltip.AddLine = function(_, t) tip[#tip+1] = t end
@@ -1083,6 +1097,7 @@ do
   end
   local prefs; for _, r in ipairs(rows()) do if r.def.kind == "prefs" then prefs = r end end
   s._OnShow(s); hover(prefs.lines[1].box); assert(tip[1] and tip[2]:find("^Ticked"), "priority line")
+  hover(prefs.lines[1]); assert(tip[2]:find("^Ticked"), "priority line, on its name")
   hover(prefs.reset); assert(tip[2]:find("default"), "Reset")
   GameTooltip.AddLine = nil
   -- Key bindings: the key each one has, or Not bound.
@@ -1090,7 +1105,17 @@ do
   BOUND = nil; keys._OnShow(keys); assert(keys.keys[1]._t:find("Not bound"))
   BOUND = "F5"; keys._OnShow(keys); assert(keys.keys[1]._t == "F5"); BOUND = nil
   local said; local realNotice = ns.notice; ns.notice = function(t) said = t end
-  click(keys.control); assert(said:find("Keybindings > AddOns"), "no settings API: says where"); ns.notice = realNotice
+  click(keys.control); assert(said:find("Keybindings > AddOns"), "no settings API: says where")
+  -- The game's page: opened, then the window hidden; in combat or if the call fails, it says where.
+  local opened, fails, realCombat = nil, false, InCombatLockdown
+  C_SettingsUtil = { OpenSettingsPanel = function(id) if fails then error("blocked") end opened = id end }
+  Settings = { KEYBINDINGS_CATEGORY_ID = 42 }
+  said = nil; s:Show(); click(keys.control); assert(opened == 42 and not s:IsShown() and not said, "opened, window hidden")
+  opened = nil; s:Show(); InCombatLockdown = function() return true end; click(keys.control); InCombatLockdown = realCombat
+  assert(not opened and s:IsShown() and said:find("Keybindings > AddOns"), "combat: no call, says where, window kept")
+  said = nil; fails = true; click(keys.control)
+  assert(s:IsShown() and said:find("Keybindings > AddOns"), "call fails: says where, window kept")
+  C_SettingsUtil, Settings, ns.notice = nil, nil, realNotice
   -- Simple: no advanced row, the others follow without a hole. The box shows them all, and is kept.
   local function noHole(panel)
     for _, col in ipairs(panel.columns) do

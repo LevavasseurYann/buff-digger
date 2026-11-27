@@ -435,15 +435,12 @@ function BUILD.help(row)
   return nil, row.measure()
 end
 
--- The game's key bindings page: opened if the game lets us, else where to find it.
+-- The game's key bindings page: opened if the game lets us, else where to find it. The window is
+-- hidden only once the page opened (shown again, keys read again, when the player comes back).
 local function openKeyBindings()
-  if C_SettingsUtil and C_SettingsUtil.OpenSettingsPanel and Settings and Settings.KEYBINDINGS_CATEGORY_ID
-    and not InCombatLockdown() then
-    settings:Hide() -- shown again, keys read again, when the player comes back
-    C_SettingsUtil.OpenSettingsPanel(Settings.KEYBINDINGS_CATEGORY_ID)
-  else
-    ns.notice(L["Key bindings: %s."]:format(L[KEYS_PATH]))
-  end
+  local ok = C_SettingsUtil and C_SettingsUtil.OpenSettingsPanel and Settings and Settings.KEYBINDINGS_CATEGORY_ID
+    and not InCombatLockdown() and pcall(C_SettingsUtil.OpenSettingsPanel, Settings.KEYBINDINGS_CATEGORY_ID)
+  if ok then settings:Hide() else ns.notice(L["Key bindings: %s."]:format(L[KEYS_PATH])) end
 end
 
 -- Buff Digger's key bindings and the key each one has (decision on #52: they were too well hidden).
@@ -452,8 +449,9 @@ function BUILD.keys(row, def)
   row.keys = keys
   for i, action in ipairs(KEYS) do
     local y = -(i - 1) * 16
-    text(row, "GameFontHighlightSmall", 4, y, COL_W - 100, _G["BINDING_NAME_" .. action])
+    text(row, "GameFontHighlightSmall", 4, y, COL_W - 100, _G["BINDING_NAME_" .. action]):SetWordWrap(false)
     keys[i] = text(row, "GameFontNormalSmall", COL_W - 92, y, 92, "")
+    keys[i]:SetWordWrap(false)
     keys[i]:SetJustifyH("RIGHT")
   end
   row:SetScript("OnShow", function()
@@ -513,8 +511,11 @@ function BUILD.prefs(row)
       elseif not self:GetChecked() and at then tremove(prefs, at) end
       changed()
     end)
-    tip(line.box, function() return spellName(line.key) end,
-      L["Ticked: Buff Digger asks for it, top first. Unticked: never asked. The arrows move it up or down."])
+    line:EnableMouse(true) -- its name too
+    for _, w in ipairs({ line.box, line }) do
+      tip(w, function() return spellName(line.key) end,
+        L["Ticked: Buff Digger asks for it, top first. Unticked: never asked. The arrows move it up or down."])
+    end
     prefRows[i] = line
     y = y - ROW_H
   end
@@ -965,7 +966,7 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
   end)
   w:Hide()
   -- The window's own close button turns the setting off too.
-  w.CloseButton:HookScript("OnClick", function() BuffDiggerDB[setting] = false end)
+  w.CloseButton:HookScript("OnClick", function() BuffDiggerDB[setting] = false ns.applyWindows() end)
 
   local header = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   header:SetPoint("TOP", 0, -5)
@@ -1644,6 +1645,13 @@ end)
 
 -- Show each window according to its setting (out of combat only).
 function ns.applyWindows()
+  -- Settings open: their boxes read again (a window closed by its own button unticks its box).
+  if settings and settings:IsShown() then
+    for _, row in ipairs(settings.panels[settings.selectedTab].rows) do
+      local onShow = row.control and row.control:GetScript("OnShow")
+      if onShow then onShow(row.control) end
+    end
+  end
   if InCombatLockdown() or not nearby then return end
   nearby:SetShown(BuffDiggerDB.nearby)
   give:SetShown(BuffDiggerDB.give)
