@@ -1029,6 +1029,48 @@ typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box em
 pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==#ns.MESSAGES.en.casual.new, typed)
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
+-- #52: the settings window, in tabs. Self-contained: puts back what it changes.
+do
+  local s = _G.BuffDiggerSettings
+  local function rows() local all = {} for _, p in ipairs(s.panels) do for _, r in ipairs(p.rows) do all[#all+1] = r end end return all end
+  local function rowFor(key) for _, r in ipairs(rows()) do if r.def.key == key then return r end end end
+  local function click(b) b._OnClick(b) end
+  -- No setting lost: each key of ns.DEFAULTS in exactly one row (those without a box aside), none unknown.
+  local seen, noBox, kinds = {}, { lockWindows = true, requests = true, showAdvanced = true }, {}
+  for _, r in ipairs(rows()) do
+    local k = r.def.key
+    if r.def.kind then kinds[r.def.kind] = true end
+    if k then assert(ns.DEFAULTS[k] ~= nil, "row for an unknown key: "..k); assert(not seen[k], "two rows for "..k); seen[k] = true end
+  end
+  for k in pairs(ns.DEFAULTS) do assert(seen[k] or noBox[k], "setting in no tab: "..k) end
+  assert(kinds.prefs and kinds.plates and kinds.keys, "priorities, the game's nameplates, key bindings")
+  -- Opens on General; a tab shows its panel and hides the others; opening again goes back to General.
+  ns.toggleSettings(); assert(s:IsShown() and s.selectedTab == 1 and s.panels[1]:IsShown())
+  click(s.tabButtons[2]); assert(s.selectedTab == 2 and s.panels[2]:IsShown())
+  for i, p in ipairs(s.panels) do assert(i == 2 or not p:IsShown(), "only Buffs shows") end
+  ns.toggleSettings(); assert(not s:IsShown()); ns.toggleSettings()
+  assert(s.selectedTab == 1 and s.panels[1]:IsShown() and not s.panels[2]:IsShown(), "back on General")
+  -- Fixed size; every column ends above the bottom line, with 13 priorities (#47 adds water and food).
+  local saved, n = BuffDiggerDB.showAdvanced, 0
+  for _ in pairs(ns.BUFFS) do n = n + 1 end
+  BuffDiggerDB.showAdvanced = true
+  assert(s:GetHeight() == 464)
+  for i in ipairs(s.panels) do
+    click(s.tabButtons[i])
+    for c, col in ipairs(s.panels[i].columns) do
+      local bottom = col.bottom - ((i == 2 and c == 1) and (13 - n) * 24 or 0)
+      assert(bottom >= s.limit, ("tab %d column %d overflows: %d < %d"):format(i, c, bottom, s.limit))
+    end
+  end
+  -- Each widget writes the key it wrote before.
+  local box = rowFor("useSay").control
+  box.GetChecked = function() return false end; BuffDiggerDB.useSay = true; click(box); assert(BuffDiggerDB.useSay == false)
+  box.GetChecked = nil; click(box); assert(BuffDiggerDB.useSay == true); BuffDiggerDB.useSay = false
+  BuffDiggerDB.tone = "casual"; click(rowFor("tone").control); assert(BuffDiggerDB.tone == "polite"); BuffDiggerDB.tone = "casual"
+  BuffDiggerDB.delay = 120; click(rowFor("delay").control); assert(BuffDiggerDB.delay == 300); BuffDiggerDB.delay = 120
+  BuffDiggerDB.showAdvanced = saved; s:Hide()
+end
+print("SETTINGS OK")
 -- #38: requests are per character. Each character has its own BuffDiggerCharDB (the game swaps it at
 -- login); settings stay in the account-wide BuffDiggerDB. Self-contained: puts back what it changes.
 do
