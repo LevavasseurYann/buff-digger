@@ -363,6 +363,8 @@ local function buildOptions()
     if section.language then
       choiceRow(LEFT_X, y - 4, "Write to players in", "language", ns.LANGUAGES)
       y = y - 28
+      choiceRow(LEFT_X, y - 4, "Tone", "tone", ns.TONES, true) -- #49
+      y = y - 28
       text(settings, "GameFontHighlight", LEFT_X + 4, y - 8, COL_W - 120, L["My own phrases"])
       local edit = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
       edit:SetSize(104, 22)
@@ -560,7 +562,7 @@ local function buildPhrases()
   end
   w:SetScript("OnShow", function() show(w.kind or "new") end)
   copy:SetScript("OnClick", function()
-    edit:SetText(table.concat(ns.builtIn(w.kind, BuffDiggerDB.language), "\n"))
+    edit:SetText(table.concat(ns.builtIn(w.kind, BuffDiggerDB.language, BuffDiggerDB.tone), "\n"))
     check()
     edit:SetFocus()
   end)
@@ -571,9 +573,9 @@ local function buildPhrases()
   preview:SetPoint("BOTTOMRIGHT", -PAD, PAD)
   preview:SetText(L["Try one (only you see it)"])
   preview:SetScript("OnClick", function()
-    local lang = BuffDiggerDB.language
-    ns.say(w.kind == "thanks" and ns.thanks(lang)
-      or ns.message(w.kind, w.kind == "replace" and "kings" or "fortitude", lang))
+    local lang, tone = BuffDiggerDB.language, BuffDiggerDB.tone
+    ns.say(w.kind == "thanks" and ns.thanks(lang, tone)
+      or ns.message(w.kind, w.kind == "replace" and "kings" or "fortitude", lang, tone))
   end)
   w.preview = preview
   phrases = w

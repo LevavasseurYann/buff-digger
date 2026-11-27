@@ -37,26 +37,72 @@ for _,s in ipairs(sent) do print("SENT", s) end
 BuffDiggerDB.language = "fr"
 print("FR:", ns.message("new", "fortitude", "fr"))
 print("EN:", ns.message("upgrade", "fortitude", "en"))
--- Every language has every kind and thanks; an unknown setting falls back to English.
-for _, lang in ipairs(ns.LANGUAGES) do
-  for _, kind in ipairs({ "new", "replace", "upgrade", "refresh" }) do
-    for _, m in ipairs(ns.MESSAGES[lang[1]][kind]) do assert(select(2, m:gsub("%%s", "")) == 1, m) end
+-- Every language x tone (#49): each ask bag (whatever its name, class bags too) has 3 lines or more,
+-- %s once, and fits the chat at worst ("Name : " in /say + longest hello, line, link and bye).
+-- A request never thanks. An unknown language falls back to English, an unknown tone to Casual.
+assert(BuffDiggerDB.tone=="casual", "a profile without a tone loads as Casual")
+local longest=0
+for _,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id)}) do
+  longest=math.max(longest, #(C_Spell.GetSpellLink(b.id):gsub("%[.-%]", "["..n.."]")))
+end end
+local function maxLen(list) local n=0; for _,s in ipairs(list) do n=math.max(n,#s) end return n end
+local function strings(t, f) for _,v in pairs(t) do if type(v)=="table" then strings(v,f) else f(v) end end end
+-- Every ask bag of a tone table (all but hello and bye), class bags too: f(name, list).
+local function eachAsk(m, f)
+  for part, list in pairs(m) do
+    if part=="byClass" then for class, b in pairs(list) do for p, l in pairs(b) do f(class.."."..p, l) end end
+    elseif part~="hello" and part~="bye" then f(part, list) end
   end
-  -- A request never thanks: the thank-you comes after the buff (ns.THANKS).
-  for part, list in pairs(ns.MESSAGES[lang[1]]) do
-    assert(#list > 0, lang[1] .. "." .. part)
-    for _, m in ipairs(list) do
-      if part == "hello" or part == "bye" then assert(not m:find("%%"), m) end
-      for _, w in ipairs({ "[Tt]hank", "[Mm]erci", "[Dd]ank", "[Gg]racias", "[Gg]razie", "[Vv]aleu",
-        "[Oo]brigad", "Спасибо", "спасибо", "[Бб]лагодар", "[Dd]zięk", "appreciated", "[Cc]heers", "Ty!" }) do
-        assert(not m:find(w), lang[1] .. " request thanks: " .. m)
-      end
+end
+for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
+  local m, where = ns.MESSAGES[lang[1]][tone[1]], lang[1].."."..tone[1]
+  assert(m and m.hello and m.bye and m.new, where)
+  local function ask(part, list)
+    assert(#list>=3, where.."."..part.." needs 3 lines")
+    for _,s in ipairs(list) do
+      assert(select(2, s:gsub("%%s", ""))==1, s)
+      local worst=27 + maxLen(m.hello) + #s - 2 + longest + maxLen(m.bye)
+      assert(worst<=255, where.." too long ("..worst.."): "..s)
     end
   end
-  local t = ns.THANKS[lang[1]]; assert(#t.thanks > 0 and #t.bye > 0, lang[1] .. " thanks")
-  print(lang[1], (ns.message("new", "might", lang[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1]))
+  for _,s in ipairs(m.hello) do assert(not s:find("%%"), s) end
+  for _,s in ipairs(m.bye) do assert(not s:find("%%"), s) end
+  eachAsk(m, ask)
+  if tone[1]=="casual" then local none; for _,s in ipairs(m.hello) do none=none or s=="" end; assert(none, where.." hello needs \"\"") end
+  strings(m, function(s)
+    for _, w in ipairs({ "[Tt]hank", "[Mm]erci", "[Dd]ank", "[Gg]racias", "[Gg]razie", "[Vv]aleu",
+      "[Oo]brigad", "Спасибо", "спасибо", "[Бб]лагодар", "[Dd]zięk", "appreciated", "[Cc]heers", "Ty!" }) do
+      assert(not s:find(w), where .. " request thanks: " .. s)
+    end
+  end)
+  local t = ns.THANKS[lang[1]][tone[1]]; assert(t and #t.thanks >= 3 and #t.bye > 0, where .. " thanks")
+  -- #23: a thank-you never ends like the request did ("" aside), and each side has 2 real endings.
+  -- Compared without case, spaces or punctuation: "Safe travels." and "safe travels!" are one ending.
+  local function norm(s) return (s:lower():gsub("[%p%s]", "")) end
+  local ends, n = {}, 0
+  for _,s in ipairs(m.bye) do if s~="" then ends[norm(s)]=true; n=n+1 end end
+  assert(n>=2, where.." request ends")
+  n=0; for _,s in ipairs(t.bye) do assert(s=="" or not ends[norm(s)], where.." thank-you ends like a request: "..s); if s~="" then n=n+1 end end
+  assert(n>=2, where.." thank-you ends")
+  print(where, (ns.message("new", "might", lang[1], tone[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1], tone[1]))
+end end
+-- Which bag a message came from: one of the ask lines of `m` (any part, class bags too).
+local function madeFrom(msg, m)
+  local found
+  eachAsk(m, function(_, list) for _,s in ipairs(list) do
+    local pat=s:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("%%%%s", ".-")
+    if msg:find(pat) then found=true end
+  end end)
+  return found
 end
-assert(ns.message("new", "might", "xx") and ns.thanks(nil))
+-- The tone is a parameter, like the language; Try one and Start from Buff Digger's follow it.
+for i=1,10 do assert(madeFrom(ns.message("new","might","en","polite"), ns.MESSAGES.en.polite), "polite") end
+for i=1,10 do assert(madeFrom(ns.message("new","might","en","xx"), ns.MESSAGES.en.casual), "unknown tone: Casual") end
+for i=1,10 do assert(madeFrom(ns.message("new","might","en"), ns.MESSAGES.en.casual), "no tone: Casual") end
+local bi=ns.builtIn("new","en","polite"); assert(#bi==#ns.MESSAGES.en.polite.new and bi[1]==ns.MESSAGES.en.polite.new[1]:gsub("%%s","{spell}"))
+for i=1,10 do local t=ns.thanks("en","polite"); local ok
+  for _,s in ipairs(ns.THANKS.en.polite.thanks) do ok=ok or t:sub(1,#s)==s end; assert(ok, "polite thanks: "..t) end
+assert(ns.message("new", "might", "xx") and ns.thanks(nil) and ns.thanks("xx", "xx"))
 
 SHIFT=true; ns.request("nameplate2"); units.nameplate3={"Anduin","PRIEST",40}; ns.request("nameplate3"); print("LAST", sent[#sent])
 local prev; for i=1,6 do local m=ns.message("new","might","en"); assert(m~=prev,"same twice"); prev=m; print("EN"..i, (m:gsub("|c%x+|H.-|h","")):gsub("|h|r","")) end
@@ -980,7 +1026,7 @@ ns.say=realSay
 pw.status.SetText=function(self, t) self.t=t end
 pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("your phrases %(1%)"))
 typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box empty"))
-pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==10, typed)
+pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==#ns.MESSAGES.en.casual.new, typed)
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
 -- #38: requests are per character. Each character has its own BuffDiggerCharDB (the game swaps it at
@@ -1122,7 +1168,6 @@ do
   assert(last("^WHISPER"):find("Buffs please: |c.-1243.- and |c.-14752.-!$"), last("^WHISPER")); ns.setCustom("new","")
   -- Every language: a multi line with %s once, and its own "and".
   for _,lang in ipairs(ns.LANGUAGES) do
-    for _,m in ipairs(ns.MESSAGES[lang[1]].multi) do assert(select(2, m:gsub("%%s",""))==1, m) end
     local m=ns.message("new",{"fortitude","spirit","shadow"},lang[1]); assert(m:find(ns.AND[lang[1]],1,true) and m:find(", |c"), m)
     print("#39", lang[1], (m:gsub("|c%x+|H.-|h",""):gsub("|h|r","")))
   end
@@ -1365,3 +1410,50 @@ do -- A buff I didn't ask for, from a known giver, seen landing: a Thank line, b
   ns.dismissThank()
 end
 print("GIFTS OK")
+print("=== tone (#49)")
+do
+  -- The request a player sends uses the Tone setting; my own phrases (#20) still come first.
+  units.player={"Yann","MAGE",40}; units.nameplate90={"Velen","PRIEST",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate90")
+  SHIFT=false; BuffDiggerDB.useSay=false; BuffDiggerDB.language="en"; myAuras={}; fire("UNIT_AURA","player")
+  local function ask(tone) BuffDiggerDB.tone=tone; BuffDiggerCharDB.asked={}; local b=#sent
+    ns.request("nameplate90","fortitude"); assert(#sent>b, "sent"); return sent[#sent] end
+  for i=1,6 do assert(madeFrom(ask("polite"), ns.MESSAGES.en.polite), "request in Polite") end
+  for i=1,6 do assert(madeFrom(ask(nil), ns.MESSAGES.en.casual), "no tone: Casual") end
+  -- Every language has its own Polite; outside English and French, Role play is Polite.
+  for _,lang in ipairs(ns.LANGUAGES) do local M, T = ns.MESSAGES[lang[1]], ns.THANKS[lang[1]]
+    assert(M.polite~=M.casual and T.polite~=T.casual, lang[1].." needs its own Polite") end
+  BuffDiggerDB.language="de"; for i=1,6 do assert(madeFrom(ask("roleplay"), ns.MESSAGES.de.polite), "de Role play: Polite") end
+  BuffDiggerDB.language="en"
+  -- Role play is its own (en, fr), with a touch of the giver's class where a bag exists for it.
+  for _,lang in ipairs({"en","fr"}) do local M=ns.MESSAGES[lang]
+    assert(M.roleplay~=M.polite and ns.THANKS[lang].roleplay~=ns.THANKS[lang].polite, lang.." Role play")
+    assert(M.roleplay.byClass.PRIEST.new, lang.." a priest's bag") end
+  for i=1,6 do local m=ask("roleplay"); assert(madeFrom(m, {x=ns.MESSAGES.en.roleplay.byClass.PRIEST.new}), "priest: his bag "..m)
+    assert(not madeFrom(m, ns.MESSAGES.en.polite), "true Role play") end
+  for i=1,6 do assert(madeFrom(ns.message("new","might","en","roleplay","WARRIOR"), {x=ns.MESSAGES.en.roleplay.new}), "no bag: neutral") end
+  for i=1,6 do assert(madeFrom(ns.message("upgrade","might","en","roleplay","PRIEST"), {x=ns.MESSAGES.en.roleplay.upgrade}), "no such part: neutral") end
+  ns.setCustom("new","Mine: {spell}"); assert(ask("polite"):find("Mine: |c"), "my phrases first"); ns.setCustom("new","")
+  BuffDiggerDB.tone="casual"; BuffDiggerCharDB.asked={}
+  -- #23: a request then a thank-you to the same player never end the same way ("Safe travels!" twice).
+  local function endsWith(s, e) return e~="" and s:sub(-#e)==e end
+  for _,lang in ipairs({"en","fr","de"}) do for _,tone in ipairs(ns.TONES) do for i=1,50 do
+    local m, t = ns.message("new","might",lang,tone[1]), ns.thanks(lang,tone[1])
+    for _,e in ipairs(ns.MESSAGES[lang][tone[1]].bye) do
+      assert(not (endsWith(m,e) and endsWith(t,e)), lang.." same ending twice: "..e)
+    end
+  end end end
+  -- The tone reaches the thank-you, "Start from Buff Digger's" and "Try one".
+  BuffDiggerDB.tone="polite"; ns.dismissThank()
+  BuffDiggerCharDB.asked={Velen={at=time(), key="fortitude", channel="WHISPER", target="Velen"}}
+  myAuras={aura(9700,"Mot de pouvoir : Robustesse",1243,"nameplate90")}; fire("UNIT_AURA","player")
+  local b=#sent; ns.thankBuffer("Velen"); local msg=sent[b+1]:match("^WHISPER Velen: (.*)")
+  local polite; for _,s in ipairs(ns.THANKS.en.polite.thanks) do polite=polite or msg:sub(1,#s)==s end
+  assert(polite, "thank-you in Polite: "..msg)
+  local pw=_G.BuffDiggerPhrases; pw.tabs[1]._OnClick(pw.tabs[1]); pw.edit:SetText(""); pw.copy._OnClick(pw.copy)
+  assert(pw.edit:GetText():find("^"..ns.MESSAGES.en.polite.new[1]:gsub("%%s","{spell}"):gsub("%p","%%%0").."\n"), "Start from: Polite")
+  ns.setCustom("new", ""); pw.edit:SetText("")
+  local said; local realSay=ns.say; ns.say=function(t) said=t end
+  for i=1,10 do pw.preview._OnClick(pw.preview); assert(madeFrom(said, ns.MESSAGES.en.polite), "Try one: Polite "..said) end
+  ns.say=realSay; BuffDiggerDB.tone="casual"; myAuras={}; fire("UNIT_AURA","player")
+end
+print("TONE OK")
