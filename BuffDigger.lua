@@ -574,7 +574,8 @@ function ns.bestBuff(name, class, level)
   local missingSeen = 0
   for i, key in ipairs(prefs) do
     local have = mine[key]
-    if not have or expiring(have) then
+    -- Water and food (#47) are never "had": only a click on their icon asks for them.
+    if not BUFFS[key].item and (not have or expiring(have)) then
       missingSeen = missingSeen + 1
       if missingFrom(key, class, level) then
         if not hisBlessing then return key, have and "refresh" or "new", missingSeen == 1 end

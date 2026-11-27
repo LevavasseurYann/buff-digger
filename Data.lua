@@ -91,19 +91,20 @@ ns.PREFERENCES = {
   -- Rage, no mana: Might feeds damage directly; Fortitude and Mark keep you alive between pulls;
   -- Kings is 10% of small stat totals while leveling, so below Might. Spirit last: faster health
   -- regen out of combat, a warrior's only downtime.
-  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns", "spirit" },
-  ROGUE   = { "might", "fortitude", "kings", "wild" },
+  -- Water (classes with mana) and food (all but the mage) come last (#47): only asked by a click.
+  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns", "spirit", "food" },
+  ROGUE   = { "might", "fortitude", "kings", "wild", "food" },
   -- Might only raises MELEE attack power in vanilla, useless for a bow. Mana matters (Aspects, Serpent Sting).
-  HUNTER  = { "kings", "fortitude", "wild", "wisdom", "intellect" },
+  HUNTER  = { "kings", "fortitude", "wild", "wisdom", "intellect", "water", "food" },
   -- Casters: downtime is drinking. Wisdom and Intellect cut it; Spirit helps priests/mages regen.
   MAGE    = { "wisdom", "intellect", "fortitude", "kings", "wild", "spirit" },
-  PRIEST  = { "wisdom", "intellect", "fortitude", "spirit", "kings", "wild" },
+  PRIEST  = { "wisdom", "intellect", "fortitude", "spirit", "kings", "wild", "water", "food" },
   -- Warlocks trade health for mana (Life Tap): Stamina first.
-  WARLOCK = { "fortitude", "wisdom", "intellect", "kings", "wild", "spirit" },
+  WARLOCK = { "fortitude", "wisdom", "intellect", "kings", "wild", "spirit", "water", "food" },
   -- Hybrids leveling in melee (Retribution, Enhancement, Feral) but healing between pulls.
-  PALADIN = { "might", "fortitude", "kings", "wisdom", "wild", "intellect" },
-  SHAMAN  = { "might", "fortitude", "kings", "wisdom", "wild", "intellect" },
-  DRUID   = { "might", "fortitude", "kings", "wisdom", "intellect", "wild" },
+  PALADIN = { "might", "fortitude", "kings", "wisdom", "wild", "intellect", "water", "food" },
+  SHAMAN  = { "might", "fortitude", "kings", "wisdom", "wild", "intellect", "water", "food" },
+  DRUID   = { "might", "fortitude", "kings", "wisdom", "intellect", "wild", "water", "food" },
 }
 
 -- What other players read. The language is a setting (English by default), NOT the client's language:

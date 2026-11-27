@@ -1526,4 +1526,31 @@ do
   assert(listed>0, "Give buffs lists Arcane Intellect")
   BuffDiggerDB.give=false; ns.applyWindows(); units.nameplate96=nil
 end
+do
+  -- Defaults: water for the classes with mana, food for all, last; nothing for a mage.
+  local P=ns.PREFERENCES
+  for class, list in pairs(P) do
+    local has={}; for i,k in ipairs(list) do has[k]=i end
+    if class=="MAGE" then assert(not has.water and not has.food, "a mage asks no mage")
+    else
+      assert(has.food==#list, class.." food last")
+      local mana = class~="WARRIOR" and class~="ROGUE"
+      assert((has.water~=nil)==mana, class.." water only with mana")
+      if mana then assert(has.water==#list-1, class.." water before food, last") end
+    end
+  end
+  -- Never picked by Buff Digger (#47, Yann): not the best icon, not the keys, not the tooltip line.
+  asWarrior47()
+  assert(ns.bestBuff("Khadgar","MAGE",40)==nil, "food is never the automatic choice")
+  units.player={"Yann","PRIEST",23}
+  local k=ns.bestBuff("Khadgar","MAGE",40); assert(k=="intellect", "a buff still is: "..tostring(k))
+  myAuras={aura(9800,"spell1459",1459,"nameplate95")}; fire("UNIT_AURA","player")
+  assert(ns.bestBuff("Khadgar","MAGE",40)==nil, "Intellect on me: nothing left but water and food")
+  local b, n1, n2=#sent, units.nameplate1, units.nameplate2; units.nameplate1=nil; units.nameplate2=nil; ns.askBest()
+  for i=b+1,#sent do assert(not sent[i]:find("Khadgar"), "the key never asks a mage for water: "..sent[i]) end
+  units.nameplate1, units.nameplate2 = n1, n2
+  -- A click still asks for it.
+  ns.request("nameplate95","water"); assert(sent[#sent]:find("Hspell:5504"), "a click asks")
+  units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
 print("ITEMS OK")
