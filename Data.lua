@@ -855,7 +855,7 @@ ns.LEVEL = { en = "lvl %d", fr = "niv. %d", de = "Stufe %d", es = "nivel %d", it
 ns.THANKS = {
   fr = {
     casual = {
-      thanks = { "Merci !", "Super, merci !", "Génial, merci !", "Merci pour le buff !", "Top, merci !" },
+      thanks = { "Merci !", "Super, merci !", "Génial, merci !", "Merci mille fois !", "Top, merci !" },
       bye = { "", " T'es au top !", " Bon jeu à toi !", " Bonne aventure !", " Bon courage !",
         " Bonne route !" },
     },
@@ -870,7 +870,7 @@ ns.THANKS = {
   },
   en = {
     casual = {
-      thanks = { "Thanks!", "Thanks a lot!", "Cheers!", "Ty!", "Awesome, thanks!", "Thanks for the buff!" },
+      thanks = { "Thanks!", "Thanks a lot!", "Cheers!", "Ty!", "Awesome, thanks!", "Thanks a bunch!" },
       bye = { "", " You're the best!", " Have a good one!", " Good luck out there!" },
     },
     polite = {
@@ -884,7 +884,7 @@ ns.THANKS = {
   },
   de = {
     casual = {
-      thanks = { "Danke!", "Super, danke!", "Danke für den Buff!" },
+      thanks = { "Danke!", "Super, danke!", "Danke dir!" },
       bye = { "", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!", " Gute Reise!" },
     },
     polite = {
@@ -894,7 +894,7 @@ ns.THANKS = {
   },
   es = {
     casual = {
-      thanks = { "¡Gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
+      thanks = { "¡Gracias!", "¡Genial, gracias!", "¡Mil gracias!" },
       bye = { "", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!", " ¡Buen viaje!" },
     },
     polite = {
@@ -904,7 +904,7 @@ ns.THANKS = {
   },
   it = {
     casual = {
-      thanks = { "Grazie!", "Fantastico, grazie!", "Grazie per il buff!" },
+      thanks = { "Grazie!", "Fantastico, grazie!", "Grazie davvero!" },
       bye = { "", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
     },
     polite = {
@@ -914,7 +914,7 @@ ns.THANKS = {
   },
   pt = {
     casual = {
-      thanks = { "Valeu!", "Show, valeu!", "Obrigado pelo buff!" },
+      thanks = { "Valeu!", "Show, valeu!", "Valeu demais!" },
       bye = { "", " Você é demais!", " Boa sorte!", " Boa aventura!", " Bom jogo!" },
     },
     polite = {
@@ -924,7 +924,7 @@ ns.THANKS = {
   },
   ru = {
     casual = {
-      thanks = { "Спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
+      thanks = { "Спасибо!", "Отлично, спасибо!", "Спасибо большое!" },
       bye = { "", " Удачи!", " Хорошей игры!" },
     },
     polite = {
@@ -934,7 +934,7 @@ ns.THANKS = {
   },
   pl = {
     casual = {
-      thanks = { "Dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
+      thanks = { "Dzięki!", "Super, dzięki!", "Dzięki bardzo!" },
       bye = { "", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
     },
     polite = {

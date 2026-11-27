@@ -1553,4 +1553,31 @@ do
   ns.request("nameplate95","water"); assert(sent[#sent]:find("Hspell:5504"), "a click asks")
   units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
 end
+do
+  -- No aura to wait for: the Thank line comes as soon as the request goes (#47, Yann).
+  asWarrior47()
+  ns.request("nameplate95","water")
+  local t=ns.thankEntry("Khadgar"); assert(t and t.keys[1]=="water" and not t.request.gift, "Thank line at once")
+  local b=#sent; ns.thankBuffer("Khadgar")
+  assert(sent[b+1]:find("^WHISPER Khadgar") and BuffDiggerCharDB.asked.Khadgar.thanked and not ns.thankEntry("Khadgar"), "thanked in the request's channel")
+  -- The cross closes it, nothing sent.
+  NOW=NOW+3600; BuffDiggerCharDB.asked={}; ns.request("nameplate95","food"); b=#sent
+  ns.closeAsk("Khadgar"); assert(#sent==b and not ns.thankEntry("Khadgar") and BuffDiggerCharDB.asked.Khadgar.thanked, "cross: closed, silent")
+  -- Arcane Intellect + water: one line now, Intellect joins it when it lands.
+  units.player={"Yann","PRIEST",23}; NOW=NOW+3600; BuffDiggerCharDB.asked={}
+  ns.request("nameplate95",{"intellect","water"}); assert(#ns.thanksWaiting()==1)
+  myAuras={aura(9801,"spell1459",1459,"nameplate95")}; fire("UNIT_AURA","player")
+  t=ns.thanksWaiting(); assert(#t==1 and #t[1].keys==2, "one line for both")
+  -- Get buffs: the water's icon instead of the tick, its tooltip says it was asked.
+  BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow()
+  local row; for _,r in ipairs(_G.BuffDiggerNearby.rows) do if r._shown and r.entry.who=="Khadgar" then row=r end end
+  assert(row and row.gift, "the item's icon on the gold band")
+  local tip={}; GameTooltip.AddLine=function(_,x) tip[#tip+1]=x end
+  row.thankButton._OnEnter(row.thankButton); assert(table.concat(tip):find("^Asked: "), table.concat(tip))
+  GameTooltip.AddLine=nil; BuffDiggerDB.nearby=false; ns.applyWindows(); ns.dismissThank()
+  -- No thank-you says "buff": it may be for water.
+  for lang, T in pairs(ns.THANKS) do strings(T, function(s)
+    assert(not s:lower():find("buff") and not s:find("баф"), lang.." thanks for a buff: "..s) end) end
+  units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
 print("ITEMS OK")

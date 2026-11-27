@@ -959,7 +959,8 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
         local names = {}
         for i, k in ipairs(t.keys) do names[i] = spellName(k) end
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine(L["Gift: %s (unasked)"]:format(table.concat(names, ", ")))
+        local what = t.request.gift and L["Gift: %s (unasked)"] or L["Asked: %s"] -- water or food (#47)
+        GameTooltip:AddLine(what:format(table.concat(names, ", ")))
         GameTooltip:Show()
       end)
       row.thankButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1196,8 +1197,10 @@ local function fill(w, list, emptyMessage)
         row.thank:SetShown(state == "thank")
         row.thankButton:SetShown(state == "thank")
         -- A gift (#43): the buff they gave instead of the tick (my request honoured); same gold band.
+        -- Water or food asked (#47): its icon too, the tick would say "seen landing".
         local t = state == "thank" and ns.thankEntry(e.who)
         local gift = t and t.request.gift and t.keys[#t.keys]
+        for _, k in ipairs(t and t.keys or {}) do if BUFFS[k].item then gift = k end end
         row.gift = gift and t or nil
         if gift then
           row.status:SetTexture(C_Spell.GetSpellTexture(BUFFS[gift].id) or 134400)

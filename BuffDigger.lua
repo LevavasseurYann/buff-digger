@@ -723,6 +723,10 @@ function ns.request(unit, chosen)
   for _, k in ipairs(keys) do if not asks(e, k) then e.keys[#e.keys + 1] = k end end
   e.at, e.key, e.channel, e.target, e.silent = time(), keys[1], channel, target, silent
   BuffDiggerCharDB.asked[name] = e
+  -- Water and food (#47): no aura will say they came, so their Thank line is there at once (Yann).
+  for _, k in ipairs(keys) do
+    if BUFFS[k].item then addToThank(name, class, target, k, e) end
+  end
   return true
 end
 
