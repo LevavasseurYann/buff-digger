@@ -1416,6 +1416,11 @@ do
     ns.request("nameplate90","fortitude"); assert(#sent>b, "sent"); return sent[#sent] end
   for i=1,6 do assert(madeFrom(ask("polite"), ns.MESSAGES.en.polite), "request in Polite") end
   for i=1,6 do assert(madeFrom(ask(nil), ns.MESSAGES.en.casual), "no tone: Casual") end
+  -- Every language has its own Polite; outside English and French, Role play is Polite.
+  for _,lang in ipairs(ns.LANGUAGES) do local M, T = ns.MESSAGES[lang[1]], ns.THANKS[lang[1]]
+    assert(M.polite~=M.casual and T.polite~=T.casual, lang[1].." needs its own Polite") end
+  BuffDiggerDB.language="de"; for i=1,6 do assert(madeFrom(ask("roleplay"), ns.MESSAGES.de.polite), "de Role play: Polite") end
+  BuffDiggerDB.language="en"
   ns.setCustom("new","Mine: {spell}"); assert(ask("polite"):find("Mine: |c"), "my phrases first"); ns.setCustom("new","")
   BuffDiggerDB.tone="casual"; BuffDiggerCharDB.asked={}
   -- #23: a request then a thank-you to the same player never end the same way ("Safe travels!" twice).

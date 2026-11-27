@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Pick your tone.** Settings > Requests > *Tone*, under *Write to players in*: *Casual* (the default), *Polite* or *Role play*. It sets how your requests and thank-yous read, and *Try one* and *Start from Buff Digger's* follow it. Casual is what you get after updating, with no setup, but the phrases you knew changed a little: the more careful ones moved to Polite. Your own phrases still come first, whatever the tone.
+- **Polite in all eight languages.** German, Spanish, Italian, Portuguese, Russian and Polish get their own Polite phrases (Sie, usted, Lei, вы...). Role play is written in English and French only: in the other languages it sends the Polite phrases.
 - **No more "Safe travels!" twice.** A thank-you never ends with the same words as the request you sent that player, in every language and tone.
 
 ## 1.3.0

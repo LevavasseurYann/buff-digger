@@ -100,7 +100,7 @@ ns.PREFERENCES = {
 -- comes back, so a dozen asks in a row never read like a bot. %s (only in the asks) is the spell link.
 -- No "thanks" in a request: the thank-you comes with a Thank click once the buff lands (ns.THANKS).
 -- Each language has one table per tone (#49), the Tone setting: casual, polite, roleplay. A missing
--- tone falls back (roleplay -> polite -> casual) at the end of this list, so every tone answers.
+-- roleplay falls back on polite at the end of this list, so every tone answers.
 ns.MESSAGES = {
   fr = {
     -- The spell goes in brackets or after a colon: French needs ta/ton/tes depending on the spell.
@@ -145,7 +145,7 @@ ns.MESSAGES = {
     },
     polite = {
       hello = { "Bonjour ! ", "Bien le bonjour ! ", "Salutations ! " },
-      bye = { "", "", " Quand vous aurez un instant.", " Sans urgence, bien sûr." },
+      bye = { "", "", " Quand vous pourrez.", " Sans urgence, bien sûr." },
       multi = {
         "Je ne dirais pas non à quelques buffs : %s",
         "Pourriez-vous me buff, s'il vous plaît ? (%s)",
@@ -280,6 +280,35 @@ ns.MESSAGES = {
         "Mein Buff ist fast weg, einmal auffrischen? (%s)",
       },
     },
+    polite = { -- Sie
+      hello = { "Hallo! ", "Guten Tag! ", "Grüße! " },
+      bye = { "", "", " Wenn es Ihnen passt.", " Ganz ohne Eile." },
+      multi = {
+        "Hätten Sie ein paar Buffs für mich? (%s)",
+        "Wenn Sie kurz Zeit haben: %s, bitte.",
+        "Dürfte ich Sie um ein paar Buffs bitten? (%s)",
+      },
+      new = {
+        "Hätten Sie einen Buff für mich? (%s)",
+        "Dürfte ich Sie um einen Buff bitten? (%s)",
+        "Wenn Sie kurz Zeit haben: %s, bitte.",
+      },
+      replace = {
+        "Könnten Sie meinen Segen tauschen? (lieber %s)",
+        "Dürfte ich Sie bitten, meinen Segen gegen %s zu tauschen?",
+        "Ihr Segen ist toll, aber dieser würde mir mehr helfen: %s",
+      },
+      upgrade = {
+        "Ihr Buff ist einen Rang höher als meiner. Würden Sie ihn erneuern? (%s)",
+        "Meiner hat nur einen niedrigen Rang. Dürfte ich Ihren haben? (%s)",
+        "Könnten Sie mir bitte Ihren stärkeren Buff geben? (%s)",
+      },
+      refresh = {
+        "Mein Buff läuft gleich aus. Könnten Sie ihn bitte erneuern? (%s)",
+        "%s läuft bei mir bald ab. Würden Sie ihn auffrischen?",
+        "Nur noch wenige Minuten %s. Dürfte ich Sie um eine Erneuerung bitten?",
+      },
+    },
   },
   es = {
     casual = {
@@ -312,6 +341,35 @@ ns.MESSAGES = {
         "Mi buff se acaba pronto, ¿me lo renuevas? (%s)",
         "%s se me va a acabar, ¿un rebuff, por favor?",
         "Me quedan pocos minutos de %s, ¿me renuevas el buff?",
+      },
+    },
+    polite = { -- usted
+      hello = { "¡Hola! ", "¡Saludos! ", "¡Hola, buenas! " },
+      bye = { "", "", " Cuando pueda.", " Sin prisa, por supuesto." },
+      multi = {
+        "¿Podría darme unos buffs, por favor? (%s)",
+        "Si tiene un momento: %s, por favor.",
+        "¿Sería tan amable de darme unos buffs? (%s)",
+      },
+      new = {
+        "¿Podría darme un buff, por favor? (%s)",
+        "Si tiene un momento: %s, por favor.",
+        "¿Sería tan amable de darme un buff? (%s)",
+      },
+      replace = {
+        "¿Podría cambiar mi bendición, por favor? (mejor %s)",
+        "¿Sería tan amable de ponerme %s en lugar de mi bendición?",
+        "Su bendición es estupenda, pero %s me ayudaría más.",
+      },
+      upgrade = {
+        "Su buff es de rango más alto que el mío. ¿Podría renovarlo? (%s)",
+        "El mío es de rango bajo. ¿Podría darme el suyo? (%s)",
+        "¿Sería tan amable de ponerme el suyo, que es más fuerte? (%s)",
+      },
+      refresh = {
+        "Mi buff se acaba pronto. ¿Podría renovarlo, por favor? (%s)",
+        "%s se me va a acabar. ¿Sería tan amable de renovarlo?",
+        "Me quedan pocos minutos de %s. ¿Podría renovármelo?",
       },
     },
   },
@@ -348,6 +406,35 @@ ns.MESSAGES = {
         "Mi restano pochi minuti di %s, mi rinnovi il buff?",
       },
     },
+    polite = { -- Lei
+      hello = { "Salve! ", "Buongiorno! ", "Ciao! " },
+      bye = { "", "", " Quando può.", " Senza fretta, s'intende." },
+      multi = {
+        "Potrebbe darmi qualche buff, per favore? (%s)",
+        "Se ha un attimo: %s, per favore.",
+        "Sarebbe così gentile da darmi qualche buff? (%s)",
+      },
+      new = {
+        "Potrebbe farmi un buff, per favore? (%s)",
+        "Se ha un attimo: %s, per favore.",
+        "Sarebbe così gentile da darmi un buff? (%s)",
+      },
+      replace = {
+        "Potrebbe cambiare la mia benedizione, per favore? (meglio %s)",
+        "Sarebbe così gentile da mettermi %s al posto della mia benedizione?",
+        "La Sua benedizione è ottima, ma %s mi aiuterebbe di più.",
+      },
+      upgrade = {
+        "Il Suo buff è di rango più alto del mio. Potrebbe rinnovarlo? (%s)",
+        "Il mio è di rango basso. Potrebbe darmi il Suo? (%s)",
+        "Sarebbe così gentile da darmi il Suo, che è più forte? (%s)",
+      },
+      refresh = {
+        "Il mio buff sta per scadere. Potrebbe rinnovarlo, per favore? (%s)",
+        "%s sta per finire. Sarebbe così gentile da rinnovarlo?",
+        "Mi restano pochi minuti di %s. Potrebbe rinnovarmelo?",
+      },
+    },
   },
   pt = { -- Brazilian: WoW's only Portuguese client is ptBR
     casual = {
@@ -380,6 +467,35 @@ ns.MESSAGES = {
         "Meu buff está quase acabando, pode renovar? (%s)",
         "%s está acabando, um rebuff por favor?",
         "Faltam poucos minutos de %s, renova o buff pra mim?",
+      },
+    },
+    polite = { -- você + por favor
+      hello = { "Olá! ", "Saudações! ", "Olá, tudo bem? " },
+      bye = { "", "", " Quando puder.", " Sem pressa, claro." },
+      multi = {
+        "Você poderia me dar uns buffs, por favor? (%s)",
+        "Se tiver um momento: %s, por favor.",
+        "Seria possível me dar uns buffs? (%s)",
+      },
+      new = {
+        "Você poderia me dar um buff, por favor? (%s)",
+        "Se tiver um momento: %s, por favor.",
+        "Seria possível me dar um buff? (%s)",
+      },
+      replace = {
+        "Você poderia trocar minha bênção, por favor? (prefiro %s)",
+        "Seria possível me dar %s no lugar da minha bênção?",
+        "Sua bênção é ótima, mas %s me ajudaria mais.",
+      },
+      upgrade = {
+        "Seu buff é de rank mais alto que o meu. Poderia renovar, por favor? (%s)",
+        "O meu é de rank baixo. Você poderia me dar o seu? (%s)",
+        "Seria possível me dar o seu, que é mais forte? (%s)",
+      },
+      refresh = {
+        "Meu buff está acabando. Você poderia renovar, por favor? (%s)",
+        "%s está quase no fim. Seria possível renovar?",
+        "Faltam poucos minutos de %s. Poderia renovar, por favor?",
       },
     },
   },
@@ -416,6 +532,35 @@ ns.MESSAGES = {
         "Осталось всего пару минут %s, обновишь?",
       },
     },
+    polite = { -- вы
+      hello = { "Здравствуйте! ", "Добрый день! ", "Приветствую! " },
+      bye = { "", "", " Когда сможете.", " Не спешите, конечно." },
+      multi = {
+        "Не могли бы вы меня бафнуть? (%s)",
+        "Если у вас есть минутка: %s, пожалуйста.",
+        "Можно попросить у вас бафы? (%s)",
+      },
+      new = {
+        "Не могли бы вы дать мне баф? (%s)",
+        "Если у вас есть минутка: %s, пожалуйста.",
+        "Можно попросить у вас баф? (%s)",
+      },
+      replace = {
+        "Не могли бы вы поменять мне благословение? (лучше %s)",
+        "Можно попросить у вас %s вместо моего благословения?",
+        "Ваше благословение отличное, но %s мне полезнее.",
+      },
+      upgrade = {
+        "Ваш баф выше рангом, чем мой. Не могли бы вы обновить? (%s)",
+        "У меня низкий ранг. Можно попросить ваш? (%s)",
+        "Не могли бы вы перебафнуть меня? (%s, у вас ранг выше)",
+      },
+      refresh = {
+        "Мой баф скоро спадёт. Не могли бы вы обновить? (%s)",
+        "%s скоро закончится. Можно попросить вас обновить?",
+        "Осталось всего пару минут %s. Не могли бы вы обновить?",
+      },
+    },
   },
   pl = {
     casual = {
@@ -450,6 +595,35 @@ ns.MESSAGES = {
         "Kończy mi się %s, odnowisz buffa?",
       },
     },
+    polite = { -- impersonal (no Pan/Pani: the reader's gender is unknown)
+      hello = { "Dzień dobry! ", "Witam! ", "Witaj! " },
+      bye = { "", "", " Gdy będzie można.", " Bez pośpiechu, oczywiście." },
+      multi = {
+        "Czy można prosić o kilka buffów? (%s)",
+        "Jeśli jest chwila: %s, proszę.",
+        "Uprzejmie proszę o kilka buffów: %s",
+      },
+      new = {
+        "Czy można prosić o buffa? (%s)",
+        "Jeśli jest chwila: %s, proszę.",
+        "Uprzejmie proszę o buffa: %s",
+      },
+      replace = {
+        "Czy można prosić o zmianę błogosławieństwa? (wolę %s)",
+        "Uprzejmie proszę o %s zamiast mojego błogosławieństwa.",
+        "Obecne błogosławieństwo jest świetne, ale %s bardziej mi pomoże.",
+      },
+      upgrade = {
+        "Czy można prosić o odnowienie? (%s, ma wyższą rangę niż mój)",
+        "Mój ma niską rangę. Czy można prosić o mocniejszy? (%s)",
+        "Uprzejmie proszę o mocniejszą wersję: %s",
+      },
+      refresh = {
+        "Mój buff zaraz spadnie. Czy można prosić o odnowienie? (%s)",
+        "%s zaraz się skończy. Uprzejmie proszę o odnowienie.",
+        "Zostało mi kilka minut %s. Czy można prosić o odnowienie?",
+      },
+    },
   },
 }
 
@@ -482,46 +656,69 @@ ns.THANKS = {
   },
   de = {
     casual = {
-      thanks = { "Danke!", "Vielen Dank!", "Danke schön!", "Super, danke!", "Danke für den Buff!" },
+      thanks = { "Danke!", "Super, danke!", "Danke für den Buff!" },
       bye = { "", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!", " Gute Reise!" },
+    },
+    polite = {
+      thanks = { "Vielen Dank!", "Danke schön!", "Herzlichen Dank!" },
+      bye = { "", " Einen schönen Tag noch!", " Alles Gute!", " Gute Fahrt!" },
     },
   },
   es = {
     casual = {
-      thanks = { "¡Gracias!", "¡Muchas gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
+      thanks = { "¡Gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
       bye = { "", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!", " ¡Buen viaje!" },
+    },
+    polite = {
+      thanks = { "¡Muchas gracias!", "¡Se lo agradezco!", "¡Muy amable, gracias!" },
+      bye = { "", " ¡Que tenga un buen día!", " ¡Mucha suerte!", " ¡Que le vaya bien!" },
     },
   },
   it = {
     casual = {
-      thanks = { "Grazie!", "Grazie mille!", "Fantastico, grazie!", "Grazie per il buff!" },
+      thanks = { "Grazie!", "Fantastico, grazie!", "Grazie per il buff!" },
       bye = { "", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
+    },
+    polite = {
+      thanks = { "Grazie mille!", "La ringrazio!", "Molto gentile, grazie!" },
+      bye = { "", " Buona giornata!", " Buon viaggio!", " Tante belle cose!" },
     },
   },
   pt = {
     casual = {
-      thanks = { "Valeu!", "Muito obrigado!", "Show, valeu!", "Obrigado pelo buff!" },
+      thanks = { "Valeu!", "Show, valeu!", "Obrigado pelo buff!" },
       bye = { "", " Você é demais!", " Boa sorte!", " Boa aventura!", " Bom jogo!" },
+    },
+    polite = {
+      thanks = { "Muito obrigado!", "Agradeço muito!", "Muito gentil, obrigado!" },
+      bye = { "", " Tenha um ótimo dia!", " Boa viagem!", " Tudo de bom!" },
     },
   },
   ru = {
     casual = {
-      thanks = { "Спасибо!", "Большое спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
+      thanks = { "Спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
       bye = { "", " Удачи!", " Хорошей игры!" },
+    },
+    polite = {
+      thanks = { "Большое спасибо!", "Благодарю вас!", "Очень любезно, спасибо!" },
+      bye = { "", " Хорошего дня!", " Всего доброго!", " Удачи вам!" },
     },
   },
   pl = {
     casual = {
-      thanks = { "Dzięki!", "Wielkie dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
+      thanks = { "Dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
       bye = { "", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
+    },
+    polite = {
+      thanks = { "Wielkie dzięki!", "Bardzo dziękuję!", "Dziękuję uprzejmie!" },
+      bye = { "", " Miłego dnia!", " Wszystkiego dobrego!", " Udanej podróży!" },
     },
   },
 }
 
--- A missing tone takes the next one down (#49): Role play -> Polite -> Casual.
+-- Role play exists in English and French only (#49): elsewhere it is Polite.
 for _, T in ipairs({ ns.MESSAGES, ns.THANKS }) do
   for _, l in pairs(T) do
-    l.polite = l.polite or l.casual
     l.roleplay = l.roleplay or l.polite
   end
 end
