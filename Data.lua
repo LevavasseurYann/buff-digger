@@ -245,7 +245,7 @@ ns.MESSAGES = {
     casual = {
       -- Like French: the spell goes in brackets or after a colon, no article to agree with.
       hello = { "Hallo! ", "Hey! ", "Hi! ", "Grüß dich! ", "Moin! ", "Servus! ", "" },
-      bye = { "", "", " :)", " Viel Erfolg noch!", " Gute Reise!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "Hättest du ein paar Buffs für mich? (%s)",
@@ -284,7 +284,7 @@ ns.MESSAGES = {
   es = {
     casual = {
       hello = { "¡Hola! ", "¡Buenas! ", "¡Hey! ", "¡Saludos! ", "" },
-      bye = { "", "", " :)", " ¡Buena suerte!", " ¡Buen viaje!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "¿Me podrías dar unos buffs? (%s)",
@@ -318,7 +318,7 @@ ns.MESSAGES = {
   it = {
     casual = {
       hello = { "Ciao! ", "Ehi! ", "Salve! ", "Ciao a te! ", "" },
-      bye = { "", "", " :)", " Buona avventura!", " Buon gioco!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "Mi daresti qualche buff? (%s)",
@@ -352,7 +352,7 @@ ns.MESSAGES = {
   pt = { -- Brazilian: WoW's only Portuguese client is ptBR
     casual = {
       hello = { "Oi! ", "E aí! ", "Olá! ", "Saudações! ", "" },
-      bye = { "", "", " :)", " Boa aventura!", " Bom jogo!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "Pode me dar uns buffs? (%s)",
@@ -386,7 +386,7 @@ ns.MESSAGES = {
   ru = {
     casual = {
       hello = { "Привет! ", "Здравствуй! ", "Хай! ", "Приветствую! ", "" },
-      bye = { "", "", " :)", " Удачи!", " Хорошей игры!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "Можешь бафнуть, пожалуйста? (%s)",
@@ -420,7 +420,7 @@ ns.MESSAGES = {
   pl = {
     casual = {
       hello = { "Cześć! ", "Hej! ", "Witaj! ", "Siema! ", "" },
-      bye = { "", "", " :)", " Powodzenia!", " Miłej gry!" },
+      bye = { "", "", " :)", " :D" },
       -- Several buffs from one player (#39): %s is every link, joined by ns.AND.
       multi = {
         "Możesz mnie zbuffować? (%s)",
@@ -483,37 +483,37 @@ ns.THANKS = {
   de = {
     casual = {
       thanks = { "Danke!", "Vielen Dank!", "Danke schön!", "Super, danke!", "Danke für den Buff!" },
-      bye = { "", " :)", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!" },
+      bye = { "", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!", " Gute Reise!" },
     },
   },
   es = {
     casual = {
       thanks = { "¡Gracias!", "¡Muchas gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
-      bye = { "", " :)", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!" },
+      bye = { "", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!", " ¡Buen viaje!" },
     },
   },
   it = {
     casual = {
       thanks = { "Grazie!", "Grazie mille!", "Fantastico, grazie!", "Grazie per il buff!" },
-      bye = { "", " :)", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
+      bye = { "", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
     },
   },
   pt = {
     casual = {
       thanks = { "Valeu!", "Muito obrigado!", "Show, valeu!", "Obrigado pelo buff!" },
-      bye = { "", " :)", " Você é demais!", " Boa sorte!", " Boa aventura!" },
+      bye = { "", " Você é demais!", " Boa sorte!", " Boa aventura!", " Bom jogo!" },
     },
   },
   ru = {
     casual = {
       thanks = { "Спасибо!", "Большое спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
-      bye = { "", " :)", " Удачи!", " Хорошей игры!" },
+      bye = { "", " Удачи!", " Хорошей игры!" },
     },
   },
   pl = {
     casual = {
       thanks = { "Dzięki!", "Wielkie dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
-      bye = { "", " :)", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
+      bye = { "", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
     },
   },
 }

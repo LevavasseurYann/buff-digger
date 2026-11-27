@@ -71,6 +71,12 @@ for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
     end
   end)
   local t = ns.THANKS[lang[1]][tone[1]]; assert(t and #t.thanks > 0 and #t.bye > 0, where .. " thanks")
+  -- #23: a thank-you never ends like the request did ("" aside), and each side has 2 real endings.
+  local ends, n = {}, 0
+  for _,s in ipairs(m.bye) do if s~="" then ends[s]=true; n=n+1 end end
+  assert(n>=2, where.." request ends")
+  n=0; for _,s in ipairs(t.bye) do assert(not ends[s], where.." thank-you ends like a request: "..s); if s~="" then n=n+1 end end
+  assert(n>=2, where.." thank-you ends")
   print(where, (ns.message("new", "might", lang[1], tone[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1], tone[1]))
 end end
 -- Which bag a message came from: one of the ask lines of `m` (any part, class bags too).
@@ -1412,5 +1418,13 @@ do
   for i=1,6 do assert(madeFrom(ask(nil), ns.MESSAGES.en.casual), "no tone: Casual") end
   ns.setCustom("new","Mine: {spell}"); assert(ask("polite"):find("Mine: |c"), "my phrases first"); ns.setCustom("new","")
   BuffDiggerDB.tone="casual"; BuffDiggerCharDB.asked={}
+  -- #23: a request then a thank-you to the same player never end the same way ("Safe travels!" twice).
+  local function endsWith(s, e) return e~="" and s:sub(-#e)==e end
+  for _,lang in ipairs({"en","fr","de"}) do for _,tone in ipairs(ns.TONES) do for i=1,50 do
+    local m, t = ns.message("new","might",lang,tone[1]), ns.thanks(lang,tone[1])
+    for _,e in ipairs(ns.MESSAGES[lang][tone[1]].bye) do
+      assert(not (endsWith(m,e) and endsWith(t,e)), lang.." same ending twice: "..e)
+    end
+  end end end
 end
 print("TONE OK")
