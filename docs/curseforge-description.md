@@ -20,6 +20,7 @@ No commands, no macros. Everything is a click in a window.
 - **The best rank around.** That level 15 priest's Fort is weak: Buff Digger waits for the level 45 one running by.
 - **Running out?** Five minutes before a buff drops, it asks again.
 - **One whisper per player.** Fort and Spirit from the same priest? Ctrl+click both icons in Get buffs, hit the arrow: asked together.
+- **Thirsty?** A mage's Conjure Water and Conjure Food sit next to his buffs: one click asks, with your level, so he conjures the rank you can drink. A mage with Buff Digger gets it in his Requests window and conjures that rank in one click.
 - **Never nags.** Same player, same buff: it waits before asking again.
 - **Pally, priest, mage or druid?** The Give buffs window lists who around lacks your buff. Click, they're buffed.
 - **Two Buff Digger users?** No whisper at all: the buffer gets the request in a window and buffs you in one click.
