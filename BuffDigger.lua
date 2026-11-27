@@ -49,6 +49,7 @@ ns.DEFAULTS = {
   thankGifts = true, -- a Thank line for a buff I didn't ask for too (#43)
   useSay = false,    -- ask in /say instead of a whisper
   language = "en",   -- language of messages to other players (a key of ns.MESSAGES)
+  tone = "casual",   -- tone of those messages: "casual", "polite" or "roleplay" (#49)
   debug = false,     -- print bet verdicts in chat
   delay = 120,       -- seconds before asking the same player again (#6)
   refreshBefore = 300, -- a buff with less than this many seconds left counts as missing (0 = never)
@@ -194,7 +195,7 @@ local function thank(name, request)
   -- A thank-you in the same channel as the request.
   request.thanked = true -- answered: one thank-you per request
   if BuffDiggerDB.thankMessage then
-    local text = ns.thanks(BuffDiggerDB.language)
+    local text = ns.thanks(BuffDiggerDB.language, BuffDiggerDB.tone)
     if request.channel == "SAY" then
       send(name .. " : " .. text, "SAY")
     else
@@ -702,11 +703,11 @@ function ns.request(unit, chosen)
   if keys[1] ~= key then kind = kindFor(name, keys[1], level) end -- the first one was left out
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
-  local text = ns.message(kind, keys, BuffDiggerDB.language)
+  local text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone)
   -- The chat takes 255 bytes ("Name : " first in /say): fewer buffs rather than a cut message.
   while #keys > 1 and #name + 3 + #text > 255 do
     keys[#keys] = nil
-    text = ns.message(kind, keys, BuffDiggerDB.language)
+    text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone)
   end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
   -- Each ticked buff its own kind (#40): one may be a refresh or a higher rank, another one new.
