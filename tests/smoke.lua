@@ -1411,7 +1411,7 @@ print("=== tone (#49)")
 do
   -- The request a player sends uses the Tone setting; my own phrases (#20) still come first.
   units.player={"Yann","MAGE",40}; units.nameplate90={"Velen","PRIEST",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate90")
-  SHIFT=false; BuffDiggerDB.useSay=false; BuffDiggerDB.language="en"
+  SHIFT=false; BuffDiggerDB.useSay=false; BuffDiggerDB.language="en"; myAuras={}; fire("UNIT_AURA","player")
   local function ask(tone) BuffDiggerDB.tone=tone; BuffDiggerCharDB.asked={}; local b=#sent
     ns.request("nameplate90","fortitude"); assert(#sent>b, "sent"); return sent[#sent] end
   for i=1,6 do assert(madeFrom(ask("polite"), ns.MESSAGES.en.polite), "request in Polite") end
@@ -1421,6 +1421,14 @@ do
     assert(M.polite~=M.casual and T.polite~=T.casual, lang[1].." needs its own Polite") end
   BuffDiggerDB.language="de"; for i=1,6 do assert(madeFrom(ask("roleplay"), ns.MESSAGES.de.polite), "de Role play: Polite") end
   BuffDiggerDB.language="en"
+  -- Role play is its own (en, fr), with a touch of the giver's class where a bag exists for it.
+  for _,lang in ipairs({"en","fr"}) do local M=ns.MESSAGES[lang]
+    assert(M.roleplay~=M.polite and ns.THANKS[lang].roleplay~=ns.THANKS[lang].polite, lang.." Role play")
+    assert(M.roleplay.byClass.PRIEST.new, lang.." a priest's bag") end
+  for i=1,6 do local m=ask("roleplay"); assert(madeFrom(m, {x=ns.MESSAGES.en.roleplay.byClass.PRIEST.new}), "priest: his bag "..m)
+    assert(not madeFrom(m, ns.MESSAGES.en.polite), "true Role play") end
+  for i=1,6 do assert(madeFrom(ns.message("new","might","en","roleplay","WARRIOR"), {x=ns.MESSAGES.en.roleplay.new}), "no bag: neutral") end
+  for i=1,6 do assert(madeFrom(ns.message("upgrade","might","en","roleplay","PRIEST"), {x=ns.MESSAGES.en.roleplay.upgrade}), "no such part: neutral") end
   ns.setCustom("new","Mine: {spell}"); assert(ask("polite"):find("Mine: |c"), "my phrases first"); ns.setCustom("new","")
   BuffDiggerDB.tone="casual"; BuffDiggerCharDB.asked={}
   -- #23: a request then a thank-you to the same player never end the same way ("Safe travels!" twice).

@@ -703,11 +703,11 @@ function ns.request(unit, chosen)
   if keys[1] ~= key then kind = kindFor(name, keys[1], level) end -- the first one was left out
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
-  local text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone)
+  local text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class)
   -- The chat takes 255 bytes ("Name : " first in /say): fewer buffs rather than a cut message.
   while #keys > 1 and #name + 3 + #text > 255 do
     keys[#keys] = nil
-    text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone)
+    text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class)
   end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
   -- Each ticked buff its own kind (#40): one may be a refresh or a higher rank, another one new.

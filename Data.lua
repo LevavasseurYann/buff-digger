@@ -173,6 +173,59 @@ ns.MESSAGES = {
         "Il ne me reste que quelques minutes de %s. Pourriez-vous le relancer ?",
       },
     },
+    -- Role play: neutral and vous (see the English one for byClass).
+    roleplay = {
+      hello = { "Salutations, voyageur ! ", "Bien le bonjour ! ", "Je vous salue ! ", "Holà ! " },
+      bye = { "", "", " Si votre mana le permet.", " Sans vouloir vous presser." },
+      multi = {
+        "Des buffs pour un voyageur fatigué ? (%s)",
+        "La route est longue : me feriez-vous la grâce de quelques bienfaits ? (%s)",
+        "Puis-je quémander vos bienfaits, l'ami ? (%s)",
+      },
+      new = {
+        "Un buff pour un voyageur fatigué ? (%s)",
+        "Accorderiez-vous à un humble voyageur un peu de votre pouvoir ? (%s)",
+        "Puis-je quémander votre bienfait, l'ami ? (%s)",
+        "La route est longue : me feriez-vous la grâce d'un buff ? (%s)",
+      },
+      replace = {
+        "Votre bénédiction m'honore, mais celle-ci me servirait mieux : %s",
+        "Accepteriez-vous d'échanger votre bénédiction contre celle-ci ? %s",
+        "Puis-je vous prier de changer ma bénédiction ? (%s plutôt)",
+      },
+      upgrade = {
+        "Votre pouvoir surpasse le mien, l'ami. Me l'accorderiez-vous ? (%s)",
+        "Le mien n'est qu'une pâle lueur : accepteriez-vous de me lancer le vôtre ? (%s)",
+        "Votre bienfait est plus puissant que le mien : me feriez-vous cet honneur ? (%s)",
+      },
+      refresh = {
+        "Mon bienfait s'étiole, l'ami : le renouvelleriez-vous ? (%s)",
+        "Le pouvoir de %s s'estompe en moi. Pourriez-vous le raviver ?",
+        "Avant que mon bienfait ne s'efface, me le rendriez-vous ? (%s)",
+      },
+      byClass = {
+        PALADIN = { new = {
+          "Au nom de la Lumière, m'accorderiez-vous ceci ? %s",
+          "Puis-je recevoir la grâce de la Lumière par vos mains ? (%s)",
+          "La Lumière vous guide, l'ami : me feriez-vous ce don ? (%s)",
+        } },
+        PRIEST = { new = {
+          "Par la Lumière, me feriez-vous ce don ? (%s)",
+          "Prieriez-vous la Lumière pour moi, l'ami ? (%s)",
+          "Un peu de la Lumière pour un voyageur ? (%s)",
+        } },
+        DRUID = { new = {
+          "La nature m'accorderait-elle son don par vos mains ? (%s)",
+          "Gardien des bois, me feriez-vous ce présent ? (%s)",
+          "Un peu de la force des terres sauvages, l'ami ? (%s)",
+        } },
+        MAGE = { new = {
+          "Tisseriez-vous un peu d'arcane pour moi ? (%s)",
+          "Un soupçon d'arcanes pour un voyageur ? (%s)",
+          "Me prêteriez-vous un peu de votre savoir arcanique ? (%s)",
+        } },
+      },
+    },
   },
   en = {
     casual = {
@@ -238,6 +291,60 @@ ns.MESSAGES = {
         "My %s is about to wear off, could you refresh it?",
         "Could you refresh my %s please? It's running out.",
         "Would you mind renewing my %s? It is about to wear off.",
+      },
+    },
+    -- Role play: a neutral register that fits any race and class. byClass (optional, any part) gives
+    -- the giver's class a touch of its own; a missing bag falls back on the neutral one (#51 adds more).
+    roleplay = {
+      hello = { "Well met! ", "Hail and well met! ", "Greetings, traveler! ", "Hail, friend! " },
+      bye = { "", "", " If thou canst spare the mana.", " Only should time allow." },
+      multi = {
+        "Might I beg %s of thee?",
+        "Would you grant a weary traveler %s?",
+        "The road is long. Could you spare %s?",
+      },
+      new = {
+        "Might I beg %s of thee, friend?",
+        "Would you grant a weary traveler %s?",
+        "Could you spare %s for the road ahead?",
+        "I would gladly bear %s into battle, if you would grant it.",
+      },
+      replace = {
+        "Might I trade thy blessing for %s? It would serve me better.",
+        "Thy blessing honors me, yet %s would serve me better.",
+        "Would you bless me with %s instead?",
+      },
+      upgrade = {
+        "Thy %s burns brighter than mine. Would you lend it to me?",
+        "Mine is but a faint %s. Would you grant me yours?",
+        "Your %s is mightier than mine, friend. Would you renew it?",
+      },
+      refresh = {
+        "My %s fades, friend. Would you renew it?",
+        "The power of %s wanes upon me. Might you restore it?",
+        "Ere my %s fades, could you renew it?",
+      },
+      byClass = {
+        PALADIN = { new = {
+          "Might the Light grant me %s through thy hands?",
+          "In the Light's name, would you grant me %s?",
+          "Would you call upon the Light for %s, friend?",
+        } },
+        PRIEST = { new = {
+          "Might the Light grant me thy %s?",
+          "Would you ask the Light for %s on my behalf?",
+          "By the Light, could you spare %s?",
+        } },
+        DRUID = { new = {
+          "Might nature grant me %s through you, friend?",
+          "Could you spare %s, keeper of the wilds?",
+          "Would you share the gift of the wild? %s",
+        } },
+        MAGE = { new = {
+          "Could you weave %s upon me, friend?",
+          "Might I borrow a touch of the arcane? %s",
+          "Would you spare a little arcane might? %s",
+        } },
       },
     },
   },
@@ -643,6 +750,10 @@ ns.THANKS = {
       thanks = { "Merci beaucoup !", "Parfait, merci !", "Merci bien !", "Je vous remercie !" },
       bye = { "", " Bonne continuation !", " Excellente journée !", " Bon jeu !" },
     },
+    roleplay = {
+      thanks = { "Mille mercis, l'ami !", "Toute ma gratitude !", "Je vous suis redevable !", "Merci, noble ami !" },
+      bye = { "", " Que la route vous soit douce.", " Puissent nos chemins se recroiser.", " Bonne route, voyageur." },
+    },
   },
   en = {
     casual = {
@@ -652,6 +763,10 @@ ns.THANKS = {
     polite = {
       thanks = { "Thank you!", "Much appreciated!", "Perfect, thank you!", "Thank you very much!" },
       bye = { "", " Have a great one!", " Safe travels!", " All the best!" },
+    },
+    roleplay = {
+      thanks = { "My thanks, friend!", "You have my gratitude!", "I am in thy debt!", "Thank you kindly!" },
+      bye = { "", " Safe roads, friend.", " May your path be ever clear.", " Until our paths cross again." },
     },
   },
   de = {
@@ -828,7 +943,7 @@ end
 
 -- keys: one buff key, or a list of them (#39): "[A] and [B]", "[A], [B] and [C]", in our `multi`
 -- lines, or in the player's own lines for `kind` (their {spell} then stands for every link).
-function ns.message(kind, keys, lang, tone)
+function ns.message(kind, keys, lang, tone, class)
   if not ns.MESSAGES[lang] then lang = "en" end
   if type(keys) ~= "table" then keys = { keys } end
   local links = {}
@@ -840,7 +955,9 @@ function ns.message(kind, keys, lang, tone)
     return (pick(list):gsub("{spell}", function() return spells end))
   end
   local m = toned(ns.MESSAGES, lang, tone)
-  local line = pick(#keys > 1 and m.multi or m[kind])
+  local part = #keys > 1 and "multi" or kind
+  local own = m.byClass and m.byClass[class] -- the giver's class, in Role play
+  local line = pick(own and own[part] or m[part])
   return pick(m.hello) .. line:format(spells) .. pick(m.bye)
 end
 
