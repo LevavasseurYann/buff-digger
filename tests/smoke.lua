@@ -47,6 +47,13 @@ for _,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id
 end end
 local function maxLen(list) local n=0; for _,s in ipairs(list) do n=math.max(n,#s) end return n end
 local function strings(t, f) for _,v in pairs(t) do if type(v)=="table" then strings(v,f) else f(v) end end end
+-- Every ask bag of a tone table (all but hello and bye), class bags too: f(name, list).
+local function eachAsk(m, f)
+  for part, list in pairs(m) do
+    if part=="byClass" then for class, b in pairs(list) do for p, l in pairs(b) do f(class.."."..p, l) end end
+    elseif part~="hello" and part~="bye" then f(part, list) end
+  end
+end
 for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
   local m, where = ns.MESSAGES[lang[1]][tone[1]], lang[1].."."..tone[1]
   assert(m and m.hello and m.bye and m.new, where)
@@ -58,11 +65,9 @@ for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
       assert(worst<=255, where.." too long ("..worst.."): "..s)
     end
   end
-  for part, list in pairs(m) do
-    if part=="hello" or part=="bye" then for _,s in ipairs(list) do assert(not s:find("%%"), s) end
-    elseif part=="byClass" then for class, b in pairs(list) do for p, l in pairs(b) do ask(class.."."..p, l) end end
-    else ask(part, list) end
-  end
+  for _,s in ipairs(m.hello) do assert(not s:find("%%"), s) end
+  for _,s in ipairs(m.bye) do assert(not s:find("%%"), s) end
+  eachAsk(m, ask)
   if tone[1]=="casual" then local none; for _,s in ipairs(m.hello) do none=none or s=="" end; assert(none, where.." hello needs \"\"") end
   strings(m, function(s)
     for _, w in ipairs({ "[Tt]hank", "[Mm]erci", "[Dd]ank", "[Gg]racias", "[Gg]razie", "[Vv]aleu",
@@ -82,14 +87,10 @@ end end
 -- Which bag a message came from: one of the ask lines of `m` (any part, class bags too).
 local function madeFrom(msg, m)
   local found
-  local function try(list) for _,s in ipairs(list) do
+  eachAsk(m, function(_, list) for _,s in ipairs(list) do
     local pat=s:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("%%%%s", ".-")
     if msg:find(pat) then found=true end
-  end end
-  for part, list in pairs(m) do
-    if part=="byClass" then for _,b in pairs(list) do for _,l in pairs(b) do try(l) end end
-    elseif part~="hello" and part~="bye" then try(list) end
-  end
+  end end)
   return found
 end
 -- The tone is a parameter, like the language; Try one and Start from Buff Digger's follow it.
