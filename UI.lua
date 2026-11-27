@@ -281,6 +281,17 @@ local function arrow(parent, texture, onClick)
   return b
 end
 
+-- Hovering a setting: its label, then what it changes in game. `title` may be a function.
+local function tip(widget, title, body)
+  widget:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(type(title) == "function" and title() or title)
+    GameTooltip:AddLine(body, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  widget:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
 -- A label on the left of the row, a button on its right.
 local function labelButton(row, caption, width, labelWidth)
   text(row, "GameFontHighlight", 4, -8, labelWidth, caption)
@@ -302,6 +313,7 @@ function BUILD.check(row, def)
   local box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
   box:SetSize(ROW_H, ROW_H)
   box:SetPoint("TOPLEFT")
+  box:SetHitRectInsets(0, -(COL_W - ROW_H), 0, 0) -- the label too: click or hover the whole row
   local label = box:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   label:SetPoint("LEFT", box, "RIGHT", 4, 0)
   label:SetWidth(COL_W - ROW_H - 8)
@@ -386,13 +398,6 @@ function BUILD.plates(row)
   end
   local function choose(style) ns.setPlateStyle(style) update() end
   button:SetScript("OnShow", update)
-  button:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(L["Friendly nameplates"])
-    GameTooltip:AddLine(L["Buff Digger sees players through them. Pick how they look; hover each choice for more."], 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  button:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- Changed elsewhere (game options, /bd nameplates) while the settings are open.
   C_Timer.NewTicker(1, function() if button:IsVisible() then update() end end)
   button:SetScript("OnClick", function(self)
@@ -432,7 +437,7 @@ end
 function BUILD.help(row)
   local lines = {}
   for i, line in ipairs(HOW_TO) do lines[i] = L[line] end
-  local help = text(row, "GameFontDisableSmall", 0, 0, COL_W, table.concat(lines, "\n"))
+  local help = text(row, "GameFontHighlightSmall", 0, 0, COL_W, table.concat(lines, "\n"))
   help:SetSpacing(2)
   -- Measured at each layout (the text is shown then); GetStringHeight can be 0 on a hidden frame:
   -- never less than one line per tip.
@@ -454,6 +459,7 @@ end
 -- Buff Digger's key bindings and the key each one has (decision on #52: they were too well hidden).
 function BUILD.keys(row, def)
   local keys = {}
+  row.keys = keys
   for i, action in ipairs(KEYS) do
     local y = -(i - 1) * 16
     text(row, "GameFontHighlightSmall", 4, y, COL_W - 100, _G["BINDING_NAME_" .. action])
@@ -479,9 +485,10 @@ function BUILD.prefs(row)
   local _, myClass = UnitClass("player")
   local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[myClass] or myClass
   text(row, "GameFontNormal", 0, 0, COL_W, L["My buff priorities (%s)"]:format(className))
-  text(row, "GameFontDisableSmall", 0, -20, COL_W, L["Ticked buffs get asked for, top first. Unticked: never asked."])
+  text(row, "GameFontHighlightSmall", 0, -20, COL_W, L["Ticked buffs get asked for, top first. Unticked: never asked."])
 
   prefRows = {}
+  row.lines = prefRows
   local count, y = 0, -40
   for _ in pairs(BUFFS) do count = count + 1 end
   for i = 1, count do
@@ -520,6 +527,8 @@ function BUILD.prefs(row)
       elseif not self:GetChecked() and at then tremove(prefs, at) end
       changed()
     end)
+    tip(line.box, function() return spellName(line.key) end,
+      L["Ticked: Buff Digger asks for it, top first. Unticked: never asked. The arrows move it up or down."])
     prefRows[i] = line
     y = y - ROW_H
   end
@@ -532,6 +541,8 @@ function BUILD.prefs(row)
     BuffDiggerDB.prefs[myClass] = nil
     changed()
   end)
+  tip(reset, L["Reset to default"], L["Back to the default priorities for your class."])
+  row.reset = reset
   return nil, -y + GAP + 22
 end
 
@@ -563,6 +574,11 @@ local function buildPanel(tab)
       row.def = def
       row.control, row.h = BUILD[def.kind or (def.title and "title") or "check"](row, def)
       row:SetSize(COL_W, row.h)
+      if def.tip then -- on the control, and on the row for its label
+        row:EnableMouse(true)
+        tip(row, L[def.label], L[def.tip])
+        tip(row.control, L[def.label], L[def.tip])
+      end
       column[#column + 1] = row
       panel.rows[#panel.rows + 1] = row
     end

@@ -1068,6 +1068,29 @@ do
   box.GetChecked = nil; click(box); assert(BuffDiggerDB.useSay == true); BuffDiggerDB.useSay = false
   BuffDiggerDB.tone = "casual"; click(rowFor("tone").control); assert(BuffDiggerDB.tone == "polite"); BuffDiggerDB.tone = "casual"
   BuffDiggerDB.delay = 120; click(rowFor("delay").control); assert(BuffDiggerDB.delay == 300); BuffDiggerDB.delay = 120
+  -- A tooltip on every setting, on its control and on its label (the row): the label, then the tip.
+  local tip = {}
+  GameTooltip.AddLine = function(_, t) tip[#tip+1] = t end
+  local function hover(w) tip = {}; assert(w._OnEnter, "no tooltip"); w._OnEnter(w); return tip end
+  for _, r in ipairs(rows()) do
+    local what = r.def.key or r.def.kind
+    if what and r.def.kind ~= "help" and r.def.kind ~= "prefs" and r.def.kind ~= "phrases" then
+      assert(r.def.tip and r.def.tip ~= "", "no tip: "..what)
+      for _, w in ipairs({ r.control, r }) do
+        hover(w); assert(tip[1] == r.def.label and tip[2] == r.def.tip, "tooltip of "..what..": "..tostring(tip[1]))
+      end
+    end
+  end
+  local prefs; for _, r in ipairs(rows()) do if r.def.kind == "prefs" then prefs = r end end
+  s._OnShow(s); hover(prefs.lines[1].box); assert(tip[1] and tip[2]:find("^Ticked"), "priority line")
+  hover(prefs.reset); assert(tip[2]:find("default"), "Reset")
+  GameTooltip.AddLine = nil
+  -- Key bindings: the key each one has, or Not bound.
+  local keys; for _, r in ipairs(rows()) do if r.def.kind == "keys" then keys = r end end
+  BOUND = nil; keys._OnShow(keys); assert(keys.keys[1]._t:find("Not bound"))
+  BOUND = "F5"; keys._OnShow(keys); assert(keys.keys[1]._t == "F5"); BOUND = nil
+  local said; local realNotice = ns.notice; ns.notice = function(t) said = t end
+  click(keys.control); assert(said:find("Keybindings > AddOns"), "no settings API: says where"); ns.notice = realNotice
   BuffDiggerDB.showAdvanced = saved; s:Hide()
 end
 print("SETTINGS OK")
