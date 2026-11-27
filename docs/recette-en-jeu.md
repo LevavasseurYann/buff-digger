@@ -48,11 +48,11 @@ jouer normalement puis coller `/bd` : la plupart des lignes se remplissent toute
 | 53 | Demander la Robustesse à un prêtre A ; un autre prêtre B la donne d'abord ; puis A la donne ; et, prêtre, se la lancer soi-même avec une demande ouverte | Ligne *Thank* pour A (sa demande) et pour B (cadeau, #43), rien pour soi. Puis `/bd` : noter la ligne *Buffs received with no identifiable giver* (si elle grimpe avec des inconnus, leurs lignes manquent) | Send /thank |
 | 77 | En ville, demander un buff à un joueur dont la barre de nom clignote (foule), ou qui s'éloigne juste après avoir lancé le sort (#41) | Une ligne *Thank* à son nom complet « Prénom Nom », comme sur sa barre de nom (le nom vient de `GetPlayerInfoByGUID` : s'il arrive sans le nom de famille ou avec le royaume, aucune ligne : le noter, ce joueur en cible : `/dump GetPlayerInfoByGUID(UnitGUID("target"))`, 6ᵉ et 7ᵉ valeurs) | Know who put a buff on me |
 | 19 | Avec un buff déjà sur soi, faire une demande puis se transformer (Loup fantôme, forme de druide) | Aucune ligne *Thank* | — |
-| 20 | Réglages > *On nameplates* : essayer les 4 choix ; en *Every buff*, clic sur la 2e icône d'un paladin | Rien / petite icône Buff Digger / une icône / une par béné ; la demande porte sur l'icône cliquée ; survol = nom du sort et rang ; en foule, les icônes ne gênent pas le clic sur un voisin | Receive a click on that icon |
+| 20 | Réglages > General > *Icons on nameplates* : essayer les 4 choix ; en *Every buff*, clic sur la 2e icône d'un paladin | Rien / petite icône Buff Digger / une icône / une par béné ; la demande porte sur l'icône cliquée ; survol = nom du sort et rang ; en foule, les icônes ne gênent pas le clic sur un voisin | Receive a click on that icon |
 | 21 | Get buffs en ville (plus de 10 joueurs) | Plusieurs icônes par ligne, clic = ce buff, clic sur le nom = le cible (sans MP, Shift/Ctrl-clic aussi) ; la molette fait défiler, même le curseur sur une ligne ou une icône ; petites flèches haut/bas seulement quand il reste des joueurs de ce côté (clic = défile) ; le coin bas-droit agrandit la fenêtre (plus de lignes), taille et position gardées après /reload ; les flèches et le coin s'affichent bien (pas de carré vert) ; cadenas de l'en-tête : fermé = ni déplacement ni coin, ouvert = libre ; il s'affiche bien (sinon : `/dump GetFileIDFromPath("Interface\\Buttons\\LockButton-Locked-Up")`) | — |
 | 22 | Get buffs, et barres de nom en *Every buff* | Toutes les icônes en pleine opacité, dans l'ordre de mes priorités ; buffs déjà sur soi en gris | — |
-| 23 | Get buffs : clic sur un nom, hors instance puis en instance ; puis Réglages > *Get buffs: target the player I ask*, clic sur une icône | Le joueur devient ma cible, aucun MP ; avec l'option, l'icône le cible **et** envoie la demande ; clic droit = menu, sans ciblage ; aucune erreur « action bloquée » en entrant en combat fenêtre ouverte | — |
-| 29 | Get buffs en ville, Réglages > *Get buffs: only those with something better* coché puis décoché | Coché : seuls restent les joueurs qui m'apportent un buff manquant, un rang plus fort ou un buff qui expire ; les autres disparaissent : ceux dont j'ai déjà tout, et ceux qui n'ont rien de ma liste de priorités (un mage pour un guerrier) (en moins d'une seconde). Personne d'utile : « Nobody around has anything better for you. » Décoché : ils reviennent, en fin de liste | — |
+| 23 | Get buffs : clic sur un nom, hors instance puis en instance ; puis Réglages > Requests & Thanks (mode avancé) > *Get buffs: target the player I ask*, clic sur une icône | Le joueur devient ma cible, aucun MP ; avec l'option, l'icône le cible **et** envoie la demande ; clic droit = menu, sans ciblage ; aucune erreur « action bloquée » en entrant en combat fenêtre ouverte | — |
+| 29 | Get buffs en ville, Réglages > General (mode avancé) > *Get buffs: only those with something better* coché puis décoché | Coché : seuls restent les joueurs qui m'apportent un buff manquant, un rang plus fort ou un buff qui expire ; les autres disparaissent : ceux dont j'ai déjà tout, et ceux qui n'ont rien de ma liste de priorités (un mage pour un guerrier) (en moins d'une seconde). Personne d'utile : « Nobody around has anything better for you. » Décoché : ils reviennent, en fin de liste | — |
 | 30 | Se faire bénir par un paladin, puis le regarder dans Get buffs et sur sa barre de nom (*Every buff*) | Sa bénédiction sur moi a un liseré doré (et est grise : je l'ai) ; survol = « They gave you this one. » ; survol d'une autre de ses bénédictions = « Replaces the Bénédiction des rois they gave you. » (nom du sort en doré) ; un autre paladin : pas de liseré ; le liseré disparaît quand la bénédiction tombe | — |
 
 ## Rang lu sur le buff (#8) et relevé des valeurs (#2) — n'importe quelle classe
@@ -116,7 +116,7 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 |---|---|---|---|
 | 44 | Get buffs, Give buffs, Requests, info-bulles | Prénom **et** nom sur chaque ligne ; les info-bulles ne répètent pas le nom | — |
 | 37 | Taper `/target Jean Dupont` dans le chat, puis `/target Jean-Dupont` | Noter lequel le cible (aucun, l'un, les deux) : si oui, les clics viseront le nom entier au lieu du prénom seul (deux « Jean » voisins ne seraient plus confondus) | — |
-| 45 | Réglages > *Debug messages* coché, clic sur son icône dans Give buffs | Noter la ligne « Spell sent: … on X » : X = « Jean », « Jean-Dupont » ou « Jean Dupont » ? Puis il disparaît de Give buffs quelques secondes | Cast a buff… |
+| 45 | Réglages > General (mode avancé) > *Debug messages in chat* coché, clic sur son icône dans Give buffs | Noter la ligne « Spell sent: … on X » : X = « Jean », « Jean-Dupont » ou « Jean Dupont » ? Puis il disparaît de Give buffs quelques secondes | Cast a buff… |
 | 46 | Barres de nom alliées affichées (on voit les joueurs), taper `/run for _,c in ipairs({"nameplateShowFriends","nameplateShowFriendlyPlayers","nameplateShowAll","nameplateShowFriendlyNPCs"}) do print(c, C_CVar.GetCVar(c)) end` ; puis Réglages de Buff Digger | Noter les 4 valeurs ; Réglages : *Friendly nameplates* montre le style actuel (Full, Name only ou Icons only), pas *Off* | — |
 | 38 | Lui demander un buff (clic sur son icône, il n'a pas Buff Digger) | Le MP part, à lui seul (pas d'erreur « joueur introuvable ») | Send a whisper |
 | 39 | Se faire buffer par lui après une demande, cliquer *Thank* | `/merci` vise bien lui, et le remerciement en MP lui arrive | Send /thank |
@@ -133,7 +133,7 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 25 | Chez B : entrer en combat avec la fenêtre Requests ouverte | Elle disparaît, aucune erreur « action bloquée » ; elle revient après le combat. Une demande reçue en combat fait monter le chiffre de la minimap |
 | 26 | Chez B : décocher *Sound when a request arrives* | Une demande arrive sans son |
 | 27 | A et B en instance (donjon) : A clique sur l'icône de B | MP direct, comme avant (Blizzard bloque les messages d'addon en instance) |
-| 28 | A demande un buff à B (barres de nom alliées allumées chez B) | Chez B, au-dessus de la barre de nom de A : grande icône du buff demandé, avec une lueur qui pulse, bien distincte des petites icônes ; un seul marqueur même si A redemande ; il disparaît quand A a le buff, au bout de 90 s, ou quand B clique sur la demande (rang supérieur ou rafraîchissement) ; A s'éloigne puis revient (barre de nom qui disparaît puis réapparaît) = le marqueur suit, jamais sur un autre joueur ; caché en combat ; Réglages > *Marker above players who request a buff* décoché = aucun marqueur ; le marqueur ne gêne pas le clic sur la barre de nom |
+| 28 | A demande un buff à B (barres de nom alliées allumées chez B) | Chez B, au-dessus de la barre de nom de A : grande icône du buff demandé, avec une lueur qui pulse, bien distincte des petites icônes ; un seul marqueur même si A redemande ; il disparaît quand A a le buff, au bout de 90 s, ou quand B clique sur la demande (rang supérieur ou rafraîchissement) ; A s'éloigne puis revient (barre de nom qui disparaît puis réapparaît) = le marqueur suit, jamais sur un autre joueur ; caché en combat ; Réglages > Requests & Thanks (mode avancé) > *Marker above players who request a buff* décoché = aucun marqueur ; le marqueur ne gêne pas le clic sur la barre de nom |
 
 ## Groupe et menu du jeu (#16, #17)
 
@@ -143,7 +143,7 @@ prénom seul pour `/target` et `/merci` (c'est ce qui a marché). Avec un joueur
 | 48 | Membre de groupe loin (hors des barres de nom) | Toujours listé ; dans Give buffs : icônes rouges, sans « (too far) », en fin de partie Group ; la touche *Give my buff…* le saute |
 | 49 | En donjon (barres de nom alliées verrouillées) | Les membres apparaissent dans Get buffs et Give buffs ; un clic sur une icône de Give buffs buffe le bon membre ; si la partie Group reste vide, noter ce que dit `/bd` (identité lisible ?) |
 | 50 | En raid | Tout le raid dans Group (seuls ceux qui ont quelque chose à donner ou recevoir) |
-| 51 | Clic droit sur le portrait d'un paladin ciblé, puis sur un membre dans le cadre de groupe | En bas du menu : titre « Buff Digger » et ses bénédictions ; un clic envoie la demande ; aucune ligne sur soi-même ni sur un guerrier ; Réglages > *Buff requests in the game's right-click menu* décoché : plus rien, sans /reload ; aucune erreur « action bloquée » après usage, puis *Set Focus* et (chef de raid) promouvoir / exclure depuis ce même menu : marchent toujours, sans « action bloquée » |
+| 51 | Clic droit sur le portrait d'un paladin ciblé, puis sur un membre dans le cadre de groupe | En bas du menu : titre « Buff Digger » et ses bénédictions ; un clic envoie la demande ; aucune ligne sur soi-même ni sur un guerrier ; Réglages > General (mode avancé) > *Buff requests in the right-click menu* décoché : plus rien, sans /reload ; aucune erreur « action bloquée » après usage, puis *Set Focus* et (chef de raid) promouvoir / exclure depuis ce même menu : marchent toujours, sans « action bloquée » |
 | 52 | Get buffs avec seulement des mages / prêtres autour, puis avec un paladin ; Requests ; Give buffs en mage | Pas de vide entre les icônes et les noms ; les noms restent alignés entre eux ; avec un paladin, la colonne s'élargit et les icônes d'un mage restent collées à son nom ; rien ne bouge en faisant défiler |
 | 17 | A clique sur l'icône de B | Pas de MP ; fenêtre Requests chez B ; étoile sur l'icône de B chez A |
 | 18 | B ne répond pas (fenêtre Requests fermée, réglage décoché) | Un MP part chez A au bout d'une seconde et demie |
@@ -165,12 +165,12 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 61 | Réglages > *My own phrases > Edit...* ; dans *Missing buff*, écrire `Salut, un {spell} stp ?` puis *Try one (only you see it)* | La phrase s'affiche dans **mon** chat avec un lien cliquable (tooltip au survol) ; rien n'est envoyé |
+| 61 | Réglages > onglet *Phrases* ; dans *Missing buff*, écrire `Salut, un {spell} stp ?` puis *Try one (only you see it)* | La phrase s'affiche dans **mon** chat avec un lien cliquable (tooltip au survol) ; rien n'est envoyé |
 | 62 | Demander un buff en MP, puis Maj+clic (en /dire) | Ma phrase part dans les deux cas, lien cliquable ; le receveur voit le tooltip |
 | 63 | Taper 15 lignes dans la boîte | Le curseur reste visible en bas (la boîte défile toute seule), la molette défile ; clic dans la zone vide = la boîte prend le focus ; Échap une fois = quitte la saisie, deux fois = ferme la fenêtre |
 | 64 | Taper `100% sûr {spell}`, puis `|cffff0000rouge {spell}`, puis une ligne de 250 caractères | La première part telle quelle, sans erreur Lua ; les deux autres sont refusées en rouge avec la raison (noter si un `|` tapé s'affiche doublé `||`) |
 | 65 | Vider la boîte *Missing buff* ; `/reload` avec des phrases dans *Thank-you* | Retour aux phrases de Buff Digger ; après `/reload`, les phrases sont toujours là |
-| 66 | Ouvrir *Edit...* et lire la fenêtre sans aide | Chaque onglet se comprend (la ligne jaune dit quand il sert), l'onglet choisi est en surbrillance (pas grisé), la boîte de saisie se voit, la ligne d'état dit si ce sont mes phrases ou celles de Buff Digger qui partent |
+| 66 | Ouvrir l'onglet *Phrases* et le lire sans aide | Chaque onglet se comprend (la ligne jaune dit quand il sert), l'onglet choisi est en surbrillance (pas grisé), la boîte de saisie se voit, la ligne d'état dit si ce sont mes phrases ou celles de Buff Digger qui partent |
 | 67 | Onglet vide > *Start from Buff Digger's* | La boîte se remplit des phrases de Buff Digger avec `{spell}`, modifiables ; le bouton se grise dès que la boîte n'est plus vide |
 
 ## Merci dans Get buffs, style ready check (#24)
@@ -206,7 +206,7 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 74 | Sans Robustesse ni Esprit divin, dans Get buffs : clic simple sur la Robustesse du prêtre. Puis (après le délai, ou un autre prêtre) Ctrl+clic sur Robustesse et Esprit divin, puis clic sur la flèche au bout de la ligne (#40) | Clic simple : une MP avec la Robustesse **seule**. Ctrl+clic : rien ne part, une coche sur chaque icône, la flèche apparaît. Flèche : **une seule** MP avec les deux liens cliquables (« [Robustesse] and [Esprit divin] »), la MP part bien (le serveur accepte deux liens) ; coches et flèche disparaissent. Maj+clic sur la flèche : en /s. Un paladin : cocher une 2ᵉ bénédiction décoche la 1ʳᵉ |
 | 75 | Il lance la Robustesse seule | La ligne dorée Thank arrive. Il lance ensuite l'Esprit : toujours une seule ligne, deux icônes. Un clic *Thank* : un seul merci |
 | 76 | Deux Buff Digger : le prêtre a la fenêtre Requests ouverte | Une ligne pour le mage, deux icônes ; chaque clic lance son sort, la ligne part quand les deux sont posés |
-| 78 | Réglages : *Friendly nameplates* sur Full, Name only, Icons only, Off (#22) | Full : barres du jeu. Name only : nom en couleur de classe, icône Buff Digger collée à gauche du nom. Icons only : ni barre ni nom (sauf la cible), icônes de taille normale. Off : plus personne, le bouton dit *Off* en rouge. Changer le réglage dans les options du jeu : les icônes suivent |
+| 78 | Réglages > General : *Friendly nameplates* sur Full, Name only, Icons only, Off (#22) | Full : barres du jeu. Name only : nom en couleur de classe, icône Buff Digger collée à gauche du nom. Icons only : ni barre ni nom (sauf la cible), icônes de taille normale. Off : plus personne, le bouton dit *Off* en rouge. Changer le réglage dans les options du jeu : les icônes suivent |
 | 79 | Get buffs, sans mots (#22) : un buff qui va expirer ; un rang supérieur ; un joueur à remercier qui s'éloigne ; un membre loin | Rang orange ; rang vert ; nom gris ; icônes rouges. Aucun « (running out) », « (higher rank) », « (out of sight) », « (too far) » ; l'infobulle garde les mots |
 | 80 | Un paladin m'a mis Rois, je préfère Puissance (#22) | Rois grisé à cadre doré ; Puissance avec de petites flèches circulaires en bas à droite, lisibles sur la barre de nom et dans Get buffs ; pas de « (swap) » |
 
@@ -223,7 +223,7 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 85 | Réglages > Display > *Window style* : Minimal, Get buffs et Give buffs ouvertes | Plus de cadre Blizzard (bordure, fond pierre, barre de titre) : fond noir uni transparent, on voit le monde derrière. Titre, croix, cadenas, flèche de tri, poignée et défilement restent et marchent. Rien ne dépasse ni ne reste du cadre |
+| 85 | Réglages > General (mode avancé) > *Window style* : Minimal, Get buffs et Give buffs ouvertes | Plus de cadre Blizzard (bordure, fond pierre, barre de titre) : fond noir uni transparent, on voit le monde derrière. Titre, croix, cadenas, flèche de tri, poignée et défilement restent et marchent. Rien ne dépasse ni ne reste du cadre |
 | 86 | Souris hors des fenêtres, puis dessus | Elles pâlissent doucement (~60 %) puis reviennent pleines dès que la souris entre ; noms et rangs lisibles pâlis, sur fond clair (neige) comme sombre |
 | 87 | En Minimal : une ligne dorée Thank, un combat, `/reload`, puis retour à Classic | Ligne dorée visible ; après combat les fenêtres reviennent en Minimal ; le style tient après `/reload` ; Classic remet le cadre complet, opacité pleine |
 
@@ -234,8 +234,8 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 88 | Hors combat, Get buffs ouverte : un joueur me buffe sans que je demande | Sa ligne devient dorée dans Get buffs (grise s'il n'est pas en vue) ; *Thank* = MP + `/merci`. Aucune fenêtre au milieu de l'écran |
 | 89 | Il relance le même buff, puis un autre buff dans la minute après mon merci | Pas de nouvelle ligne |
 | 90 | Un buff reçu en combat, sans demande | Aucune ligne après le combat |
-| 91 | Réglages > Thanks : décocher *Thank line for buffs I didn't ask for too*, se faire buffer | Aucune ligne ; une demande honorée en donne toujours une |
-| 92 | Réglages > Thanks : décocher */thank emote when I click Thank*, cliquer *Thank* | Seul le message part, dans le canal de la demande (MP pour un cadeau), pas d'émote |
+| 91 | Réglages > Requests & Thanks (mode avancé) : décocher *Thank line for buffs I didn't ask for*, se faire buffer | Aucune ligne ; une demande honorée en donne toujours une |
+| 92 | Réglages > Requests & Thanks : décocher */thank emote when I click Thank*, cliquer *Thank* | Seul le message part, dans le canal de la demande (MP pour un cadeau), pas d'émote |
 | 93 | Cadeaux actifs, déjà buffé par d'autres : tout ce qui fait relire mes buffs au jeu (écran de chargement, fin de combat, `/reload` ; forme pour un chaman ou un druide) | Aucune ligne *Thank* nouvelle |
 | 94 | Le joueur A m'a donné Robustesse ; B la relance par-dessus | Ligne cadeau pour B (attendu) |
 | 95 | Une demande ouverte reçue, puis 5 cadeaux d'autres joueurs (ville) | La ligne de la demande reste ; c'est le plus vieux cadeau qui part |
@@ -247,11 +247,25 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 
 | # | Test | Ce qu'on doit voir |
 |---|---|---|
-| 99 | Réglages > Requests : *Tone* sous *Write to players in* ; choisir Polite, `/reload` | Le réglage se voit et se lit (Casual / Polite / Role play) ; Polite est toujours choisi après `/reload` |
-| 100 | *My own phrases* > *Try one*, dans les 3 tons, en anglais puis en français | La phrase suit le ton : familière en Casual, soignée (vous en français) en Polite, RP en Role play ; *Start from Buff Digger's* copie les phrases du ton choisi |
+| 99 | Réglages > Requests & Thanks : *Tone* sous *Write to players in* ; choisir Polite, `/reload` | Le réglage se voit et se lit (Casual / Polite / Role play) ; Polite est toujours choisi après `/reload` |
+| 100 | Onglet *Phrases* > *Try one*, dans les 3 tons, en anglais puis en français | La phrase suit le ton : familière en Casual, soignée (vous en français) en Polite, RP en Role play ; *Start from Buff Digger's* copie les phrases du ton choisi |
 | 101 | Une vraie demande en MP puis en /s, dans chaque ton | Le message part, le lien du sort est cliquable, rien n'est coupé |
 | 102 | Role play : demander un nouveau buff à un prêtre ou un paladin, puis à un druide, puis à un mage | Une touche de Lumière, de nature ou d'arcane ; pour un rang supérieur ou un rafraîchissement, la phrase RP neutre |
 | 103 | Demande puis *Thank* au même joueur, plusieurs fois, dans chaque ton | La fin du merci n'est jamais celle de la demande (plus de « Safe travels! » deux fois) |
 | 104 | *Write to players in* : Deutsch, *Tone* : Role play, *Try one* | Une phrase Polite allemande (Sie), pas d'anglais |
-| 105 | Une phrase perso dans *My own phrases*, puis une demande dans chaque ton | La phrase perso part quel que soit le ton |
+| 105 | Une phrase perso dans l'onglet *Phrases*, puis une demande dans chaque ton | La phrase perso part quel que soit le ton |
 | 106 | Un ancien profil (mise à jour depuis 1.3.0, sans toucher aux réglages) | *Tone* : Casual |
+
+## Fenêtre des options (#52) — de préférence un paladin ou un prêtre (la liste de priorités la plus longue)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 107 | Clic gauche sur le bouton de la minicarte, puis `/bd config` | La fenêtre s'ouvre sur *General* ; 4 onglets sous le cadre, avec l'art Blizzard (comme la fenêtre Personnage), *General* sélectionné |
+| 108 | Passer par les 4 onglets, case *Show advanced options* cochée puis décochée | Le cadre garde sa taille ; rien ne déborde ni ne se chevauche, dans aucun onglet ni aucun mode ; en simple, pas de trou à la place des lignes cachées ; *Buffs* sans la case : liste et *Reset to default* au-dessus d'elle |
+| 109 | Cocher *Show advanced options*, `/reload`, rouvrir | Toujours cochée, les réglages avancés visibles |
+| 110 | Mode avancé : cocher *Debug messages in chat* ; décocher *Show advanced options* ; faire une demande | La ligne est cachée, mais les messages de debug s'impriment toujours |
+| 111 | Survoler une case, puis son libellé ; un bouton à choix et son libellé ; une ligne des priorités ; *Reset to default* | Une infobulle : le libellé, puis ce que le réglage change ; cliquer sur le libellé d'une case la coche |
+| 112 | *General* > *Key bindings* : sans raccourci, puis après en avoir assigné un | *Not bound* en gris, puis la touche ; *Set key bindings...* ouvre la page des raccourcis du jeu (sinon un message dit où la trouver : noter lequel) ; rouvrir les réglages montre la nouvelle touche |
+| 113 | Onglet *Phrases* : taper une phrase, *Try one*, changer de cas, *Start from Buff Digger's* | Comme l'ancienne fenêtre, dans le cadre ; infobulle sur chaque cas ; pas de case *Show advanced options* sur cet onglet |
+| 114 | Échap avec la fenêtre ouverte (sur *Phrases*, curseur hors de la zone de texte) | La fenêtre se ferme ; rouverte, elle revient sur *General* |
+| 115 | Fenêtre ouverte, entrer en combat ; changer une case, un choix, d'onglet | Aucune erreur, les réglages restent utilisables ; *Set key bindings...* en combat donne le chemin au lieu d'ouvrir la page |

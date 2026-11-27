@@ -133,39 +133,104 @@ local function extendGameMenu()
   end
 end
 
--- ---------------------------------------------------------------- settings window
--- Layout follows Blizzard's own option panels: gold section titles, white option labels, small
--- grey help. Spacing on a 4/8 px grid; every text has a fixed width and wraps instead of overflowing.
+-- ---------------------------------------------------------------- settings window (#52)
+-- One window of fixed size, its tabs under it as on the game's Character and Social frames. Each
+-- tab has two columns of rows, listed in TABS. Layout follows Blizzard's own option panels: gold
+-- group titles, white labels, small help. Spacing on a 4/8 px grid; every text has a fixed width
+-- and wraps instead of overflowing.
 
 local PAD, COL_W, ROW_H, GAP = 16, 296, 24, 8
 local LEFT_X, RIGHT_X = PAD, PAD + COL_W + 24
+local WIDTH, HEIGHT, TOP = RIGHT_X + COL_W + PAD, 464, -32 -- 648 x 464, every tab
+local LIMIT = -(HEIGHT - PAD - ROW_H - GAP) -- columns end above the bottom line (Show advanced options)
 
-local SECTIONS = {
-  { title = "Display", options = {
-    { key = "tooltip", label = "Line in players' tooltip" },
-    { key = "nearby",  label = "Get buffs window: who can buff me" },
-    { key = "nearbyUseful", label = "Get buffs: only those with something better" },
-    { key = "give",    label = "Give buffs window: who lacks my buffs" },
-  }, nameplates = true, plates = true, style = true },
-  { title = "Requests", options = {
-    { key = "useSay",  label = "Ask in /say by default (not whisper)" },
-    { key = "targetOnAsk", label = "Get buffs: target the player I ask" },
-    { key = "acceptRequests", label = "Accept requests from Buff Digger users" },
-    { key = "requestSound", label = "Sound when a request arrives" },
-    { key = "requestMarkers", label = "Marker above players who request a buff" },
-    { key = "gameMenu", label = "Buff requests in the game's right-click menu" },
-  }, delay = true, language = true },
-  { title = "Thanks", options = {
-    { key = "thank",   label = "/thank emote when I click Thank" },
-    { key = "thankMessage", label = "Thank-you in my request's channel" },
-    { key = "thankGifts", label = "Thank line for buffs I didn't ask for too" },
-  } },
-  { title = "Advanced", options = {
-    { key = "debug",   label = "Debug messages in chat" },
-  } },
+local HOW_TO = {
+  "Click a buff icon to ask for that buff, a name in Get buffs to target them. Shift-click: /say instead of whisper (or the reverse). Get buffs: Ctrl-click ticks buffs, the arrow asks for them all at once.",
+  "Right-click: every buff that player can give.",
+  "Minimap button: right click = Get buffs.",
+  "Icons and windows find players through friendly nameplates: keep them on.",
 }
 
-local settings, prefRows, refreshPrefs, phrases
+-- The key bindings shown in General (Bindings.xml), and where the game lists them.
+local KEYS = { "BUFFDIGGER_BEST", "BUFFDIGGER_TARGET", "BUFFDIGGER_THANK", "BUFFDIGGER_NEARBY", "BUFFDIGGER_GIVE",
+  "CLICK BuffDiggerGiveNext:LeftButton" }
+local KEYS_PATH = "Esc > Options > Keybindings > AddOns > Buff Digger"
+
+-- Rows of each tab: { tab name, left column, right column }. A row is a group title ({ title = ... })
+-- or a setting: `key` in BuffDiggerDB, `kind` (check when none), `label`, `tip` (what it changes in
+-- game), `advanced` (shown with Show advanced options only). Other kinds: plates (the game's own
+-- friendly nameplates), prefs (my buff priorities), help, keys (key bindings).
+local TABS = {
+  { "General", {
+    { title = "Nameplates" },
+    { kind = "plates", label = "Friendly nameplates",
+      tip = "Buff Digger sees players through their nameplates: with them off, it only sees your group. Pick how they look; hover each choice for more." },
+    { key = "plates", kind = "choice", choices = PLATE_CHOICES, translate = true, label = "Icons on nameplates",
+      tip = "What Buff Digger puts on friendly players' nameplates: nothing, a small icon, the best buff they can give you, or every buff they can give. Click an icon to ask for it." },
+    { key = "tooltip", label = "Buffs line in players' tooltips",
+      tip = "Adds a line to a friendly player's tooltip: the buffs they can probably give you." },
+    { title = "Windows" },
+    { key = "nearby", label = "Get buffs window: who can buff me",
+      tip = "Shows the Get buffs window: players around you and the buffs they can give you. Click an icon to ask. Same as right-clicking the minimap button." },
+    { key = "give", label = "Give buffs window: who lacks my buffs",
+      tip = "Shows the Give buffs window: players around you who lack one of your buffs. Click an icon to cast it on them (out of combat). Same as Shift + right-clicking the minimap button." },
+    { key = "nearbyUseful", advanced = true, label = "Get buffs: only those with something better",
+      tip = "Get buffs lists only players who can give you something: a buff you lack, a higher rank, or one running out." },
+    { key = "windowStyle", kind = "choice", choices = WINDOW_STYLES, translate = true, advanced = true,
+      after = function() ns.applyStyle() end, label = "Window style",
+      tip = "How Get buffs, Give buffs and Requests look. Classic: Blizzard's frame. Minimal: see-through, fades when the mouse leaves." },
+    { title = "Other", advanced = true },
+    { key = "gameMenu", advanced = true, label = "Buff requests in the right-click menu",
+      tip = "Adds Buff Digger's buff requests to the game's right-click menu on a player, a party or a raid frame." },
+    { key = "debug", advanced = true, label = "Debug messages in chat",
+      tip = "Prints Buff Digger's notes in chat: what it decided and why, Blizzard blocks, other Buff Digger users found. Useful for bug reports." },
+  }, {
+    { title = "How to use" },
+    { kind = "help" },
+    { title = "Key bindings" },
+    { kind = "keys", label = "Set key bindings...",
+      tip = "Opens the game's key bindings, where Buff Digger's are: " .. KEYS_PATH .. "." },
+  } },
+  { "Buffs", {
+    { kind = "prefs" },
+  }, {
+    { title = "When to ask again", advanced = true },
+    { key = "delay", kind = "cycle", choices = DELAYS, advanced = true, label = "Wait before asking the same player again",
+      tip = "How long Buff Digger waits before letting you ask the same player again, so nobody gets spammed." },
+    { key = "refreshBefore", kind = "cycle", choices = REFRESH_CHOICES, advanced = true,
+      label = "Ask again when a buff has less left than",
+      tip = "A buff with less time left than this counts as missing, so you can ask for it again. Never: only missing buffs." },
+  } },
+  { "Requests & Thanks", {
+    { title = "Asking" },
+    { key = "language", kind = "choice", choices = ns.LANGUAGES, label = "Write to players in",
+      tip = "The language of what Buff Digger sends to other players: requests and thank-yous. Buff Digger's own windows stay in English." },
+    { key = "tone", kind = "choice", choices = ns.TONES, translate = true, label = "Tone", -- #49
+      tip = "How those messages sound: Casual, Polite or Role play. Try one in the Phrases tab." },
+    { key = "useSay", label = "Ask in /say by default (not whisper)",
+      tip = "A click on a buff icon asks in /say instead of a whisper. Shift + click does the other one." },
+    { key = "targetOnAsk", advanced = true, label = "Get buffs: target the player I ask",
+      tip = "Asking from the Get buffs window also targets that player." },
+  }, {
+    { title = "Thanks" },
+    { key = "thankMessage", label = "Send a thank-you message",
+      tip = "Clicking Thank sends a thank-you in the channel you asked in (whisper or /say)." },
+    { key = "thank", label = "/thank emote when I click Thank",
+      tip = "Clicking Thank also does the /thank emote on that player." },
+    { key = "thankGifts", advanced = true, label = "Thank line for buffs I didn't ask for",
+      tip = "When someone buffs you without being asked, a Thank line shows in Get buffs too, so you can thank them." },
+    { title = "Requests from other Buff Digger users" },
+    { key = "acceptRequests", label = "Accept requests from Buff Digger users",
+      tip = "Other Buff Digger users can ask you for a buff without a whisper: their requests go to the Requests window (Ctrl + right-click the minimap button). Off: you don't get them." },
+    { key = "requestSound", advanced = true, label = "Sound when a request arrives",
+      tip = "Plays a sound when another Buff Digger user asks you for a buff." },
+    { key = "requestMarkers", advanced = true, label = "Marker above players who request a buff",
+      tip = "Shows a big pulsing icon above the nameplate of a player asking you for a buff." },
+  } },
+  { "Phrases" }, -- its own panel: buildPhrases()
+}
+
+local settings, prefRows, refreshPrefs
 
 -- My class's priority list, copied from the defaults the first time it is edited (#5).
 local function myPrefs(create)
@@ -216,29 +281,59 @@ local function arrow(parent, texture, onClick)
   return b
 end
 
-local function checkbox(x, y, option)
-  local box = CreateFrame("CheckButton", nil, settings, "UICheckButtonTemplate")
+-- Hovering a setting: its label, then what it changes in game. `title` may be a function.
+local function tip(widget, title, body)
+  widget:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(type(title) == "function" and title() or title)
+    GameTooltip:AddLine(body, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  widget:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+-- A label on the left of the row, a button on its right.
+local function labelButton(row, caption, width, labelWidth)
+  local label = text(row, "GameFontHighlight", 4, -8, labelWidth, caption)
+  local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+  button:SetSize(width, 22)
+  button:SetPoint("TOPRIGHT", 0, -4)
+  return button, label
+end
+
+-- Each kind of row: build(row, def) -> the control its tooltip goes on, the row's height.
+local BUILD = {}
+
+function BUILD.title(row, def)
+  text(row, "GameFontNormal", 0, 0, COL_W, L[def.title])
+  return nil, 20
+end
+
+function BUILD.check(row, def)
+  local box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
   box:SetSize(ROW_H, ROW_H)
-  box:SetPoint("TOPLEFT", x, y)
+  box:SetPoint("TOPLEFT")
+  box:SetHitRectInsets(0, -(COL_W - ROW_H), 0, 0) -- the label too: click or hover the whole row
   local label = box:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   label:SetPoint("LEFT", box, "RIGHT", 4, 0)
   label:SetWidth(COL_W - ROW_H - 8)
   label:SetJustifyH("LEFT")
-  label:SetText(L[option.label])
-  box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[option.key]) end)
+  label:SetText(L[def.label])
+  box:SetScript("OnShow", function(self) self:SetChecked(BuffDiggerDB[def.key]) end)
   box:SetScript("OnClick", function(self)
-    BuffDiggerDB[option.key] = self:GetChecked() and true or false
+    BuffDiggerDB[def.key] = self:GetChecked() and true or false
     ns.applyWindows()
     ns.refreshAll()
+    if def.after then def.after() end
   end)
+  return box, ROW_H
 end
 
--- A label and a small button; each click moves to the next choice (in seconds, shown in minutes).
-local function cycleRow(x, y, caption, key, choices)
-  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 80, L[caption])
-  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  button:SetSize(64, 22)
-  button:SetPoint("TOPLEFT", x + COL_W - 64, y)
+-- A small button; each click moves to the next choice (in seconds, shown in minutes). Room for a
+-- label on two lines.
+function BUILD.cycle(row, def)
+  local key, choices = def.key, def.choices
+  local button = labelButton(row, L[def.label], 64, COL_W - 80)
   local function label()
     return BuffDiggerDB[key] == 0 and L["Never"] or L["%d min"]:format(BuffDiggerDB[key] / 60)
   end
@@ -249,16 +344,15 @@ local function cycleRow(x, y, caption, key, choices)
     self:SetText(label())
     ns.refreshAll()
   end)
+  return button, 36
 end
 
--- A label and a button showing the current choice, opening the list. choices = { { value, label }, ... }
--- (labels are shown as is: language names stay in their own language).
-local function choiceRow(x, y, caption, key, choices, translate, after)
-  text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, L[caption])
-  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  button:SetSize(104, 22)
-  button:SetPoint("TOPLEFT", x + COL_W - 104, y)
-  local function label(c) return translate and L[c[2]] or c[2] end
+-- A button showing the current choice, opening the list. def.choices = { { value, label }, ... }
+-- (labels are shown as is unless def.translate: language names stay in their own language).
+function BUILD.choice(row, def)
+  local key, choices = def.key, def.choices
+  local button = labelButton(row, L[def.label], 104, COL_W - 120)
+  local function label(c) return def.translate and L[c[2]] or c[2] end
   local function current()
     for i, c in ipairs(choices) do
       if c[1] == BuffDiggerDB[key] then return i, label(c) end
@@ -269,7 +363,7 @@ local function choiceRow(x, y, caption, key, choices, translate, after)
     BuffDiggerDB[key] = value
     button:SetText(select(2, current()))
     ns.refreshAll()
-    if after then after() end
+    if def.after then def.after() end
   end
   button:SetScript("OnShow", function(self) self:SetText(select(2, current())) end)
   button:SetScript("OnClick", function(self)
@@ -283,6 +377,7 @@ local function choiceRow(x, y, caption, key, choices, translate, after)
       end
     end)
   end)
+  return button, 28
 end
 
 -- Friendly nameplates (#22): off, or how they look; read from the game's settings, not saved by us.
@@ -292,11 +387,8 @@ local PLATE_STYLES = {
   { "icons", "Icons only", "No bar, no name (except your target): only Buff Digger's icons float over players." },
   { "off", "Off", "No friendly nameplates: Buff Digger can't see anyone around you (group members still listed)." },
 }
-local function nameplateRow(x, y)
-  local label = text(settings, "GameFontHighlight", x + 4, y - 4, COL_W - 120, "")
-  local button = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-  button:SetSize(104, 22)
-  button:SetPoint("TOPLEFT", x + COL_W - 104, y)
+function BUILD.plates(row)
+  local button, label = labelButton(row, "", 104, COL_W - 120)
   local function update()
     local style = ns.plateStyle()
     label:SetText(style == "off" and L["|cffff5555Friendly nameplates|r (needed)"] or L["Friendly nameplates"])
@@ -304,13 +396,6 @@ local function nameplateRow(x, y)
   end
   local function choose(style) ns.setPlateStyle(style) update() end
   button:SetScript("OnShow", update)
-  button:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(L["Friendly nameplates"])
-    GameTooltip:AddLine(L["Buff Digger sees players through them. Pick how they look; hover each choice for more."], 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  button:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- Changed elsewhere (game options, /bd nameplates) while the settings are open.
   C_Timer.NewTicker(1, function() if button:IsVisible() then update() end end)
   button:SetScript("OnClick", function(self)
@@ -336,114 +421,116 @@ local function nameplateRow(x, y)
       end
     end)
   end)
+  return button, 28
 end
 
--- Left column; returns how far down it went.
-local function buildOptions()
-  local y = -32
-  for _, section in ipairs(SECTIONS) do
-    text(settings, "GameFontNormal", LEFT_X, y, COL_W, L[section.title])
-    y = y - 20
-    for _, option in ipairs(section.options) do
-      checkbox(LEFT_X, y, option)
-      y = y - ROW_H
-    end
-    if section.plates then
-      choiceRow(LEFT_X, y - 4, "On nameplates", "plates", PLATE_CHOICES, true)
-      y = y - 28
-    end
-    if section.style then
-      choiceRow(LEFT_X, y - 4, "Window style", "windowStyle", WINDOW_STYLES, true, function() ns.applyStyle() end)
-      y = y - 28
-    end
-    if section.nameplates then
-      nameplateRow(LEFT_X, y - 4)
-      y = y - 28
-    end
-    if section.language then
-      choiceRow(LEFT_X, y - 4, "Write to players in", "language", ns.LANGUAGES)
-      y = y - 28
-      choiceRow(LEFT_X, y - 4, "Tone", "tone", ns.TONES, true) -- #49
-      y = y - 28
-      text(settings, "GameFontHighlight", LEFT_X + 4, y - 8, COL_W - 120, L["My own phrases"])
-      local edit = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
-      edit:SetSize(104, 22)
-      edit:SetPoint("TOPLEFT", LEFT_X + COL_W - 104, y - 4)
-      edit:SetText(L["Edit..."])
-      edit:SetScript("OnClick", function() phrases:SetShown(not phrases:IsShown()) end)
-      y = y - 28
-    end
-    if section.delay then
-      cycleRow(LEFT_X, y - 4, "Wait before asking again", "delay", DELAYS) -- #6
-      y = y - 28
-      cycleRow(LEFT_X, y - 4, "Ask again when a buff has less left than", "refreshBefore", REFRESH_CHOICES)
-      y = y - 28
-    end
-    y = y - GAP
+function BUILD.help(row)
+  local lines = {}
+  for i, line in ipairs(HOW_TO) do lines[i] = L[line] end
+  local help = text(row, "GameFontHighlightSmall", 0, 0, COL_W, table.concat(lines, "\n"))
+  help:SetSpacing(2)
+  -- Measured at each layout (the text is shown then); GetStringHeight can be 0 on a hidden frame:
+  -- never less than one line per tip.
+  row.measure = function() return math.max(help:GetStringHeight() or 0, #HOW_TO * 14) + 4 end
+  return nil, row.measure()
+end
+
+-- The game's key bindings page: opened if the game lets us, else where to find it. The window is
+-- hidden only once the page opened (shown again, keys read again, when the player comes back).
+local function openKeyBindings()
+  local ok = C_SettingsUtil and C_SettingsUtil.OpenSettingsPanel and Settings and Settings.KEYBINDINGS_CATEGORY_ID
+    and not InCombatLockdown() and pcall(C_SettingsUtil.OpenSettingsPanel, Settings.KEYBINDINGS_CATEGORY_ID)
+  if ok then settings:Hide() else ns.notice(L["Key bindings: %s."]:format(L[KEYS_PATH])) end
+end
+
+-- Buff Digger's key bindings and the key each one has (decision on #52: they were too well hidden).
+function BUILD.keys(row, def)
+  local keys, listH = {}, #KEYS * 16 + 4
+  row.keys = keys
+  for i, action in ipairs(KEYS) do
+    local y = -(i - 1) * 16
+    text(row, "GameFontHighlightSmall", 4, y, COL_W - 100, _G["BINDING_NAME_" .. action]):SetWordWrap(false)
+    keys[i] = text(row, "GameFontNormalSmall", COL_W - 92, y, 92, "")
+    keys[i]:SetWordWrap(false)
+    keys[i]:SetJustifyH("RIGHT")
   end
-  return y
+  row:SetScript("OnShow", function()
+    for i, action in ipairs(KEYS) do
+      local key = GetBindingKey(action)
+      keys[i]:SetText(key and (GetBindingText and GetBindingText(key) or key) or ("|cff808080" .. L["Not bound"] .. "|r"))
+    end
+  end)
+  local open = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+  open:SetSize(160, 22)
+  open:SetPoint("TOPLEFT", 0, -listH)
+  open:SetText(L[def.label])
+  open:SetScript("OnClick", openKeyBindings)
+  return open, listH + 22
 end
 
--- Right column: my class's priorities (#5); returns how far down it went.
-local function buildPrefs()
+-- My class's priorities (#5).
+function BUILD.prefs(row)
   local _, myClass = UnitClass("player")
   local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[myClass] or myClass
-  text(settings, "GameFontNormal", RIGHT_X, -32, COL_W, L["My buff priorities (%s)"]:format(className))
-  text(settings, "GameFontDisableSmall", RIGHT_X, -52, COL_W,
-    L["Ticked buffs get asked for, top first. Unticked: never asked."])
+  text(row, "GameFontNormal", 0, 0, COL_W, L["My buff priorities (%s)"]:format(className))
+  text(row, "GameFontHighlightSmall", 0, -20, COL_W, L["Ticked buffs get asked for, top first. Unticked: never asked."])
 
   prefRows = {}
-  local count, y = 0, -72
+  row.lines = prefRows
+  local count, y = 0, -40
   for _ in pairs(BUFFS) do count = count + 1 end
   for i = 1, count do
-    local row = CreateFrame("Frame", nil, settings)
-    row:SetSize(COL_W, ROW_H)
-    row:SetPoint("TOPLEFT", RIGHT_X, y)
-    row.box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    row.box:SetSize(ROW_H, ROW_H)
-    row.box:SetPoint("LEFT")
-    row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(18, 18) -- room for the rank number in its corner
-    row.icon:SetPoint("LEFT", row.box, "RIGHT", 4, 0)
-    row.down = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function()
+    local line = CreateFrame("Frame", nil, row)
+    line:SetSize(COL_W, ROW_H)
+    line:SetPoint("TOPLEFT", 0, y)
+    line.box = CreateFrame("CheckButton", nil, line, "UICheckButtonTemplate")
+    line.box:SetSize(ROW_H, ROW_H)
+    line.box:SetPoint("LEFT")
+    line.icon = line:CreateTexture(nil, "ARTWORK")
+    line.icon:SetSize(18, 18) -- room for the rank number in its corner
+    line.icon:SetPoint("LEFT", line.box, "RIGHT", 4, 0)
+    local function move(step) -- swap with the buff below (1) or above (-1)
       local prefs = myPrefs(true)
-      local at = indexOf(prefs, row.key)
-      prefs[at], prefs[at + 1] = prefs[at + 1], prefs[at]
+      local at = indexOf(prefs, line.key)
+      prefs[at], prefs[at + step] = prefs[at + step], prefs[at]
       changed()
-    end)
-    row.down:SetPoint("RIGHT")
-    row.up = arrow(row, "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp", function()
+    end
+    line.down = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function() move(1) end)
+    line.down:SetPoint("RIGHT")
+    line.up = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp", function() move(-1) end)
+    line.up:SetPoint("RIGHT", line.down, "LEFT", -4, 0)
+    line.text = line:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    line.text:SetPoint("LEFT", line.icon, "RIGHT", 8, 0)
+    line.text:SetPoint("RIGHT", line.up, "LEFT", -8, 0)
+    line.text:SetJustifyH("LEFT")
+    line.text:SetWordWrap(false)
+    line.box:SetScript("OnClick", function(self)
       local prefs = myPrefs(true)
-      local at = indexOf(prefs, row.key)
-      prefs[at], prefs[at - 1] = prefs[at - 1], prefs[at]
-      changed()
-    end)
-    row.up:SetPoint("RIGHT", row.down, "LEFT", -4, 0)
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
-    row.text:SetPoint("RIGHT", row.up, "LEFT", -8, 0)
-    row.text:SetJustifyH("LEFT")
-    row.text:SetWordWrap(false)
-    row.box:SetScript("OnClick", function(self)
-      local prefs = myPrefs(true)
-      local at = indexOf(prefs, row.key)
-      if self:GetChecked() and not at then tinsert(prefs, row.key)
+      local at = indexOf(prefs, line.key)
+      if self:GetChecked() and not at then tinsert(prefs, line.key)
       elseif not self:GetChecked() and at then tremove(prefs, at) end
       changed()
     end)
-    prefRows[i] = row
+    line:EnableMouse(true) -- its name too
+    for _, w in ipairs({ line.box, line }) do
+      tip(w, function() return spellName(line.key) end,
+        L["Ticked: Buff Digger asks for it, top first. Unticked: never asked. The arrows move it up or down."])
+    end
+    prefRows[i] = line
     y = y - ROW_H
   end
 
-  local reset = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+  local reset = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
   reset:SetSize(120, 22)
-  reset:SetPoint("TOPLEFT", RIGHT_X, y - GAP)
+  reset:SetPoint("TOPLEFT", 0, y - GAP)
   reset:SetText(L["Reset to default"])
   reset:SetScript("OnClick", function()
     BuffDiggerDB.prefs[myClass] = nil
     changed()
   end)
-  return y - GAP - 22
+  tip(reset, L["Reset to default"], L["Back to the default priorities for your class."])
+  row.reset = reset
+  return nil, -y + GAP + 22
 end
 
 refreshPrefs = function()
@@ -462,6 +549,58 @@ refreshPrefs = function()
   end
 end
 
+-- A tab's two columns, each row built once; layout() places them.
+local function buildPanel(tab)
+  local panel = CreateFrame("Frame", nil, settings)
+  panel:SetAllPoints()
+  panel.rows, panel.columns = {}, {}
+  for c = 1, 2 do
+    local column = { x = c == 1 and LEFT_X or RIGHT_X }
+    for _, def in ipairs(tab[c + 1]) do
+      local row = CreateFrame("Frame", nil, panel)
+      row.def = def
+      row.control, row.h = BUILD[def.kind or (def.title and "title") or "check"](row, def)
+      row:SetSize(COL_W, row.h)
+      if def.tip then -- on the control, and on the row for its label
+        row:EnableMouse(true)
+        tip(row, L[def.label], L[def.tip])
+        tip(row.control, L[def.label], L[def.tip])
+      end
+      column[#column + 1] = row
+      panel.rows[#panel.rows + 1] = row
+    end
+    panel.columns[c] = column
+  end
+  return panel
+end
+
+-- Top to bottom in each column, a gap before each group title but the first. Without Show advanced
+-- options, advanced rows are hidden and leave no hole.
+local function layout(panel)
+  for _, column in ipairs(panel.columns) do
+    local y = TOP
+    for _, row in ipairs(column) do
+      local shown = BuffDiggerDB.showAdvanced or not row.def.advanced
+      row:SetShown(shown)
+      if shown then
+        if row.measure then row.h = row.measure(); row:SetHeight(row.h) end
+        if row.def.title and y ~= TOP then y = y - GAP end
+        row:SetPoint("TOPLEFT", column.x, y)
+        row.y = y
+        y = y - row.h
+      end
+    end
+    column.bottom = y
+  end
+end
+
+local function selectTab(i)
+  PanelTemplates_SetTab(settings, i)
+  for j, panel in ipairs(settings.panels) do panel:SetShown(j == i) end
+  layout(settings.panels[i])
+  settings.advanced:SetShown(#settings.panels[i].rows > 0) -- not on Phrases
+end
+
 -- ---------------------------------------------------------------- my own phrases (#20)
 -- One box per case, one phrase per line, saved as typed (ns.setCustom); refused lines in red.
 
@@ -474,30 +613,21 @@ local PHRASE_KINDS = {
   { "thanks", "Thank-you", "Thanking someone who just buffed you." },
 }
 
+-- The Phrases tab (#52): a panel of the settings window, no layout() rows.
 local function buildPhrases()
-  local w = CreateFrame("Frame", "BuffDiggerPhrases", UIParent, "BasicFrameTemplateWithInset")
-  local width = 5 * 88 - 4
-  w:SetSize(2 * PAD + width, 376) -- room for 4 error lines above the buttons
-  w:SetPoint("CENTER", 0, 40)
-  w:SetFrameStrata("DIALOG") -- above the settings
-  w:SetMovable(true)
-  w:EnableMouse(true)
-  w:RegisterForDrag("LeftButton")
-  w:SetScript("OnDragStart", w.StartMoving)
-  w:SetScript("OnDragStop", w.StopMovingOrSizing)
-  w:Hide()
-  tinsert(UISpecialFrames, "BuffDiggerPhrases") -- Escape closes it
-  local title = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  title:SetPoint("TOP", 0, -5)
-  title:SetText(L["Buff Digger — My own phrases"])
-  text(w, "GameFontHighlightSmall", PAD, -30, width,
+  local w = CreateFrame("Frame", "BuffDiggerPhrases", settings)
+  w:SetAllPoints()
+  w.rows, w.columns = {}, {}
+  local width = WIDTH - 2 * PAD
+  text(w, "GameFontNormal", PAD, TOP, width, L["My own phrases"])
+  text(w, "GameFontHighlightSmall", PAD, TOP - 20, width,
     L["Write what you want to say, one phrase per line: Buff Digger picks one at random. {spell} becomes the buff's link."])
 
-  w.when = text(w, "GameFontNormal", PAD, -86, width, "")
+  w.when = text(w, "GameFontNormal", PAD, TOP - 80, width, "")
 
   local box = CreateFrame("ScrollFrame", nil, w, "UIPanelScrollFrameTemplate")
-  box:SetPoint("TOPLEFT", PAD + 4, -108)
-  box:SetSize(width - 28, 140)
+  box:SetPoint("TOPLEFT", PAD + 4, TOP - 102)
+  box:SetSize(width - 28, 160)
   local bg = box:CreateTexture(nil, "BACKGROUND") -- the box shows where to type
   bg:SetPoint("TOPLEFT", -4, 4)
   bg:SetPoint("BOTTOMRIGHT", 4, -4)
@@ -517,8 +647,8 @@ local function buildPhrases()
   box:EnableMouse(true)
   box:SetScript("OnMouseDown", function() edit:SetFocus() end)
   w.edit = edit
-  w.status = text(w, "GameFontHighlightSmall", PAD, -258, width, "")
-  w.errors = text(w, "GameFontRedSmall", PAD, -274, width, "")
+  w.status = text(w, "GameFontHighlightSmall", PAD, TOP - 272, width, "")
+  w.errors = text(w, "GameFontRedSmall", PAD, TOP - 288, width, "") -- room for 4 lines above the buttons
 
   -- Copy ours into an empty box, to edit them rather than start from nothing.
   local copy = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
@@ -554,10 +684,11 @@ local function buildPhrases()
   for i, k in ipairs(PHRASE_KINDS) do
     local t = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
     t:SetSize(84, 22)
-    t:SetPoint("TOPLEFT", PAD + (i - 1) * 88, -58)
+    t:SetPoint("TOPLEFT", PAD + (i - 1) * 88, TOP - 52)
     t:SetText(L[k[2]])
     t.kind = k[1]
     t:SetScript("OnClick", function() show(k[1]) end)
+    tip(t, L[k[2]], L[k[3]])
     w.tabs[i] = t
   end
   w:SetScript("OnShow", function() show(w.kind or "new") end)
@@ -578,19 +709,12 @@ local function buildPhrases()
       or ns.message(w.kind, w.kind == "replace" and "kings" or "fortitude", lang, tone))
   end)
   w.preview = preview
-  phrases = w
+  return w
 end
-
-local HOW_TO = {
-  "Click a buff icon to ask for that buff, a name in Get buffs to target them. Shift-click: /say instead of whisper (or the reverse). Get buffs: Ctrl-click ticks buffs, the arrow asks for them all at once.",
-  "Right-click: every buff that player can give.",
-  "Minimap button: right click = Get buffs.",
-  "Key Bindings > AddOns > Buff Digger: one key asks the best buff around you.",
-  "Icons and windows find players through friendly nameplates: keep them on.",
-}
 
 local function buildSettings()
   settings = CreateFrame("Frame", "BuffDiggerSettings", UIParent, "BasicFrameTemplateWithInset")
+  settings:SetSize(WIDTH, HEIGHT)
   settings:SetPoint("CENTER")
   settings:SetMovable(true)
   settings:EnableMouse(true)
@@ -600,27 +724,41 @@ local function buildSettings()
   settings:SetScript("OnShow", function() refreshPrefs() end)
   settings:Hide()
   tinsert(UISpecialFrames, "BuffDiggerSettings") -- Escape closes it
+  settings.limit = LIMIT
 
   local title = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   title:SetPoint("TOP", 0, -5)
   title:SetText("Buff Digger")
 
-  buildPhrases()
-  local bottom = math.min(buildOptions(), buildPrefs()) - GAP
-  local width = RIGHT_X + COL_W + PAD
-  text(settings, "GameFontNormal", LEFT_X, bottom, width - 2 * PAD, L["How to use"])
-  local lines = {}
-  for i, line in ipairs(HOW_TO) do lines[i] = L[line] end
-  local help = text(settings, "GameFontDisableSmall", LEFT_X, bottom - 20, width - 2 * PAD, table.concat(lines, "\n"))
-  help:SetSpacing(2)
-  -- GetStringHeight can be 0 on a hidden frame: never less than one line per tip.
-  local helpHeight = math.max(help:GetStringHeight() or 0, #HOW_TO * 14)
-  settings:SetSize(width, -bottom + 20 + helpHeight + PAD + 4)
+  settings.panels, settings.tabButtons = {}, {}
+  for i, tab in ipairs(TABS) do
+    settings.panels[i] = tab[2] and buildPanel(tab) or buildPhrases()
+    local button = CreateFrame("Button", "BuffDiggerSettingsTab" .. i, settings, "PanelTabButtonTemplate")
+    button:SetID(i)
+    button:SetText(L[tab[1]])
+    button:SetScript("OnClick", function() selectTab(i) end)
+    settings.tabButtons[i] = button
+  end
+  settings.tabButtons[1]:SetPoint("TOPLEFT", settings, "BOTTOMLEFT", 12, 2)
+  PanelTemplates_SetNumTabs(settings, #TABS) -- anchors the other tabs, each after the one before
+
+  -- Bottom left, on every tab: simple (the default) or every setting. A first try (#52), easy to
+  -- take out: nothing else depends on it but layout().
+  local def = { key = "showAdvanced", label = "Show advanced options",
+    tip = "Shows every setting. Hidden settings keep working with the value they have.",
+    after = function() for _, panel in ipairs(settings.panels) do layout(panel) end end }
+  settings.advanced = BUILD.check(settings, def)
+  settings.advanced:ClearAllPoints()
+  settings.advanced:SetPoint("BOTTOMLEFT", PAD, PAD)
+  tip(settings.advanced, L[def.label], L[def.tip])
 end
 
+-- Minimap left click, /bd config: always opens on General (#52).
 function ns.toggleSettings()
   if not settings then return end
-  settings:SetShown(not settings:IsShown())
+  if settings:IsShown() then settings:Hide() return end
+  settings:Show()
+  selectTab(1)
 end
 
 -- ---------------------------------------------------------------- minimap button
@@ -828,7 +966,7 @@ local function makeWindow(globalName, title, setting, cast, point, sortable)
   end)
   w:Hide()
   -- The window's own close button turns the setting off too.
-  w.CloseButton:HookScript("OnClick", function() BuffDiggerDB[setting] = false end)
+  w.CloseButton:HookScript("OnClick", function() BuffDiggerDB[setting] = false ns.applyWindows() end)
 
   local header = w:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   header:SetPoint("TOP", 0, -5)
@@ -1507,6 +1645,13 @@ end)
 
 -- Show each window according to its setting (out of combat only).
 function ns.applyWindows()
+  -- Settings open: their boxes read again (a window closed by its own button unticks its box).
+  if settings and settings:IsShown() then
+    for _, row in ipairs(settings.panels[settings.selectedTab].rows) do
+      local onShow = row.control and row.control:GetScript("OnShow")
+      if onShow then onShow(row.control) end
+    end
+  end
   if InCombatLockdown() or not nearby then return end
   nearby:SetShown(BuffDiggerDB.nearby)
   give:SetShown(BuffDiggerDB.give)

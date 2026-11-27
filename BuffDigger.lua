@@ -59,6 +59,7 @@ ns.DEFAULTS = {
   targetOnAsk = false, -- Get buffs: asking for a buff also targets the player (#14)
   requestMarkers = true, -- big pulsing icon above the nameplate of a Buff Digger user asking me (#15)
   gameMenu = true, -- buff request lines in the game's right-click menu on a player (#17)
+  showAdvanced = false, -- settings window: show the advanced settings too (#52)
 }
 
 -- ---------------------------------------------------------------- bets (diagnostics)

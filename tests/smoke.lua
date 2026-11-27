@@ -1029,6 +1029,125 @@ typed=""; pw.edit._OnTextChanged(pw.edit, true); assert(pw.status.t:find("Box em
 pw.copy._OnClick(pw.copy); assert(typed:find("^Could I get {spell} please%?\n") and #BuffDiggerDB.custom.new==#ns.MESSAGES.en.casual.new, typed)
 pw.tabs[5]._OnClick(pw.tabs[5]); pw.copy._OnClick(pw.copy); assert(BuffDiggerDB.custom.thanks[1]=="Thanks!")
 ns.setCustom("new", ""); ns.setCustom("thanks", "")
+-- #52: the settings window, in tabs. Self-contained: puts back what it changes.
+do
+  local s = _G.BuffDiggerSettings
+  local function rows() local all = {} for _, p in ipairs(s.panels) do for _, r in ipairs(p.rows) do all[#all+1] = r end end return all end
+  local function rowFor(key) for _, r in ipairs(rows()) do if r.def.key == key then return r end end end
+  local function click(b) b._OnClick(b) end
+  -- No setting lost: each key of ns.DEFAULTS in exactly one row (those without a box aside), none unknown.
+  local seen, noBox, kinds = {}, { lockWindows = true, requests = true, showAdvanced = true }, {}
+  for _, r in ipairs(rows()) do
+    local k = r.def.key
+    if r.def.kind then kinds[r.def.kind] = true end
+    if k then assert(ns.DEFAULTS[k] ~= nil, "row for an unknown key: "..k); assert(not seen[k], "two rows for "..k); seen[k] = true end
+    local want = ({ check = "boolean", choice = "string", cycle = "number" })[r.def.kind or "check"]
+    if k and want then assert(type(ns.DEFAULTS[k]) == want, ("%s: a %s row for a %s"):format(k, r.def.kind or "check", type(ns.DEFAULTS[k]))) end
+  end
+  for k in pairs(ns.DEFAULTS) do assert(seen[k] or noBox[k], "setting in no tab: "..k) end
+  assert(kinds.prefs and kinds.plates and kinds.keys, "priorities, the game's nameplates, key bindings")
+  -- Opens on General; a tab shows its panel and hides the others; opening again goes back to General.
+  ns.toggleSettings(); assert(s:IsShown() and s.selectedTab == 1 and s.panels[1]:IsShown())
+  click(s.tabButtons[2]); assert(s.selectedTab == 2 and s.panels[2]:IsShown())
+  for i, p in ipairs(s.panels) do assert(i == 2 or not p:IsShown(), "only Buffs shows") end
+  ns.toggleSettings(); assert(not s:IsShown()); ns.toggleSettings()
+  assert(s.selectedTab == 1 and s.panels[1]:IsShown() and not s.panels[2]:IsShown(), "back on General")
+  -- Fixed size; every column ends above the bottom line, with 13 priorities (#47 adds water and food).
+  local saved, n = BuffDiggerDB.showAdvanced, 0
+  for _ in pairs(ns.BUFFS) do n = n + 1 end
+  BuffDiggerDB.showAdvanced = true
+  assert(s:GetHeight() == 464)
+  for i in ipairs(s.panels) do
+    click(s.tabButtons[i])
+    for c, col in ipairs(s.panels[i].columns) do
+      local bottom = col.bottom - ((i == 2 and c == 1) and (13 - n) * 24 or 0)
+      assert(bottom >= s.limit, ("tab %d column %d overflows: %d < %d"):format(i, c, bottom, s.limit))
+    end
+  end
+  -- Each widget writes the key it wrote before.
+  local box = rowFor("useSay").control
+  box.GetChecked = function() return false end; BuffDiggerDB.useSay = true; click(box); assert(BuffDiggerDB.useSay == false)
+  box.GetChecked = nil; click(box); assert(BuffDiggerDB.useSay == true); BuffDiggerDB.useSay = false
+  BuffDiggerDB.tone = "casual"; click(rowFor("tone").control); assert(BuffDiggerDB.tone == "polite"); BuffDiggerDB.tone = "casual"
+  BuffDiggerDB.delay = 120; click(rowFor("delay").control); assert(BuffDiggerDB.delay == 300); BuffDiggerDB.delay = 120
+  -- Each widget shows what is saved when it shows.
+  local function shown(key) local w = rowFor(key).control; w._OnShow(w); return w end
+  BuffDiggerDB.useSay = true; assert(shown("useSay")._checked == true)
+  BuffDiggerDB.useSay = false; assert(shown("useSay")._checked == false, "box shows the saved value")
+  BuffDiggerDB.tone = "polite"; assert(shown("tone")._t == "Polite", shown("tone")._t); BuffDiggerDB.tone = "casual"
+  assert(shown("tone")._t == "Casual")
+  BuffDiggerDB.delay = 300; assert(shown("delay")._t == "5 min", shown("delay")._t); BuffDiggerDB.delay = 120
+  -- A window closed by its own button unticks its box, settings open.
+  click(s.tabButtons[1]); BuffDiggerDB.give = true; ns.applyWindows()
+  local giveBox = rowFor("give").control; giveBox._OnShow(giveBox); assert(giveBox._checked == true)
+  local close = _G.BuffDiggerGive.CloseButton; for _, f in ipairs(close._hooks.OnClick) do f(close) end
+  assert(BuffDiggerDB.give == false and giveBox._checked == false, "Get buffs box unticked")
+  -- A tooltip on every setting, on its control and on its label (the row): the label, then the tip.
+  local tip = {}
+  GameTooltip.AddLine = function(_, t) tip[#tip+1] = t end
+  local function hover(w) tip = {}; assert(w._OnEnter, "no tooltip"); w._OnEnter(w); return tip end
+  for _, r in ipairs(rows()) do
+    local what = r.def.key or r.def.kind
+    if what and r.def.kind ~= "help" and r.def.kind ~= "prefs" then
+      assert(r.def.tip and r.def.tip ~= "", "no tip: "..what)
+      for _, w in ipairs({ r.control, r }) do
+        hover(w); assert(tip[1] == r.def.label and tip[2] == r.def.tip, "tooltip of "..what..": "..tostring(tip[1]))
+      end
+    end
+  end
+  local prefs; for _, r in ipairs(rows()) do if r.def.kind == "prefs" then prefs = r end end
+  s._OnShow(s); hover(prefs.lines[1].box); assert(tip[1] and tip[2]:find("^Ticked"), "priority line")
+  hover(prefs.lines[1]); assert(tip[2]:find("^Ticked"), "priority line, on its name")
+  hover(prefs.reset); assert(tip[2]:find("default"), "Reset")
+  GameTooltip.AddLine = nil
+  -- Key bindings: the key each one has, or Not bound.
+  local keys; for _, r in ipairs(rows()) do if r.def.kind == "keys" then keys = r end end
+  BOUND = nil; keys._OnShow(keys); assert(keys.keys[1]._t:find("Not bound"))
+  BOUND = "F5"; keys._OnShow(keys); assert(keys.keys[1]._t == "F5"); BOUND = nil
+  local said; local realNotice = ns.notice; ns.notice = function(t) said = t end
+  click(keys.control); assert(said:find("Keybindings > AddOns"), "no settings API: says where")
+  -- The game's page: opened, then the window hidden; in combat or if the call fails, it says where.
+  local opened, fails, realCombat = nil, false, InCombatLockdown
+  C_SettingsUtil = { OpenSettingsPanel = function(id) if fails then error("blocked") end opened = id end }
+  Settings = { KEYBINDINGS_CATEGORY_ID = 42 }
+  said = nil; s:Show(); click(keys.control); assert(opened == 42 and not s:IsShown() and not said, "opened, window hidden")
+  opened = nil; s:Show(); InCombatLockdown = function() return true end; click(keys.control); InCombatLockdown = realCombat
+  assert(not opened and s:IsShown() and said:find("Keybindings > AddOns"), "combat: no call, says where, window kept")
+  said = nil; fails = true; click(keys.control)
+  assert(s:IsShown() and said:find("Keybindings > AddOns"), "call fails: says where, window kept")
+  C_SettingsUtil, Settings, ns.notice = nil, nil, realNotice
+  -- Simple: no advanced row, the others follow without a hole. The box shows them all, and is kept.
+  local function noHole(panel)
+    for _, col in ipairs(panel.columns) do
+      local y = -32
+      for _, r in ipairs(col) do if r:IsShown() then
+        if r.def.title and y ~= -32 then y = y - 8 end
+        assert(r.y == y, "hole above "..tostring(r.def.key or r.def.title or r.def.kind)); y = y - r.h
+      end end
+    end
+  end
+  assert(ns.DEFAULTS.showAdvanced == false)
+  local adv = s.advanced
+  adv.GetChecked = function() return false end; click(adv); assert(BuffDiggerDB.showAdvanced == false)
+  BuffDiggerDB.debug = true
+  for i, p in ipairs(s.panels) do
+    click(s.tabButtons[i])
+    for _, r in ipairs(p.rows) do assert((r:IsShown() and true or false) == not r.def.advanced, "simple mode: "..tostring(r.def.key or r.def.title)) end
+    noHole(p)
+  end
+  assert(not rowFor("debug"):IsShown() and BuffDiggerDB.debug == true, "hidden, still on")
+  adv.GetChecked = nil; click(adv); assert(BuffDiggerDB.showAdvanced == true and rowFor("debug"):IsShown() and rowFor("delay"):IsShown(), "every tab laid out again")
+  for _, p in ipairs(s.panels) do noHole(p) end
+  BuffDiggerDB.debug = false
+  -- Phrases: the 4th tab, a panel of the window, no window of its own; no advanced box on it.
+  local pw = _G.BuffDiggerPhrases
+  assert(s.panels[4] == pw and pw:GetParent() == s, "Phrases is a tab")
+  for _, name in ipairs(UISpecialFrames) do assert(name ~= "BuffDiggerPhrases", "no window of its own") end
+  click(s.tabButtons[4]); assert(pw:IsShown() and not s.panels[1]:IsShown() and not s.advanced:IsShown())
+  click(s.tabButtons[1]); assert(s.advanced:IsShown() and not pw:IsShown())
+  BuffDiggerDB.showAdvanced = saved; s:Hide()
+end
+print("SETTINGS OK")
 -- #38: requests are per character. Each character has its own BuffDiggerCharDB (the game swaps it at
 -- login); settings stay in the account-wide BuffDiggerDB. Self-contained: puts back what it changes.
 do
