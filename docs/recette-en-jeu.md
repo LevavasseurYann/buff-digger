@@ -255,3 +255,17 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 104 | *Write to players in* : Deutsch, *Tone* : Role play, *Try one* | Une phrase Polite allemande (Sie), pas d'anglais |
 | 105 | Une phrase perso dans *My own phrases*, puis une demande dans chaque ton | La phrase perso part quel que soit le ton |
 | 106 | Un ancien profil (mise à jour depuis 1.3.0, sans toucher aux réglages) | *Tone* : Casual |
+
+## Fenêtre des options (#52) — de préférence un paladin ou un prêtre (la liste de priorités la plus longue)
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 107 | Clic gauche sur le bouton de la minicarte, puis `/bd config` | La fenêtre s'ouvre sur *General* ; 4 onglets sous le cadre, avec l'art Blizzard (comme la fenêtre Personnage), *General* sélectionné |
+| 108 | Passer par les 4 onglets, case *Show advanced options* cochée puis décochée | Le cadre garde sa taille ; rien ne déborde ni ne se chevauche, dans aucun onglet ni aucun mode ; en simple, pas de trou à la place des lignes cachées ; *Buffs* sans la case : liste et *Reset to default* au-dessus d'elle |
+| 109 | Cocher *Show advanced options*, `/reload`, rouvrir | Toujours cochée, les réglages avancés visibles |
+| 110 | Mode avancé : cocher *Debug messages in chat* ; décocher *Show advanced options* ; faire une demande | La ligne est cachée, mais les messages de debug s'impriment toujours |
+| 111 | Survoler une case, puis son libellé ; un bouton à choix et son libellé ; une ligne des priorités ; *Reset to default* | Une infobulle : le libellé, puis ce que le réglage change ; cliquer sur le libellé d'une case la coche |
+| 112 | *General* > *Key bindings* : sans raccourci, puis après en avoir assigné un | *Not bound* en gris, puis la touche ; *Set key bindings...* ouvre la page des raccourcis du jeu (sinon un message dit où la trouver : noter lequel) ; rouvrir les réglages montre la nouvelle touche |
+| 113 | Onglet *Phrases* : taper une phrase, *Try one*, changer de cas, *Start from Buff Digger's* | Comme l'ancienne fenêtre, dans le cadre ; infobulle sur chaque cas ; pas de case *Show advanced options* sur cet onglet |
+| 114 | Échap avec la fenêtre ouverte (sur *Phrases*, curseur hors de la zone de texte) | La fenêtre se ferme ; rouverte, elle revient sur *General* |
+| 115 | Fenêtre ouverte, entrer en combat ; changer une case, un choix, d'onglet | Aucune erreur, les réglages restent utilisables ; *Set key bindings...* en combat donne le chemin au lieu d'ouvrir la page |
