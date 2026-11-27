@@ -75,12 +75,14 @@ for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
       assert(not s:find(w), where .. " request thanks: " .. s)
     end
   end)
-  local t = ns.THANKS[lang[1]][tone[1]]; assert(t and #t.thanks > 0 and #t.bye > 0, where .. " thanks")
+  local t = ns.THANKS[lang[1]][tone[1]]; assert(t and #t.thanks >= 3 and #t.bye > 0, where .. " thanks")
   -- #23: a thank-you never ends like the request did ("" aside), and each side has 2 real endings.
+  -- Compared without case, spaces or punctuation: "Safe travels." and "safe travels!" are one ending.
+  local function norm(s) return (s:lower():gsub("[%p%s]", "")) end
   local ends, n = {}, 0
-  for _,s in ipairs(m.bye) do if s~="" then ends[s]=true; n=n+1 end end
+  for _,s in ipairs(m.bye) do if s~="" then ends[norm(s)]=true; n=n+1 end end
   assert(n>=2, where.." request ends")
-  n=0; for _,s in ipairs(t.bye) do assert(not ends[s], where.." thank-you ends like a request: "..s); if s~="" then n=n+1 end end
+  n=0; for _,s in ipairs(t.bye) do assert(s=="" or not ends[norm(s)], where.." thank-you ends like a request: "..s); if s~="" then n=n+1 end end
   assert(n>=2, where.." thank-you ends")
   print(where, (ns.message("new", "might", lang[1], tone[1]):gsub("|c%x+|H.-|h", ""):gsub("|h|r", "")), ns.thanks(lang[1], tone[1]))
 end end
@@ -1440,5 +1442,18 @@ do
       assert(not (endsWith(m,e) and endsWith(t,e)), lang.." same ending twice: "..e)
     end
   end end end
+  -- The tone reaches the thank-you, "Start from Buff Digger's" and "Try one".
+  BuffDiggerDB.tone="polite"; ns.dismissThank()
+  BuffDiggerCharDB.asked={Velen={at=time(), key="fortitude", channel="WHISPER", target="Velen"}}
+  myAuras={aura(9700,"Mot de pouvoir : Robustesse",1243,"nameplate90")}; fire("UNIT_AURA","player")
+  local b=#sent; ns.thankBuffer("Velen"); local msg=sent[b+1]:match("^WHISPER Velen: (.*)")
+  local polite; for _,s in ipairs(ns.THANKS.en.polite.thanks) do polite=polite or msg:sub(1,#s)==s end
+  assert(polite, "thank-you in Polite: "..msg)
+  local pw=_G.BuffDiggerPhrases; pw.tabs[1]._OnClick(pw.tabs[1]); pw.edit:SetText(""); pw.copy._OnClick(pw.copy)
+  assert(pw.edit:GetText():find("^"..ns.MESSAGES.en.polite.new[1]:gsub("%%s","{spell}"):gsub("%p","%%%0").."\n"), "Start from: Polite")
+  ns.setCustom("new", ""); pw.edit:SetText("")
+  local said; local realSay=ns.say; ns.say=function(t) said=t end
+  for i=1,10 do pw.preview._OnClick(pw.preview); assert(madeFrom(said, ns.MESSAGES.en.polite), "Try one: Polite "..said) end
+  ns.say=realSay; BuffDiggerDB.tone="casual"; myAuras={}; fire("UNIT_AURA","player")
 end
 print("TONE OK")

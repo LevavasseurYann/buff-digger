@@ -271,8 +271,8 @@ ns.MESSAGES = {
         "Could I trouble you for %s?",
       },
       new = {
-        "Would you be so kind as to toss me %s?",
-        "%s for a weary traveler?",
+        "Would you be so kind as to cast me %s?",
+        "May I ask you for %s, please?",
         "I'd love %s if you don't mind.",
         "Would you mind casting %s on me?",
         "Could I trouble you for %s?",
@@ -297,7 +297,7 @@ ns.MESSAGES = {
     -- the giver's class a touch of its own; a missing bag falls back on the neutral one (#51 adds more).
     roleplay = {
       hello = { "Well met! ", "Hail and well met! ", "Greetings, traveler! ", "Hail, friend! " },
-      bye = { "", "", " If thou canst spare the mana.", " Only should time allow." },
+      bye = { "", "", " If thou canst spare the mana.", " Should time allow." },
       multi = {
         "Might I beg %s of thee?",
         "Would you grant a weary traveler %s?",
@@ -315,7 +315,7 @@ ns.MESSAGES = {
         "Would you bless me with %s instead?",
       },
       upgrade = {
-        "Thy %s burns brighter than mine. Would you lend it to me?",
+        "Thy %s burns brighter than mine. Wouldst thou lend it to me?",
         "Mine is but a faint %s. Would you grant me yours?",
         "Your %s is mightier than mine, friend. Would you renew it?",
       },
@@ -338,7 +338,7 @@ ns.MESSAGES = {
         DRUID = { new = {
           "Might nature grant me %s through you, friend?",
           "Could you spare %s, keeper of the wilds?",
-          "Would you share the gift of the wild? %s",
+          "Would you share nature's blessing? %s",
         } },
         MAGE = { new = {
           "Could you weave %s upon me, friend?",
@@ -743,7 +743,7 @@ ns.THANKS = {
   fr = {
     casual = {
       thanks = { "Merci !", "Super, merci !", "Génial, merci !", "Merci pour le buff !", "Top, merci !" },
-      bye = { "", " T'es au top !", " Bon jeu à toi !", " Bonne aventure !", " Que la Lumière te garde !",
+      bye = { "", " T'es au top !", " Bon jeu à toi !", " Bonne aventure !", " Bon courage !",
         " Bonne route !" },
     },
     polite = {
