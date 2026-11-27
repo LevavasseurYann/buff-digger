@@ -64,8 +64,8 @@ function ns.deliver(name, target, keys, text, useSay, kinds, reask)
   end
   -- Water or food (#47): an older Buff Digger ignores them without a word, so the chat goes too
   -- until that player said they speak PROTOCOL (ACK:2).
-  local item = false
-  for _, k in ipairs(keys) do item = item or BUFFS[k].item == true end
+  local item
+  for _, k in ipairs(keys) do item = item or BUFFS[k].item end
   if not ns.isPeer(name) or item and (BuffDiggerDB.protocol[name] or 0) < PROTOCOL then
     visible() return useSay and "SAY" or "WHISPER"
   end
