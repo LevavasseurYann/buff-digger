@@ -67,6 +67,22 @@ ns.BUFFS = {
     ranks = { 6, 14, 24, 34, 44, 54 },
     values = { 3, 6, 9, 12, 15, 18 }, stat = "damage to attackers", talent = 1.75,
   },
+  -- A mage's water and food (#47): asked like a buff, never an aura (no values, no stat), so never
+  -- "had": a request for one is always "new", and Buff Digger never picks one by itself.
+  -- `spells`: each rank's own spell (the mage casts the rank the asker can use), `uses`: the level
+  -- needed to eat or drink that rank (itemMinLevel, seen in game 2026-11-27, issue #47).
+  water = {
+    en = "Conjure Water", id = 5504, class = "MAGE", item = true,
+    ranks = { 4, 10, 20, 30, 40, 50, 60 }, -- unverified (vanilla trainer levels)
+    spells = { 5504, 5505, 5506, 6127, 10138, 10139, 10140 }, -- unverified (vanilla)
+    uses = { 1, 5, 15, 25, 35, 45, 55 }, -- items 5350, 2288, 2136, 3772, 8077, 8078, 8079
+  },
+  food = {
+    en = "Conjure Food", id = 587, class = "MAGE", item = true,
+    ranks = { 6, 12, 22, 32, 42, 52, 60 }, -- unverified (vanilla trainer levels)
+    spells = { 587, 597, 990, 6129, 10144, 10145, 28612 }, -- unverified (vanilla)
+    uses = { 1, 5, 15, 25, 35, 45, 55 }, -- items 5349, 1113, 1114, 1487, 8075, 8076, 22895
+  },
 }
 
 -- Order of preference for MY class, best first. A buff not listed is useless to that class.
@@ -75,19 +91,20 @@ ns.PREFERENCES = {
   -- Rage, no mana: Might feeds damage directly; Fortitude and Mark keep you alive between pulls;
   -- Kings is 10% of small stat totals while leveling, so below Might. Spirit last: faster health
   -- regen out of combat, a warrior's only downtime.
-  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns", "spirit" },
-  ROGUE   = { "might", "fortitude", "kings", "wild" },
+  -- Water (classes with mana) and food (all but the mage) come last (#47): only asked by a click.
+  WARRIOR = { "might", "fortitude", "kings", "wild", "thorns", "spirit", "food" },
+  ROGUE   = { "might", "fortitude", "kings", "wild", "food" },
   -- Might only raises MELEE attack power in vanilla, useless for a bow. Mana matters (Aspects, Serpent Sting).
-  HUNTER  = { "kings", "fortitude", "wild", "wisdom", "intellect" },
+  HUNTER  = { "kings", "fortitude", "wild", "wisdom", "intellect", "water", "food" },
   -- Casters: downtime is drinking. Wisdom and Intellect cut it; Spirit helps priests/mages regen.
   MAGE    = { "wisdom", "intellect", "fortitude", "kings", "wild", "spirit" },
-  PRIEST  = { "wisdom", "intellect", "fortitude", "spirit", "kings", "wild" },
+  PRIEST  = { "wisdom", "intellect", "fortitude", "spirit", "kings", "wild", "water", "food" },
   -- Warlocks trade health for mana (Life Tap): Stamina first.
-  WARLOCK = { "fortitude", "wisdom", "intellect", "kings", "wild", "spirit" },
+  WARLOCK = { "fortitude", "wisdom", "intellect", "kings", "wild", "spirit", "water", "food" },
   -- Hybrids leveling in melee (Retribution, Enhancement, Feral) but healing between pulls.
-  PALADIN = { "might", "fortitude", "kings", "wisdom", "wild", "intellect" },
-  SHAMAN  = { "might", "fortitude", "kings", "wisdom", "wild", "intellect" },
-  DRUID   = { "might", "fortitude", "kings", "wisdom", "intellect", "wild" },
+  PALADIN = { "might", "fortitude", "kings", "wisdom", "wild", "intellect", "water", "food" },
+  SHAMAN  = { "might", "fortitude", "kings", "wisdom", "wild", "intellect", "water", "food" },
+  DRUID   = { "might", "fortitude", "kings", "wisdom", "intellect", "wild", "water", "food" },
 }
 
 -- What other players read. The language is a setting (English by default), NOT the client's language:
@@ -142,6 +159,22 @@ ns.MESSAGES = {
         "Plus que quelques minutes de buff, tu me le remets stp ? (%s)",
         "Mon buff est presque fini, un petit rebuff ? %s",
       },
+      -- A mage's water and food (#47): %s is the spell link(s) and my level, "[Conjure Water] (niv. 23)".
+      water = {
+        "T'aurais un peu d'eau à me filer stp ? %s",
+        "Tu pourrais m'invoquer de l'eau ? %s",
+        "Je peux te gratter de l'eau ? %s",
+      },
+      food = {
+        "T'aurais un peu de bouffe à me filer stp ? %s",
+        "Tu pourrais m'invoquer à manger ? %s",
+        "Je peux te gratter à manger ? %s",
+      },
+      items = { -- water and food together
+        "T'aurais de l'eau et de la bouffe à me filer stp ? %s",
+        "Tu pourrais m'invoquer à boire et à manger ? %s",
+        "Je peux te gratter à boire et à manger ? %s",
+      },
     },
     polite = {
       hello = { "Bonjour ! ", "Bien le bonjour ! ", "Salutations ! " },
@@ -171,6 +204,21 @@ ns.MESSAGES = {
         "Pourriez-vous rafraîchir ce buff avant qu'il expire, s'il vous plaît ? (%s)",
         "Mon buff touche à sa fin : accepteriez-vous de le renouveler ? (%s)",
         "Il ne me reste que quelques minutes de %s. Pourriez-vous le relancer ?",
+      },
+      water = {
+        "Auriez-vous un peu d'eau à me donner, s'il vous plaît ? %s",
+        "Pourriez-vous m'invoquer de l'eau ? %s",
+        "Je ne dirais pas non à un peu d'eau : %s",
+      },
+      food = {
+        "Auriez-vous un peu de nourriture à me donner, s'il vous plaît ? %s",
+        "Pourriez-vous m'invoquer de quoi manger ? %s",
+        "Je ne dirais pas non à un peu de nourriture : %s",
+      },
+      items = {
+        "Auriez-vous de quoi boire et manger ? %s",
+        "Pourriez-vous m'invoquer de quoi boire et manger ? %s",
+        "Je ne dirais pas non à de quoi boire et manger : %s",
       },
     },
     -- Role play: neutral and vous (see the English one for byClass).
@@ -202,6 +250,21 @@ ns.MESSAGES = {
         "Mon bienfait s'étiole, l'ami : le renouvelleriez-vous ? (%s)",
         "Le pouvoir de %s s'estompe en moi. Pourriez-vous le raviver ?",
         "Avant que mon bienfait ne s'efface, me le rendriez-vous ? (%s)",
+      },
+      water = {
+        "Une gourde d'eau pour un voyageur assoiffé ? %s",
+        "Puis-je quémander un peu de votre eau enchantée, l'ami ? %s",
+        "La route est sèche : me feriez-vous la grâce d'un peu d'eau ? %s",
+      },
+      food = {
+        "Un peu de pain pour un voyageur affamé ? %s",
+        "Puis-je quémander un peu de votre pain enchanté, l'ami ? %s",
+        "La route est longue : me feriez-vous la grâce d'un peu de pain ? %s",
+      },
+      items = {
+        "À boire et à manger pour un voyageur ? %s",
+        "Puis-je quémander eau et pain, l'ami ? %s",
+        "Me feriez-vous la grâce d'eau et de pain ? %s",
       },
       byClass = {
         PALADIN = { new = {
@@ -261,6 +324,22 @@ ns.MESSAGES = {
         "Only a few minutes left on my %s, could I get a fresh one?",
         "My %s is fading, a quick recast?",
       },
+      -- A mage's water and food (#47): %s is the spell link(s) and my level, "[Conjure Water] (lvl 23)".
+      water = {
+        "Got any water to spare? %s",
+        "Mind conjuring me some water? %s",
+        "Could I grab some water off you? %s",
+      },
+      food = {
+        "Got any food to spare? %s",
+        "Mind conjuring me some food? %s",
+        "Could I grab some food off you? %s",
+      },
+      items = { -- water and food together
+        "Got any water and food to spare? %s",
+        "Mind conjuring me some water and food? %s",
+        "Could I grab some water and food off you? %s",
+      },
     },
     polite = {
       hello = { "Hello! ", "Hi there! ", "Greetings! ", "Good day! " },
@@ -291,6 +370,21 @@ ns.MESSAGES = {
         "My %s is about to wear off, could you refresh it?",
         "Could you refresh my %s please? It's running out.",
         "Would you mind renewing my %s? It is about to wear off.",
+      },
+      water = {
+        "Could you spare some water, please? %s",
+        "Would you mind conjuring some water for me? %s",
+        "May I ask you for some water? %s",
+      },
+      food = {
+        "Could you spare some food, please? %s",
+        "Would you mind conjuring some food for me? %s",
+        "May I ask you for some food? %s",
+      },
+      items = {
+        "Could you spare some water and food, please? %s",
+        "Would you mind conjuring some water and food for me? %s",
+        "May I ask you for some water and food? %s",
       },
     },
     -- Role play: a neutral register that fits any race and class. byClass (optional, any part) gives
@@ -323,6 +417,21 @@ ns.MESSAGES = {
         "My %s fades, friend. Would you renew it?",
         "The power of %s wanes upon me. Might you restore it?",
         "Ere my %s fades, could you renew it?",
+      },
+      water = {
+        "Could you conjure a flask of water for a weary traveler? %s",
+        "Might I beg some conjured water of thee? %s",
+        "The road is dry, friend. Could you spare some water? %s",
+      },
+      food = {
+        "Could you conjure some bread for a weary traveler? %s",
+        "Might I beg some conjured bread of thee? %s",
+        "The road is long, friend. Could you spare some food? %s",
+      },
+      items = {
+        "Water and food for a weary traveler? %s",
+        "Might I beg water and food of thee? %s",
+        "Could you spare water and food, friend? %s",
       },
       byClass = {
         PALADIN = { new = {
@@ -386,6 +495,21 @@ ns.MESSAGES = {
         "Nur noch ein paar Minuten %s übrig, kurz nachbuffen bitte?",
         "Mein Buff ist fast weg, einmal auffrischen? (%s)",
       },
+      water = {
+        "Hast du etwas Wasser übrig? %s",
+        "Kannst du mir Wasser zaubern? %s",
+        "Hättest du Wasser für mich? %s",
+      },
+      food = {
+        "Hast du etwas Essen übrig? %s",
+        "Kannst du mir Essen zaubern? %s",
+        "Hättest du Essen für mich? %s",
+      },
+      items = {
+        "Hast du Wasser und Essen übrig? %s",
+        "Kannst du mir Wasser und Essen zaubern? %s",
+        "Hättest du Wasser und Essen für mich? %s",
+      },
     },
     polite = { -- Sie
       hello = { "Hallo! ", "Guten Tag! ", "Grüße! " },
@@ -414,6 +538,21 @@ ns.MESSAGES = {
         "Mein Buff läuft gleich aus. Könnten Sie ihn bitte erneuern? (%s)",
         "%s läuft bei mir bald ab. Würden Sie ihn auffrischen?",
         "Nur noch wenige Minuten %s. Dürfte ich Sie um eine Erneuerung bitten?",
+      },
+      water = {
+        "Hätten Sie etwas Wasser für mich? %s",
+        "Könnten Sie mir Wasser herbeizaubern? %s",
+        "Dürfte ich Sie um etwas Wasser bitten? %s",
+      },
+      food = {
+        "Hätten Sie etwas Essen für mich? %s",
+        "Könnten Sie mir Essen herbeizaubern? %s",
+        "Dürfte ich Sie um etwas Essen bitten? %s",
+      },
+      items = {
+        "Hätten Sie Wasser und Essen für mich? %s",
+        "Könnten Sie mir Wasser und Essen zaubern? %s",
+        "Dürfte ich Sie um Wasser und Essen bitten? %s",
       },
     },
   },
@@ -449,6 +588,21 @@ ns.MESSAGES = {
         "%s se me va a acabar, ¿un rebuff, por favor?",
         "Me quedan pocos minutos de %s, ¿me renuevas el buff?",
       },
+      water = {
+        "¿Te sobra algo de agua? %s",
+        "¿Me conjuras un poco de agua? %s",
+        "¿Me pasas algo de agua? %s",
+      },
+      food = {
+        "¿Te sobra algo de comida? %s",
+        "¿Me conjuras un poco de comida? %s",
+        "¿Me pasas algo de comida? %s",
+      },
+      items = {
+        "¿Te sobra agua y comida? %s",
+        "¿Me conjuras agua y comida? %s",
+        "¿Me pasas agua y comida? %s",
+      },
     },
     polite = { -- usted
       hello = { "¡Hola! ", "¡Saludos! ", "¡Hola, buenas! " },
@@ -477,6 +631,21 @@ ns.MESSAGES = {
         "Mi buff se acaba pronto. ¿Podría renovarlo, por favor? (%s)",
         "%s se me va a acabar. ¿Sería tan amable de renovarlo?",
         "Me quedan pocos minutos de %s. ¿Podría renovármelo?",
+      },
+      water = {
+        "¿Podría darme un poco de agua, por favor? %s",
+        "¿Sería tan amable de conjurarme agua? %s",
+        "¿Le sobraría algo de agua? %s",
+      },
+      food = {
+        "¿Podría darme un poco de comida, por favor? %s",
+        "¿Sería tan amable de conjurarme comida? %s",
+        "¿Le sobraría algo de comida? %s",
+      },
+      items = {
+        "¿Podría darme agua y comida, por favor? %s",
+        "¿Sería tan amable de conjurarme agua y comida? %s",
+        "¿Le sobraría agua y comida? %s",
       },
     },
   },
@@ -512,6 +681,21 @@ ns.MESSAGES = {
         "%s sta per finire, un rebuff per favore?",
         "Mi restano pochi minuti di %s, mi rinnovi il buff?",
       },
+      water = {
+        "Hai un po' d'acqua da darmi? %s",
+        "Mi evochi un po' d'acqua? %s",
+        "Mi passi un po' d'acqua? %s",
+      },
+      food = {
+        "Hai un po' di cibo da darmi? %s",
+        "Mi evochi un po' di cibo? %s",
+        "Mi passi un po' di cibo? %s",
+      },
+      items = {
+        "Hai acqua e cibo da darmi? %s",
+        "Mi evochi acqua e cibo? %s",
+        "Mi passi acqua e cibo? %s",
+      },
     },
     polite = { -- Lei
       hello = { "Salve! ", "Buongiorno! ", "Ciao! " },
@@ -540,6 +724,21 @@ ns.MESSAGES = {
         "Il mio buff sta per scadere. Potrebbe rinnovarlo, per favore? (%s)",
         "%s sta per finire. Sarebbe così gentile da rinnovarlo?",
         "Mi restano pochi minuti di %s. Potrebbe rinnovarmelo?",
+      },
+      water = {
+        "Potrebbe darmi un po' d'acqua, per favore? %s",
+        "Le avanza un po' d'acqua? %s",
+        "Sarebbe così gentile da evocarmi dell'acqua? %s",
+      },
+      food = {
+        "Potrebbe darmi un po' di cibo, per favore? %s",
+        "Le avanza un po' di cibo? %s",
+        "Sarebbe così gentile da evocarmi del cibo? %s",
+      },
+      items = {
+        "Potrebbe darmi acqua e cibo, per favore? %s",
+        "Le avanzano acqua e cibo? %s",
+        "Sarebbe così gentile da evocarmi acqua e cibo? %s",
       },
     },
   },
@@ -575,6 +774,21 @@ ns.MESSAGES = {
         "%s está acabando, um rebuff por favor?",
         "Faltam poucos minutos de %s, renova o buff pra mim?",
       },
+      water = {
+        "Tem uma aguinha sobrando? %s",
+        "Conjura uma água pra mim? %s",
+        "Me arruma uma água? %s",
+      },
+      food = {
+        "Tem uma comidinha sobrando? %s",
+        "Conjura uma comida pra mim? %s",
+        "Me arruma uma comida? %s",
+      },
+      items = {
+        "Tem água e comida sobrando? %s",
+        "Conjura água e comida pra mim? %s",
+        "Me arruma água e comida? %s",
+      },
     },
     polite = { -- você + por favor
       hello = { "Olá! ", "Saudações! ", "Olá, tudo bem? " },
@@ -603,6 +817,21 @@ ns.MESSAGES = {
         "Meu buff está acabando. Você poderia renovar, por favor? (%s)",
         "%s está quase no fim. Seria possível renovar?",
         "Faltam poucos minutos de %s. Poderia renovar, por favor?",
+      },
+      water = {
+        "Poderia me dar um pouco de água, por favor? %s",
+        "Você se importaria de conjurar água para mim? %s",
+        "Teria um pouco de água, por favor? %s",
+      },
+      food = {
+        "Poderia me dar um pouco de comida, por favor? %s",
+        "Você se importaria de conjurar comida para mim? %s",
+        "Teria um pouco de comida, por favor? %s",
+      },
+      items = {
+        "Poderia me dar água e comida, por favor? %s",
+        "Poderia conjurar água e comida para mim? %s",
+        "Teria água e comida, por favor? %s",
       },
     },
   },
@@ -638,6 +867,21 @@ ns.MESSAGES = {
         "%s скоро закончится, перебафнешь, пожалуйста?",
         "Осталось всего пару минут %s, обновишь?",
       },
+      water = {
+        "Водички не найдётся? %s",
+        "Наколдуешь воды? %s",
+        "Можно у тебя воды? %s",
+      },
+      food = {
+        "Еды не найдётся? %s",
+        "Наколдуешь еды? %s",
+        "Можно у тебя еды? %s",
+      },
+      items = {
+        "Воды и еды не найдётся? %s",
+        "Наколдуешь воды и еды? %s",
+        "Можно у тебя воды и еды? %s",
+      },
     },
     polite = { -- вы
       hello = { "Здравствуйте! ", "Добрый день! ", "Приветствую! " },
@@ -666,6 +910,21 @@ ns.MESSAGES = {
         "Мой баф скоро спадёт. Не могли бы вы обновить? (%s)",
         "%s скоро закончится. Можно попросить вас обновить?",
         "Осталось всего пару минут %s. Не могли бы вы обновить?",
+      },
+      water = {
+        "Не найдётся ли у вас воды? %s",
+        "Не могли бы вы наколдовать мне воды? %s",
+        "Можно попросить у вас воды? %s",
+      },
+      food = {
+        "Не найдётся ли у вас еды? %s",
+        "Не могли бы вы наколдовать мне еды? %s",
+        "Можно попросить у вас еды? %s",
+      },
+      items = {
+        "Не найдётся ли у вас воды и еды? %s",
+        "Наколдуете мне воды и еды? %s",
+        "Можно попросить у вас воды и еды? %s",
       },
     },
   },
@@ -701,6 +960,21 @@ ns.MESSAGES = {
         "%s zaraz mi się skończy, rebuff proszę?",
         "Kończy mi się %s, odnowisz buffa?",
       },
+      water = {
+        "Masz trochę wody na zbyciu? %s",
+        "Wyczarujesz mi wodę? %s",
+        "Podrzucisz mi trochę wody? %s",
+      },
+      food = {
+        "Masz trochę jedzenia na zbyciu? %s",
+        "Wyczarujesz mi jedzenie? %s",
+        "Podrzucisz mi trochę jedzenia? %s",
+      },
+      items = {
+        "Masz wodę i jedzenie na zbyciu? %s",
+        "Wyczarujesz mi wodę i jedzenie? %s",
+        "Podrzucisz mi wodę i jedzenie? %s",
+      },
     },
     polite = { -- impersonal (no Pan/Pani: the reader's gender is unknown)
       hello = { "Dzień dobry! ", "Witam! ", "Witaj! " },
@@ -730,6 +1004,21 @@ ns.MESSAGES = {
         "%s zaraz się skończy. Uprzejmie proszę o odnowienie.",
         "Zostało mi kilka minut %s. Czy można prosić o odnowienie?",
       },
+      water = {
+        "Czy można prosić o trochę wody? %s",
+        "Czy znalazłoby się trochę wody? %s",
+        "Uprzejmie proszę o trochę wody. %s",
+      },
+      food = {
+        "Czy można prosić o trochę jedzenia? %s",
+        "Czy znalazłoby się trochę jedzenia? %s",
+        "Uprzejmie proszę o trochę jedzenia. %s",
+      },
+      items = {
+        "Czy można prosić o wodę i jedzenie? %s",
+        "Czy znalazłoby się woda i jedzenie? %s",
+        "Uprzejmie proszę o wodę i jedzenie. %s",
+      },
     },
   },
 }
@@ -737,12 +1026,16 @@ ns.MESSAGES = {
 -- How each language joins several spell links (#39): "A and B", "A, B and C".
 ns.AND = { en = " and ", fr = " et ", de = " und ", es = " y ", it = " e ", pt = " e ", ru = " и ", pl = " i " }
 
+-- My level after a water or food link (#47): the mage conjures the rank I can use.
+ns.LEVEL = { en = "lvl %d", fr = "niv. %d", de = "Stufe %d", es = "nivel %d", it = "liv. %d", pt = "nível %d",
+  ru = "ур. %d", pl = "poz. %d" }
+
 -- Sent in the same channel as the request, once the buff lands: one of `thanks`, then one of `bye`
 -- (same shuffled bags as requests). Same tones as ns.MESSAGES.
 ns.THANKS = {
   fr = {
     casual = {
-      thanks = { "Merci !", "Super, merci !", "Génial, merci !", "Merci pour le buff !", "Top, merci !" },
+      thanks = { "Merci !", "Super, merci !", "Génial, merci !", "Merci mille fois !", "Top, merci !" },
       bye = { "", " T'es au top !", " Bon jeu à toi !", " Bonne aventure !", " Bon courage !",
         " Bonne route !" },
     },
@@ -757,7 +1050,7 @@ ns.THANKS = {
   },
   en = {
     casual = {
-      thanks = { "Thanks!", "Thanks a lot!", "Cheers!", "Ty!", "Awesome, thanks!", "Thanks for the buff!" },
+      thanks = { "Thanks!", "Thanks a lot!", "Cheers!", "Ty!", "Awesome, thanks!", "Thanks a bunch!" },
       bye = { "", " You're the best!", " Have a good one!", " Good luck out there!" },
     },
     polite = {
@@ -771,7 +1064,7 @@ ns.THANKS = {
   },
   de = {
     casual = {
-      thanks = { "Danke!", "Super, danke!", "Danke für den Buff!" },
+      thanks = { "Danke!", "Super, danke!", "Danke dir!" },
       bye = { "", " Du bist super!", " Noch ein schönes Spiel!", " Viel Erfolg!", " Gute Reise!" },
     },
     polite = {
@@ -781,7 +1074,7 @@ ns.THANKS = {
   },
   es = {
     casual = {
-      thanks = { "¡Gracias!", "¡Genial, gracias!", "¡Gracias por el buff!" },
+      thanks = { "¡Gracias!", "¡Genial, gracias!", "¡Mil gracias!" },
       bye = { "", " ¡Eres un crack!", " ¡Buena suerte!", " ¡Buena aventura!", " ¡Buen viaje!" },
     },
     polite = {
@@ -791,7 +1084,7 @@ ns.THANKS = {
   },
   it = {
     casual = {
-      thanks = { "Grazie!", "Fantastico, grazie!", "Grazie per il buff!" },
+      thanks = { "Grazie!", "Fantastico, grazie!", "Grazie davvero!" },
       bye = { "", " Sei un grande!", " Buona avventura!", " Buon gioco!" },
     },
     polite = {
@@ -801,7 +1094,7 @@ ns.THANKS = {
   },
   pt = {
     casual = {
-      thanks = { "Valeu!", "Show, valeu!", "Obrigado pelo buff!" },
+      thanks = { "Valeu!", "Show, valeu!", "Valeu demais!" },
       bye = { "", " Você é demais!", " Boa sorte!", " Boa aventura!", " Bom jogo!" },
     },
     polite = {
@@ -811,7 +1104,7 @@ ns.THANKS = {
   },
   ru = {
     casual = {
-      thanks = { "Спасибо!", "Отлично, спасибо!", "Спасибо за баф!" },
+      thanks = { "Спасибо!", "Отлично, спасибо!", "Спасибо большое!" },
       bye = { "", " Удачи!", " Хорошей игры!" },
     },
     polite = {
@@ -821,7 +1114,7 @@ ns.THANKS = {
   },
   pl = {
     casual = {
-      thanks = { "Dzięki!", "Super, dzięki!", "Dzięki za buffa!" },
+      thanks = { "Dzięki!", "Super, dzięki!", "Dzięki bardzo!" },
       bye = { "", " Jesteś super!", " Powodzenia!", " Miłej gry!" },
     },
     polite = {
@@ -943,22 +1236,40 @@ end
 
 -- keys: one buff key, or a list of them (#39): "[A] and [B]", "[A], [B] and [C]", in our `multi`
 -- lines, or in the player's own lines for `kind` (their {spell} then stands for every link).
-function ns.message(kind, keys, lang, tone, class)
-  if not ns.MESSAGES[lang] then lang = "en" end
-  if type(keys) ~= "table" then keys = { keys } end
+-- Water and food (#47) get their own line after the buffs' one, never a player's own phrase:
+-- "[Conjure Water] and [Conjure Food] (lvl 23)". `level`: mine, left out when nil.
+local function joined(keys, lang)
   local links = {}
   for i, key in ipairs(keys) do links[i] = spellText(ns.BUFFS[key], lang) end
   local spells = links[#links]
   if #links > 1 then spells = table.concat(links, ", ", 1, #links - 1) .. ns.AND[lang] .. spells end
+  return spells
+end
+
+function ns.message(kind, keys, lang, tone, class, level)
+  if not ns.MESSAGES[lang] then lang = "en" end
+  if type(keys) ~= "table" then keys = { keys } end
+  local buffs, items = {}, {}
+  for _, key in ipairs(keys) do table.insert(ns.BUFFS[key].item and items or buffs, key) end
+  if items[2] == "water" then items[1], items[2] = "water", items[1] end -- the order the text says
+  local m = toned(ns.MESSAGES, lang, tone)
+  local itemLine = ""
+  if #items > 0 then
+    local part = #items > 1 and "items" or items[1]
+    local what = joined(items, lang) .. (level and " (" .. ns.LEVEL[lang]:format(level) .. ")" or "")
+    itemLine = pick(m[part]):format(what)
+  end
+  if #buffs == 0 then return pick(m.hello) .. itemLine .. pick(m.bye) end
+  if itemLine ~= "" then itemLine = " " .. itemLine end
+  local spells = joined(buffs, lang)
   local list = custom(kind)
   if list then -- a function replacement: a % in the link or the line can't break anything
-    return (pick(list):gsub("{spell}", function() return spells end))
+    return (pick(list):gsub("{spell}", function() return spells end)) .. itemLine
   end
-  local m = toned(ns.MESSAGES, lang, tone)
-  local part = #keys > 1 and "multi" or kind
+  local part = #buffs > 1 and "multi" or kind
   local own = m.byClass and m.byClass[class] -- the giver's class, in Role play
   local line = pick(own and own[part] or m[part])
-  return pick(m.hello) .. line:format(spells) .. pick(m.bye)
+  return pick(m.hello) .. line:format(spells) .. itemLine .. pick(m.bye)
 end
 
 -- Our own lines for one case, written the way the Phrases box takes them ({spell}, no hello/bye):
@@ -978,6 +1289,13 @@ function ns.rankAt(buff, level)
   for r, needed in ipairs(buff.ranks) do
     if level >= needed then rank = r end
   end
+  return rank
+end
+
+-- Water or food (#47): the rank a mage of giverLevel can conjure that a player of `level` can use.
+function ns.itemRank(item, giverLevel, level)
+  local rank = ns.rankAt(item, giverLevel)
+  while rank > 1 and item.uses[rank] > level do rank = rank - 1 end
   return rank
 end
 

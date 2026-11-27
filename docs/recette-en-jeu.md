@@ -269,3 +269,27 @@ Le merci ne part que d'un clic ou d'une touche : buff demandé, ou cadeau d'un j
 | 113 | Onglet *Phrases* : taper une phrase, *Try one*, changer de cas, *Start from Buff Digger's* | Comme l'ancienne fenêtre, dans le cadre ; infobulle sur chaque cas ; pas de case *Show advanced options* sur cet onglet |
 | 114 | Échap avec la fenêtre ouverte (sur *Phrases*, curseur hors de la zone de texte) | La fenêtre se ferme ; rouverte, elle revient sur *General* |
 | 115 | Fenêtre ouverte, entrer en combat ; changer une case, un choix, d'onglet | Aucune erreur, les réglages restent utilisables ; *Set key bindings...* en combat donne le chemin au lieu d'ouvrir la page |
+
+## Eau et nourriture du mage (#47)
+
+**Seul**, avec n'importe quel mage (sans Buff Digger) :
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 120 | Icônes en mode *All*, un mage de niveau ≥ 10 en vue ; perso de niveau 20 | Deux icônes de plus (*Conjure Water*, *Conjure Food*), jamais grises, vertes ni orange ; dans Get buffs, le chiffre = le rang que je peux boire (≤ 3 au niveau 20) ; survol : « Rank N (usable from level …) » |
+| 121 | Clic sur l'eau (MP), puis Maj+clic sur la nourriture (/s), dans chaque ton | Le message parle d'eau ou de nourriture, pas de buff ; lien cliquable, puis « (lvl 20) » (« niv. 20 » en français) ; rien n'est coupé |
+| 122 | Ctrl+clic Arcane Intellect + eau, puis la flèche | Un seul MP, la phrase du buff puis celle de l'eau |
+| 123 | Juste après la demande d'eau | Sa ligne Get buffs est dorée tout de suite, avec l'icône de l'eau à la place de la coche ; survol : « Asked: Conjure Water » ; *Thank* = MP + `/merci`, sans « buff » ; la croix ferme sans rien envoyer ; sans clic, la ligne part après 5 min |
+| 124 | Icône *Best* et touches *Ask the best buff around me* / *Ask my target for a buff*, sur un mage, buffs déjà tous pris | Jamais d'eau ni de nourriture : seul le clic sur leur icône les demande |
+| 125 | Ancien profil dont j'avais modifié les priorités | Eau et nourriture en bas de la liste, décochées ; un profil jamais touché : cochées (eau seulement pour une classe à mana) |
+| 126 | Infobulle du joueur, menu clic droit, `/bd spells`, Give buffs sur mon mage | Aucune erreur Lua ; le menu propose l'eau avec son rang ; Give buffs ne propose jamais d'eau |
+| 127 | `/run InitiateTrade("target")` collé à un joueur (≤ 10 m) | Note seulement : une demande d'échange part-elle ? (au premier essai de T0, rien ; non utilisé par l'addon) |
+
+**À deux Buff Digger, plus tard** (un ami ou deux comptes) :
+
+| # | Test | Ce qu'on doit voir |
+|---|---|---|
+| 128 | Mon mage reçoit une demande d'eau d'un joueur de niveau 23 | Ligne Requests avec l'icône de l'eau et le chiffre 3 (ou moins si je n'ai pas acheté ce rang) |
+| 129 | Clic sur l'icône d'eau | Le **rang 3** est invoqué (bouton par ID de sort, pas un rang plus haut) ; l'icône quitte la ligne ; clic sur le nom = cible, puis échange ouvert à la main |
+| 130 | Le demandeur à jour, mage déjà connu comme Buff Digger, première demande d'eau | MP **et** Requests une fois ; la demande suivante : Requests seule, pas de MP |
+| 131 | Le mage avec une version d'avant #47 | Le demandeur envoie toujours le MP pour l'eau ; une demande de buffs seuls reste silencieuse |

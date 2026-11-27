@@ -7,7 +7,8 @@
 --     buff comes within NO_ANSWER seconds, Get buffs says so, and the player's next click on one
 --     of their buffs re-asks by whisper (ns.unanswered, ns.request).
 -- Buffer side:
---   * On "REQ", if I accept requests and know that spell, I answer "ACK", a sound plays, and the
+--   * On "REQ", if I accept requests and know that spell, I answer "ACK" then "ACK:2" (I know water and
+--     food, #47: a request with one of them whispers too a player who never said so), a sound plays, and the
 --     request joins the Requests window (UI.lua, opened by the player, never by itself) and the
 --     count on the minimap button: their name and the requested buff's icon. Clicking the icon casts it.
 --   * "ADD:<buff key>:<kind>" right after a "REQ": one more buff of the same request (#39), one more
@@ -22,6 +23,9 @@ local BUFFS, L = ns.BUFFS, ns.L
 local PREFIX = "BuffDigger" -- 16 characters max
 local NO_ANSWER = 30 -- seconds without the buff before Get buffs offers to whisper them
 local REQUEST_TTL = 90
+-- What I understand, sent as "ACK:<n>" after "ACK" (#47). 2: water and food. An older Buff Digger
+-- ignores "ACK:2" (neither its pattern nor "ACK") and never sends it.
+local PROTOCOL = 2
 
 local sendAddon = C_ChatInfo and C_ChatInfo.SendAddonMessage
 local sendChat = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
@@ -58,15 +62,26 @@ function ns.deliver(name, target, keys, text, useSay, kinds, reask)
   for i = 2, #keys do
     sendAddon(PREFIX, "ADD:" .. keys[i] .. ":" .. (kinds[i] or "new"), "WHISPER", target)
   end
-  if not ns.isPeer(name) then visible() return useSay and "SAY" or "WHISPER" end
+  -- Water or food (#47): an older Buff Digger ignores them without a word, so the chat goes too
+  -- until that player said they speak PROTOCOL (ACK:2).
+  local item
+  for _, k in ipairs(keys) do item = item or BUFFS[k].item end
+  if not ns.isPeer(name) or item and (BuffDiggerDB.protocol[name] or 0) < PROTOCOL then
+    visible() return useSay and "SAY" or "WHISPER"
+  end
   return "WHISPER", true
 end
 
 -- A silent request with no buff after NO_ANSWER seconds (thanks close it once the buff lands).
+-- Water and food only (#47): no aura will ever come, their ACK after the request is the answer.
 function ns.unanswered(name)
   local e = BuffDiggerCharDB.asked[name]
   local ago = type(e) == "table" and e.silent and not e.thanked and time() - e.at
-  return ago and ago >= NO_ANSWER and ago < 600 or false
+  if not (ago and ago >= NO_ANSWER and ago < 600) then return false end
+  for _, k in ipairs(e.keys or { e.key }) do
+    if not BUFFS[k].item then return true end
+  end
+  return not (BuffDiggerDB.peers[name] and BuffDiggerDB.peers[name] >= e.at)
 end
 
 -- ---------------------------------------------------------------- buffer side
@@ -87,8 +102,8 @@ function ns.onRequestClick(self) -- self: the buff icon of a Requests line
   local entry = self:GetParent().entry
   local req = entry and entry.request
   if not (req and self:GetAttribute("type")) then return end
-  for i, b in ipairs(req.buffs) do
-    if b.key == self.key and b.kind ~= "new" then tremove(req.buffs, i) break end
+  for i, b in ipairs(req.buffs) do -- water and food (#47) leave no aura either
+    if b.key == self.key and (b.kind ~= "new" or BUFFS[b.key].item) then tremove(req.buffs, i) break end
   end
   if #req.buffs == 0 then drop(req) end
 end
@@ -151,8 +166,20 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
     local icons = {}
     for j, b in ipairs(req.buffs) do
       local spell = BUFFS[b.key]
-      icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = ns.rankAt(spell, myLevel),
-        spell = castable and C_Spell.GetSpellName(spell.id) or nil }
+      local rank, cast = ns.rankAt(spell, myLevel), C_Spell.GetSpellName(spell.id)
+      if spell.item then
+        -- Water or food (#47): the highest rank I bought (trainer levels unverified) that they can use,
+        -- read on their unit (not in the message, which older versions parse); rank 1 if their level
+        -- can't be read. Cast by that rank's own spell ID.
+        local level = unit and UnitLevel(unit)
+        if not (ns.readable(level) and type(level) == "number") then level = 0 end
+        rank = 1
+        for r = #spell.spells, 2, -1 do
+          if spell.uses[r] <= level and IsPlayerSpell(spell.spells[r]) then rank = r break end
+        end
+        cast = spell.spells[rank]
+      end
+      icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = rank, spell = castable and cast or nil }
     end
     local e = { unit = unit, who = unit and ns.targetName(unit) or false, request = req,
       group = member, buffs = icons,
@@ -176,6 +203,7 @@ local function onRequest(full, key, kind)
   BuffDiggerDB.peers[name] = time()
   -- Answer first: the requester then skips the whisper.
   sendAddon(PREFIX, "ACK", "WHISPER", full)
+  sendAddon(PREFIX, "ACK:" .. PROTOCOL, "WHISPER", full)
   for i, req in ipairs(incoming) do
     if req.name == name then tremove(incoming, i) break end
   end
@@ -203,8 +231,10 @@ local function onAdd(full, key, kind)
   onRequest(full, key, kind)
 end
 
-local function onAck(full)
-  BuffDiggerDB.peers[ns.chatName(full)] = time() -- next time, the request goes out silently
+local function onAck(full, protocol)
+  local name = ns.chatName(full)
+  BuffDiggerDB.peers[name] = time() -- next time, the request goes out silently
+  if protocol then BuffDiggerDB.protocol[name] = protocol end
 end
 
 -- ---------------------------------------------------------------- events
@@ -217,18 +247,22 @@ frame:SetScript("OnEvent", function(_, event, prefix, message, _, sender)
     for name, at in pairs(BuffDiggerDB.peers) do -- forget users not seen for 30 days
       if time() - at > 30 * 86400 then BuffDiggerDB.peers[name] = nil end
     end
+    for name in pairs(BuffDiggerDB.protocol) do -- forgotten with them
+      if not BuffDiggerDB.peers[name] then BuffDiggerDB.protocol[name] = nil end
+    end
     -- Every second, like Get buffs: expiry, players coming into sight, and a re-fill once the cursor
     -- leaves the window (a clicked request then disappears quickly).
     C_Timer.NewTicker(1, ns.refreshIncoming)
   elseif event == "CHAT_MSG_ADDON" and prefix == PREFIX and ns.readable(message) and ns.readable(sender) then
     local myName, realm = UnitFullName("player")
-    if sender == fullName(myName, realm) and message == "ACK" then return end -- my own self-test answer
+    if sender == fullName(myName, realm) and message:find("^ACK") then return end -- my own self-test answer
     -- Only well-formed messages count; anything else is ignored (and never stored).
     local verb, key, kind = message:match("^(%u+):(%a+):(%a+)$")
     if not (kind == "new" or kind == "refresh" or kind == "replace" or kind == "upgrade") then verb = nil end
     if verb == "REQ" then onRequest(sender, key, kind)
     elseif verb == "ADD" then onAdd(sender, key, kind)
-    elseif message == "ACK" then onAck(sender) end
+    elseif message == "ACK" then onAck(sender)
+    elseif message:match("^ACK:%d+$") then onAck(sender, tonumber(message:sub(5))) end
   end
 end)
 

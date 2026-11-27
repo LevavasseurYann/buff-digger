@@ -575,7 +575,8 @@ function ns.bestBuff(name, class, level)
   local missingSeen = 0
   for i, key in ipairs(prefs) do
     local have = mine[key]
-    if not have or expiring(have) then
+    -- Water and food (#47) are never "had": only a click on their icon asks for them.
+    if not BUFFS[key].item and (not have or expiring(have)) then
       missingSeen = missingSeen + 1
       if missingFrom(key, class, level) then
         if not hisBlessing then return key, have and "refresh" or "new", missingSeen == 1 end
@@ -704,11 +705,12 @@ function ns.request(unit, chosen)
   if keys[1] ~= key then kind = kindFor(name, keys[1], level) end -- the first one was left out
   -- Shift or Ctrl held: the other channel than the default one (whisper <-> /say).
   local useSay = not reask and BuffDiggerDB.useSay ~= (IsShiftKeyDown() or IsControlKeyDown() or false)
-  local text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class)
+  local myLevel = UnitLevel("player")
+  local text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class, myLevel)
   -- The chat takes 255 bytes ("Name : " first in /say): fewer buffs rather than a cut message.
   while #keys > 1 and #name + 3 + #text > 255 do
     keys[#keys] = nil
-    text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class)
+    text = ns.message(kind, keys, BuffDiggerDB.language, BuffDiggerDB.tone, class, myLevel)
   end
   -- Comm.lua delivers it: silently to another Buff Digger user, in chat otherwise (#10).
   -- Each ticked buff its own kind (#40): one may be a refresh or a higher rank, another one new.
@@ -723,6 +725,10 @@ function ns.request(unit, chosen)
   for _, k in ipairs(keys) do if not asks(e, k) then e.keys[#e.keys + 1] = k end end
   e.at, e.key, e.channel, e.target, e.silent = time(), keys[1], channel, target, silent
   BuffDiggerCharDB.asked[name] = e
+  -- Water and food (#47): no aura will say they came, so their Thank line is there at once (Yann).
+  for _, k in ipairs(keys) do
+    if BUFFS[k].item then addToThank(name, class, target, k, e) end
+  end
   return true
 end
 
@@ -1299,9 +1305,13 @@ function ns.aimTarget(button, unit, who)
   button:SetAttribute("macrotext", who and "/target " .. firstName(who) or nil)
 end
 
+-- `spell`: a name (a buff, cast on them by macro), or a spell ID (water or food, #47: that rank,
+-- conjured on myself; the mage then opens the trade).
 function ns.aimCast(button, unit, spell, who)
-  local macro = ns.castMacro(unit, spell, who)
-  button:SetAttribute("type", macro and "macro" or nil)
+  local id = type(spell) == "number" and spell or nil
+  local macro = not id and ns.castMacro(unit, spell, who) or nil
+  button:SetAttribute("type", id and "spell" or macro and "macro" or nil)
+  button:SetAttribute("spell", id)
   button:SetAttribute("macrotext", macro)
 end
 
@@ -1350,6 +1360,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerCharDB.asked = BuffDiggerCharDB.asked or BuffDiggerDB.asked or {}
     BuffDiggerDB.asked = nil
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
+    BuffDiggerDB.protocol = BuffDiggerDB.protocol or {} -- name -> their ACK:<n> (#47), forgotten with peers
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
     for name, e in pairs(BuffDiggerCharDB.asked) do -- forget requests older than an hour (or old format)
       if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerCharDB.asked[name] = nil end

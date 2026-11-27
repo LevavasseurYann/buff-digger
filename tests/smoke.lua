@@ -41,9 +41,10 @@ print("EN:", ns.message("upgrade", "fortitude", "en"))
 -- %s once, and fits the chat at worst ("Name : " in /say + longest hello, line, link and bye).
 -- A request never thanks. An unknown language falls back to English, an unknown tone to Casual.
 assert(BuffDiggerDB.tone=="casual", "a profile without a tone loads as Casual")
-local longest=0
-for _,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id)}) do
-  longest=math.max(longest, #(C_Spell.GetSpellLink(b.id):gsub("%[.-%]", "["..n.."]")))
+local longest, linkOf=0, {}
+for k,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id)}) do
+  linkOf[k]=math.max(linkOf[k] or 0, #(C_Spell.GetSpellLink(b.id):gsub("%[.-%]", "["..n.."]")))
+  longest=math.max(longest, linkOf[k])
 end end
 local function maxLen(list) local n=0; for _,s in ipairs(list) do n=math.max(n,#s) end return n end
 local function strings(t, f) for _,v in pairs(t) do if type(v)=="table" then strings(v,f) else f(v) end end end
@@ -57,11 +58,15 @@ end
 for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
   local m, where = ns.MESSAGES[lang[1]][tone[1]], lang[1].."."..tone[1]
   assert(m and m.hello and m.bye and m.new, where)
+  assert(m.water and m.food and m.items, where.." water and food (#47)")
+  -- Water and food (#47): %s is their link(s), then " (lvl 60)".
+  local ITEMS={water=linkOf.water, food=linkOf.food, items=linkOf.water + #ns.AND[lang[1]] + linkOf.food}
   local function ask(part, list)
     assert(#list>=3, where.."."..part.." needs 3 lines")
+    local links=ITEMS[part] and ITEMS[part] + 3 + #ns.LEVEL[lang[1]] or longest
     for _,s in ipairs(list) do
       assert(select(2, s:gsub("%%s", ""))==1, s)
-      local worst=27 + maxLen(m.hello) + #s - 2 + longest + maxLen(m.bye)
+      local worst=27 + maxLen(m.hello) + #s - 2 + links + maxLen(m.bye)
       assert(worst<=255, where.." too long ("..worst.."): "..s)
     end
   end
@@ -577,7 +582,7 @@ BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean-Dupont"); ns.refreshIncoming()
 local rq; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Jean Dupont" then rq=r end end
 assert(rq and rq.unit=="nameplate50" and rq.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "request from a two-word name")
-print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean-Dupont: ACK")
+print("ACK to:", sent[#sent-1]); assert(sent[#sent-1]=="ADDON>Jean-Dupont: ACK" and sent[#sent]=="ADDON>Jean-Dupont: ACK:2")
 assert(ns.isPeer("Jean Dupont"), "known Buff Digger user by the whole name")
 BuffDiggerDB.requests=false; ns.applyWindows()
 -- Asking them: the whisper goes to "Marie-Curie" (what worked in game), the request is kept as "Marie Curie".
@@ -1576,3 +1581,235 @@ do
   ns.say=realSay; BuffDiggerDB.tone="casual"; myAuras={}; fire("UNIT_AURA","player")
 end
 print("TONE OK")
+
+print("=== water and food from a mage (#47)")
+-- A warrior of level 23, a mage of level 40 nearby.
+local W, F = ns.BUFFS.water, ns.BUFFS.food
+local function whispers47(from) local n=0; for i=from+1,#sent do if sent[i]:find("^WHISPER") then n=n+1 end end return n end
+local function last47(prefix) for i=#sent,1,-1 do if sent[i]:find(prefix) then return sent[i] end end end
+local function asWarrior47()
+  NOW=NOW+3600; units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end
+  BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={}; BuffDiggerDB.language="en"; BuffDiggerDB.tone="casual"
+  BuffDiggerDB.prefs.WARRIOR=nil; BuffDiggerDB.useSay=false; SHIFT=false; CTRL=false
+  ns.dismissThank(); myAuras={}; fire("UNIT_AURA","player")
+  units.nameplate95={"Khadgar","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate95"); runTimers()
+end
+do
+  asWarrior47()
+  -- The rank this mage can conjure for my level: his best, capped by what I can eat or drink.
+  assert(ns.itemRank(W, 40, 23)==3 and ns.itemRank(W, 40, 60)==5 and ns.itemRank(F, 40, 23)==3, "item rank")
+  assert(ns.itemRank(W, 3, 60)==0 and ns.itemRank(W, 60, 1)==1, "item rank, ends")
+  -- Offered like a buff: icons in "all" mode, the right-click menu, Get buffs.
+  local offers=table.concat(ns.offers("MAGE",40), ","); assert(offers:find("water") and offers:find("food"), offers)
+  -- One click: a whisper with the spell's link and my level, from the water lines.
+  local b=#sent; ns.request("nameplate95","water"); local w=last47("^WHISPER")
+  assert(whispers47(b)==1 and w:find("^WHISPER Khadgar") and w:find("Hspell:5504") and w:find("%(lvl 23%)"), "water: "..tostring(w))
+  assert(madeFrom(w, {x=ns.MESSAGES.en.casual.water}), "water line: "..w)
+  -- Arcane Intellect + water: one whisper, both links; water and food: the "items" line.
+  BuffDiggerCharDB.asked={}; b=#sent; ns.request("nameplate95",{"intellect","water"}); w=last47("^WHISPER")
+  assert(whispers47(b)==1 and w:find("Hspell:1459") and w:find("Hspell:5504") and w:find("lvl 23"), "AI + water: "..w)
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95",{"water","food"}); w=last47("^WHISPER")
+  assert(madeFrom(w, {x=ns.MESSAGES.en.casual.items}) and w:find("|r and |c"), "water and food: "..w)
+  -- My own phrases (#20) replace the buff's part, never the water's.
+  ns.setCustom("new","Mine: {spell}")
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95",{"intellect","food"}); w=last47("^WHISPER")
+  assert(w:find("Mine: |c") and w:find("Hspell:587") and madeFrom(w, {x=ns.MESSAGES.en.casual.food}), "custom + food: "..w)
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95","water"); w=last47("^WHISPER")
+  assert(not w:find("Mine:") and madeFrom(w, {x=ns.MESSAGES.en.casual.water}), "water alone: never my phrase "..w)
+  ns.setCustom("new","")
+  -- French, each tone, with the level.
+  for _,tone in ipairs(ns.TONES) do local m=ns.message("new","water","fr",tone[1],"MAGE",23)
+    assert(m:find("niv%. 23") and madeFrom(m, {x=ns.MESSAGES.fr[tone[1]].water}), "fr "..tone[1]..": "..m) end
+  -- No error anywhere a buff shows: tooltips, menu, /bd spells, Get buffs.
+  local tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
+  local fb=CreateFrame(); fb.icon=CreateFrame()
+  ns.buffTooltip(fb,"nameplate95","water"); local all=table.concat(tip,"\n")
+  assert(all:find("Rank 3") and all:find("usable from level 15"), all)
+  tip={}; ns.castTooltip(fb,"food","Khadgar"); assert(#tip>0)
+  GameTooltip.AddLine=nil
+  SlashCmdList.BUFFDIGGER("spells")
+  local menu; MenuUtil={CreateContextMenu=function(_,f) local labels={}
+    f(nil,{CreateTitle=function() end, CreateButton=function(_,l) labels[#labels+1]=l end}); menu=table.concat(labels,"\n") end}
+  ns.openMenu(fb,"nameplate95"); assert(menu:find("spell5504") and menu:find("Rank 3"), menu); MenuUtil=nil
+  BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow()
+  local seen; for _,e in ipairs(_G.BuffDiggerNearby.entries) do if e.who=="Khadgar" then
+    for _,x in ipairs(e.buffs) do if x.key=="water" then seen=x.rank end end end end
+  assert(seen==3, "Get buffs: water, rank 3 for me: "..tostring(seen))
+  BuffDiggerDB.nearby=false; ns.applyWindows()
+  -- Give buffs never offers water: a mage who knows Arcane Intellect, water and food.
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==1459 or id==5504 or id==587 end
+  units.nameplate96={"Garrosh","WARRIOR",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate96")
+  BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow()
+  local listed=0
+  for _,e in ipairs(_G.BuffDiggerGive.entries or {}) do for _,x in ipairs(e.buffs) do listed=listed+1
+    assert(not ns.BUFFS[x.key].item, "Give buffs offers "..x.key) end end
+  assert(listed>0, "Give buffs lists Arcane Intellect")
+  BuffDiggerDB.give=false; ns.applyWindows(); units.nameplate96=nil
+end
+do
+  -- Defaults: water for the classes with mana, food for all, last; nothing for a mage.
+  local P=ns.PREFERENCES
+  for class, list in pairs(P) do
+    local has={}; for i,k in ipairs(list) do has[k]=i end
+    if class=="MAGE" then assert(not has.water and not has.food, "a mage asks no mage")
+    else
+      assert(has.food==#list, class.." food last")
+      local mana = class~="WARRIOR" and class~="ROGUE"
+      assert((has.water~=nil)==mana, class.." water only with mana")
+      if mana then assert(has.water==#list-1, class.." water before food, last") end
+    end
+  end
+  -- Never picked by Buff Digger (#47, Yann): not the best icon, not the keys, not the tooltip line.
+  asWarrior47()
+  assert(ns.bestBuff("Khadgar","MAGE",40)==nil, "food is never the automatic choice")
+  units.player={"Yann","PRIEST",23}
+  local k=ns.bestBuff("Khadgar","MAGE",40); assert(k=="intellect", "a buff still is: "..tostring(k))
+  myAuras={aura(9800,"spell1459",1459,"nameplate95")}; fire("UNIT_AURA","player")
+  assert(ns.bestBuff("Khadgar","MAGE",40)==nil, "Intellect on me: nothing left but water and food")
+  local b, n1, n2=#sent, units.nameplate1, units.nameplate2; units.nameplate1=nil; units.nameplate2=nil; ns.askBest()
+  for i=b+1,#sent do assert(not sent[i]:find("Khadgar"), "the key never asks a mage for water: "..sent[i]) end
+  units.nameplate1, units.nameplate2 = n1, n2
+  -- A click still asks for it.
+  ns.request("nameplate95","water"); assert(sent[#sent]:find("Hspell:5504"), "a click asks")
+  units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
+do
+  -- No aura to wait for: the Thank line comes as soon as the request goes (#47, Yann).
+  asWarrior47()
+  ns.request("nameplate95","water")
+  local t=ns.thankEntry("Khadgar"); assert(t and t.keys[1]=="water" and not t.request.gift, "Thank line at once")
+  local b=#sent; ns.thankBuffer("Khadgar")
+  assert(sent[b+1]:find("^WHISPER Khadgar") and BuffDiggerCharDB.asked.Khadgar.thanked and not ns.thankEntry("Khadgar"), "thanked in the request's channel")
+  -- The cross closes it, nothing sent.
+  NOW=NOW+3600; BuffDiggerCharDB.asked={}; ns.request("nameplate95","food"); b=#sent
+  ns.closeAsk("Khadgar"); assert(#sent==b and not ns.thankEntry("Khadgar") and BuffDiggerCharDB.asked.Khadgar.thanked, "cross: closed, silent")
+  -- Arcane Intellect + water: one line now, Intellect joins it when it lands.
+  units.player={"Yann","PRIEST",23}; NOW=NOW+3600; BuffDiggerCharDB.asked={}
+  ns.request("nameplate95",{"intellect","water"}); assert(#ns.thanksWaiting()==1)
+  myAuras={aura(9801,"spell1459",1459,"nameplate95")}; fire("UNIT_AURA","player")
+  t=ns.thanksWaiting(); assert(#t==1 and #t[1].keys==2, "one line for both")
+  -- Get buffs: the water's icon instead of the tick, its tooltip says it was asked.
+  BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow()
+  local row; for _,r in ipairs(_G.BuffDiggerNearby.rows) do if r._shown and r.entry.who=="Khadgar" then row=r end end
+  assert(row and row.gift, "the item's icon on the gold band")
+  local tip={}; GameTooltip.AddLine=function(_,x) tip[#tip+1]=x end
+  row.thankButton._OnEnter(row.thankButton); assert(table.concat(tip):find("^Asked: "), table.concat(tip))
+  GameTooltip.AddLine=nil; BuffDiggerDB.nearby=false; ns.applyWindows(); ns.dismissThank()
+  -- No thank-you says "buff": it may be for water.
+  for lang, T in pairs(ns.THANKS) do strings(T, function(s)
+    assert(not s:lower():find("buff") and not s:find("баф"), lang.." thanks for a buff: "..s) end) end
+  units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
+do
+  -- Compatibility (#47): a Buff Digger older than water ignores REQ:water and answers nothing, while
+  -- the requester knows them as a peer and would send no whisper. Two players, by switching roles.
+  local function from(b) local t={}; for i=b+1,#sent do t[#t+1]=sent[i] end return table.concat(t,"\n") end
+  -- (1) Requester; the mage is a peer who never said he knows water: the whisper goes too.
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()
+  local b=#sent; ns.request("nameplate95","water"); local out=from(b)
+  assert(out:find("ADDON>Khadgar: REQ:water:new",1,true) and out:find("WHISPER Khadgar"), "old or unknown mage: whisper too\n"..out)
+  -- Buffs alone to a peer: silent, as before.
+  BuffDiggerCharDB.asked={}; ns.dismissThank(); units.player={"Yann","PRIEST",23}
+  b=#sent; ns.request("nameplate95","intellect"); out=from(b)
+  assert(not out:find("WHISPER"), "buffs alone: silent\n"..out)
+  -- (2) I become a mage of 40 and get that request: ACK, then ACK:2 (I know water).
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==587 end
+  units.nameplate97={"Medivh","WARRIOR",23}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+  b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm"); out=from(b)
+  assert(out=="ADDON>Medivh-Realm: ACK\nADDON>Medivh-Realm: ACK:2", "answer:\n"..out)
+  -- An older Buff Digger reading ACK:2: not its pattern, not "ACK": ignored, as before.
+  assert(not ("ACK:2"):match("^(%u+):(%a+):(%a+)$") and "ACK:2"~="ACK")
+  -- (3) Requester again: Khadgar answers ACK:2, the next request with water goes out silently.
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm"); fire("CHAT_MSG_ADDON","BuffDigger","ACK:2","WHISPER","Khadgar-Realm")
+  assert(BuffDiggerDB.protocol.Khadgar==2, "protocol remembered")
+  b=#sent; ns.request("nameplate95","food"); out=from(b)
+  assert(out=="ADDON>Khadgar: REQ:food:new", "up to date: silent\n"..out)
+  -- Forgotten with the peer (30 days).
+  BuffDiggerDB.peers.Khadgar=nil; fire("PLAYER_LOGIN"); assert(BuffDiggerDB.protocol.Khadgar==nil, "forgotten with the peer")
+  -- My own self-test answer is never taken for another player's.
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK:2","WHISPER","Yann-Realm"); assert(BuffDiggerDB.protocol.Yann==nil)
+  units.nameplate97=nil; BuffDiggerCharDB.asked={}; ns.dismissThank()
+end
+do
+  -- Mage side (#47): a mage of 40 gets REQ:water from a warrior of 23. The line shows the water at
+  -- rank 3 (what a 23 can drink); a click conjures that rank (its own spell ID), then the mage trades.
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==587 end
+  units.nameplate97={"Medivh","WARRIOR",23}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+  BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows(); NOW=NOW+60
+  fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm"); ns.refreshIncoming()
+  local function line() for _,r in ipairs(_G.BuffDiggerRequests.rows) do
+    if r._shown and r.entry.request.name=="Medivh" then return r end end end
+  local r=line(); assert(r, "a Requests line")
+  local b=r.buffs[1]
+  assert(r.entry.buffs[1].rank==3 and b:GetAttribute("type")=="spell" and b:GetAttribute("spell")==5506,
+    "rank 3, cast by ID: "..tostring(r.entry.buffs[1].rank).." "..tostring(b:GetAttribute("type")).." "..tostring(b:GetAttribute("spell")))
+  -- Its tooltip: the rank, from which level it can be drunk, and the trade left to do.
+  local tip={}; GameTooltip.AddLine=function(_,x) tip[#tip+1]=x end
+  b._OnEnter(b); local all=table.concat(tip,"\n"); GameTooltip.AddLine=nil
+  assert(all:find("Rank 3") and all:find("usable from level 15") and all:find("trade"), all)
+  -- Rank 3 not bought at the trainer: rank 2.
+  IsPlayerSpell=function(id) return id==5504 or id==5505 or id==587 end; ns.refreshIncoming(); r=line()
+  assert(r.entry.buffs[1].rank==2 and r.buffs[1]:GetAttribute("spell")==5505, "the rank I know")
+  -- A buff on the same line keeps its macro.
+  IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==1459 end
+  fire("CHAT_MSG_ADDON","BuffDigger","ADD:intellect:new","WHISPER","Medivh-Realm"); ns.refreshIncoming(); r=line()
+  assert(r.buffs[2]:GetAttribute("type")=="macro" and r.buffs[2]:GetAttribute("spell")==nil, "a buff: the macro")
+  -- The click closes the water (no aura will tell), the buff stays until it lands.
+  click(r.buffs[1], false); ns.refreshIncoming(); r=line()
+  assert(r and #r.entry.request.buffs==1 and r.entry.request.buffs[1].key=="intellect", "water closed by the click")
+  BuffDiggerDB.requests=false; ns.applyWindows(); units.nameplate97=nil
+  units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end
+end
+do
+  -- Review of #47 (1): a silent request for water or food only is answered by the mage's ACK (no aura
+  -- will come): never "no answer", never a whisper around the anti-nagging delay. A buff in it: as before.
+  local T=os.time(); time=function() return T end -- os.time by default: a clock of my own
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()-5; BuffDiggerDB.protocol.Khadgar=2
+  ns.request("nameplate95","water"); assert(BuffDiggerCharDB.asked.Khadgar.silent, "silent water")
+  T=T+31; assert(ns.unanswered("Khadgar")==true, "no ACK: no answer")
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm")
+  assert(ns.unanswered("Khadgar")==false, "ACK after the request: answered")
+  units.player={"Yann","PRIEST",23}; T=T+3600; BuffDiggerCharDB.asked={}; ns.dismissThank()
+  BuffDiggerDB.peers.Khadgar=time()-5
+  ns.request("nameplate95",{"intellect","water"}); assert(BuffDiggerCharDB.asked.Khadgar.silent, "silent AI + water")
+  T=T+31; fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm")
+  assert(ns.unanswered("Khadgar")==true, "a buff in it: still waits for the buff")
+  units.player={"Yann","WARRIOR",23}; BuffDiggerCharDB.asked={}; ns.dismissThank(); time=os.time
+  -- (4) A malformed ACK records nothing.
+  for _,m in ipairs({"ACK:","ACK:x","ACK:2:3"}) do
+    fire("CHAT_MSG_ADDON","BuffDigger",m,"WHISPER","Antonidas-Realm")
+    assert(BuffDiggerDB.peers.Antonidas==nil and BuffDiggerDB.protocol.Antonidas==nil, "malformed "..m)
+  end
+  -- (5) Water and food: the links in the order the text names them, whatever the order asked.
+  for lang in pairs(ns.MESSAGES) do for _,tone in ipairs(ns.TONES) do
+    local m=ns.message("new",{"food","water"},lang,tone[1],"MAGE",23)
+    assert(m:find("spell:5504") < m:find("spell:587"), lang.." "..tone[1]..": water first "..m)
+  end end
+end
+do
+  -- Review of #47 (2, 3): the mage's rank is the highest he knows that the asker can use, whatever
+  -- the (unverified) trainer levels; never 0; rank 1 when the asker's level can't be read.
+  local function line() for _,r in ipairs(_G.BuffDiggerRequests.rows) do
+    if r._shown and r.entry.request.name=="Medivh" then return r end end end
+  local T=os.time(); time=function() return T end -- past the 10 s between two requests of one sender
+  local function rankFor(myLevel, level, known)
+    T=T+60
+    units.player={"Yann","MAGE",myLevel}; IsPlayerSpell=function(id) return id==5504 or known[id] end
+    units.nameplate97={"Medivh","WARRIOR",level}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+    BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows(); NOW=NOW+60
+    fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm")
+    IsPlayerSpell=function(id) return known[id] end; ns.refreshIncoming()
+    local r=line(); return r.entry.buffs[1].rank, r.buffs[1]:GetAttribute("spell")
+  end
+  local all={[5504]=true,[5505]=true,[5506]=true,[6127]=true}
+  local rank, spell=rankFor(25, 30, all)
+  assert(rank==4 and spell==6127, "rank 4 bought before 30: "..tostring(rank).." "..tostring(spell))
+  rank, spell=rankFor(25, 23, all); assert(rank==3 and spell==5506, "capped by what a 23 drinks")
+  rank, spell=rankFor(3, 23, {[5504]=true}); assert(rank==1 and spell==5504, "rank 1 before ranks[1]: "..tostring(rank))
+  rank, spell=rankFor(40, 23, {}); assert(rank==1 and spell==5504, "no rank known: "..tostring(rank))
+  rank, spell=rankFor(40, SECRET, all); assert(rank==1 and spell==5504, "secret level: rank 1, got "..tostring(rank))
+  BuffDiggerDB.requests=false; ns.applyWindows(); units.nameplate97=nil
+  units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end; time=os.time
+end
+print("ITEMS OK")
