@@ -582,7 +582,7 @@ BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows()
 fire("CHAT_MSG_ADDON","BuffDigger","REQ:fortitude:new","WHISPER","Jean-Dupont"); ns.refreshIncoming()
 local rq; for _,r in ipairs(_G.BuffDiggerRequests.rows) do if r._shown and r.entry.request.name=="Jean Dupont" then rq=r end end
 assert(rq and rq.unit=="nameplate50" and rq.buffs[1]:GetAttribute("macrotext"):find("^/target Jean\n"), "request from a two-word name")
-print("ACK to:", sent[#sent]); assert(sent[#sent]=="ADDON>Jean-Dupont: ACK")
+print("ACK to:", sent[#sent-1]); assert(sent[#sent-1]=="ADDON>Jean-Dupont: ACK" and sent[#sent]=="ADDON>Jean-Dupont: ACK:2")
 assert(ns.isPeer("Jean Dupont"), "known Buff Digger user by the whole name")
 BuffDiggerDB.requests=false; ns.applyWindows()
 -- Asking them: the whisper goes to "Marie-Curie" (what worked in game), the request is kept as "Marie Curie".
@@ -1580,5 +1580,36 @@ do
   for lang, T in pairs(ns.THANKS) do strings(T, function(s)
     assert(not s:lower():find("buff") and not s:find("баф"), lang.." thanks for a buff: "..s) end) end
   units.player={"Yann","WARRIOR",23}; myAuras={}; fire("UNIT_AURA","player"); BuffDiggerCharDB.asked={}
+end
+do
+  -- Compatibility (#47): a Buff Digger older than water ignores REQ:water and answers nothing, while
+  -- the requester knows them as a peer and would send no whisper. Two players, by switching roles.
+  local function from(b) local t={}; for i=b+1,#sent do t[#t+1]=sent[i] end return table.concat(t,"\n") end
+  -- (1) Requester; the mage is a peer who never said he knows water: the whisper goes too.
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()
+  local b=#sent; ns.request("nameplate95","water"); local out=from(b)
+  assert(out:find("ADDON>Khadgar: REQ:water:new",1,true) and out:find("WHISPER Khadgar"), "old or unknown mage: whisper too\n"..out)
+  -- Buffs alone to a peer: silent, as before.
+  BuffDiggerCharDB.asked={}; ns.dismissThank(); units.player={"Yann","PRIEST",23}
+  b=#sent; ns.request("nameplate95","intellect"); out=from(b)
+  assert(not out:find("WHISPER"), "buffs alone: silent\n"..out)
+  -- (2) I become a mage of 40 and get that request: ACK, then ACK:2 (I know water).
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==5504 or id==5505 or id==5506 or id==587 end
+  units.nameplate97={"Medivh","WARRIOR",23}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+  b=#sent; fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm"); out=from(b)
+  assert(out=="ADDON>Medivh-Realm: ACK\nADDON>Medivh-Realm: ACK:2", "answer:\n"..out)
+  -- An older Buff Digger reading ACK:2: not its pattern, not "ACK": ignored, as before.
+  assert(not ("ACK:2"):match("^(%u+):(%a+):(%a+)$") and "ACK:2"~="ACK")
+  -- (3) Requester again: Khadgar answers ACK:2, the next request with water goes out silently.
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm"); fire("CHAT_MSG_ADDON","BuffDigger","ACK:2","WHISPER","Khadgar-Realm")
+  assert(BuffDiggerDB.protocol.Khadgar==2, "protocol remembered")
+  b=#sent; ns.request("nameplate95","food"); out=from(b)
+  assert(out=="ADDON>Khadgar: REQ:food:new", "up to date: silent\n"..out)
+  -- Forgotten with the peer (30 days).
+  BuffDiggerDB.peers.Khadgar=nil; fire("PLAYER_LOGIN"); assert(BuffDiggerDB.protocol.Khadgar==nil, "forgotten with the peer")
+  -- My own self-test answer is never taken for another player's.
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK:2","WHISPER","Yann-Realm"); assert(BuffDiggerDB.protocol.Yann==nil)
+  units.nameplate97=nil; BuffDiggerCharDB.asked={}; ns.dismissThank()
 end
 print("ITEMS OK")

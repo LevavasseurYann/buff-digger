@@ -1354,6 +1354,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     BuffDiggerCharDB.asked = BuffDiggerCharDB.asked or BuffDiggerDB.asked or {}
     BuffDiggerDB.asked = nil
     BuffDiggerDB.peers = BuffDiggerDB.peers or {} -- name -> last time they answered (#10)
+    BuffDiggerDB.protocol = BuffDiggerDB.protocol or {} -- name -> their ACK:<n> (#47), forgotten with peers
     BuffDiggerDB.confirmed = BuffDiggerDB.confirmed or {} -- bet key -> date of the first YES (#1)
     for name, e in pairs(BuffDiggerCharDB.asked) do -- forget requests older than an hour (or old format)
       if type(e) ~= "table" or time() - e.at > 3600 then BuffDiggerCharDB.asked[name] = nil end
