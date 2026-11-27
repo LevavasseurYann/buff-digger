@@ -294,11 +294,11 @@ end
 
 -- A label on the left of the row, a button on its right.
 local function labelButton(row, caption, width, labelWidth)
-  text(row, "GameFontHighlight", 4, -8, labelWidth, caption)
+  local label = text(row, "GameFontHighlight", 4, -8, labelWidth, caption)
   local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
   button:SetSize(width, 22)
   button:SetPoint("TOPRIGHT", 0, -4)
-  return button
+  return button, label
 end
 
 -- Each kind of row: build(row, def) -> the control its tooltip goes on, the row's height.
@@ -388,10 +388,7 @@ local PLATE_STYLES = {
   { "off", "Off", "No friendly nameplates: Buff Digger can't see anyone around you (group members still listed)." },
 }
 function BUILD.plates(row)
-  local label = text(row, "GameFontHighlight", 4, -8, COL_W - 120, "")
-  local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-  button:SetSize(104, 22)
-  button:SetPoint("TOPRIGHT", 0, -4)
+  local button, label = labelButton(row, "", 104, COL_W - 120)
   local function update()
     local style = ns.plateStyle()
     label:SetText(style == "off" and L["|cffff5555Friendly nameplates|r (needed)"] or L["Friendly nameplates"])
@@ -451,7 +448,7 @@ end
 
 -- Buff Digger's key bindings and the key each one has (decision on #52: they were too well hidden).
 function BUILD.keys(row, def)
-  local keys = {}
+  local keys, listH = {}, #KEYS * 16 + 4
   row.keys = keys
   for i, action in ipairs(KEYS) do
     local y = -(i - 1) * 16
@@ -467,10 +464,10 @@ function BUILD.keys(row, def)
   end)
   local open = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
   open:SetSize(160, 22)
-  open:SetPoint("TOPLEFT", 0, -(#KEYS * 16 + 4))
+  open:SetPoint("TOPLEFT", 0, -listH)
   open:SetText(L[def.label])
   open:SetScript("OnClick", openKeyBindings)
-  return open, #KEYS * 16 + 4 + 22
+  return open, listH + 22
 end
 
 -- My class's priorities (#5).
@@ -494,19 +491,15 @@ function BUILD.prefs(row)
     line.icon = line:CreateTexture(nil, "ARTWORK")
     line.icon:SetSize(18, 18) -- room for the rank number in its corner
     line.icon:SetPoint("LEFT", line.box, "RIGHT", 4, 0)
-    line.down = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function()
+    local function move(step) -- swap with the buff below (1) or above (-1)
       local prefs = myPrefs(true)
       local at = indexOf(prefs, line.key)
-      prefs[at], prefs[at + 1] = prefs[at + 1], prefs[at]
+      prefs[at], prefs[at + step] = prefs[at + step], prefs[at]
       changed()
-    end)
+    end
+    line.down = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown", function() move(1) end)
     line.down:SetPoint("RIGHT")
-    line.up = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp", function()
-      local prefs = myPrefs(true)
-      local at = indexOf(prefs, line.key)
-      prefs[at], prefs[at - 1] = prefs[at - 1], prefs[at]
-      changed()
-    end)
+    line.up = arrow(line, "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp", function() move(-1) end)
     line.up:SetPoint("RIGHT", line.down, "LEFT", -4, 0)
     line.text = line:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     line.text:SetPoint("LEFT", line.icon, "RIGHT", 8, 0)
