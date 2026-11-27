@@ -52,11 +52,24 @@ envoyés aux autres joueurs sont en anglais (réglage pour le français).
 - API contre la doc Blizzard de Forever (`Gethe/wow-ui-source`, branche `forever`, cache `tests/.apidoc/`) :
   `python -I tests/check_api.py` (supprimer le cache pour suivre la branche, la CI la reprend à chaque fois).
   Échoue si un `C_X.Y` ou un événement n'existe pas ; liste ceux marqués secrets.
-- Un bug vu en jeu = d'abord un test qui échoue : scénario dans `tests/smoke.lua`, fixture rejouée une fois #28 faite.
 - Installer en jeu : voir README § Développer (copie vers `_forever_\Interface\AddOns\BuffDigger`).
   Nouveau fichier ou `.toc` modifié → relancer WoW (`/reload` ne suffit pas).
-- Chaque lot de changements : relecture par un sous-agent `agent-skills:code-reviewer`, puis
-  vérifier chaque constat avant de corriger.
+
+## Process (avec les skills `agent-skills`)
+- **Suivi = GitHub Issues.** Les skills n'écrivent ni `SPEC.md`, ni `tasks/plan.md`/`todo.md`, ni
+  `docs/ideas/*.md` : idée, spec, plan et tâches vont dans le corps ou les commentaires de l'issue.
+  `docs/ideas/demande-de-buffs.md` reste la vision d'ensemble.
+- **Demande de feature** : `using-agent-skills` choisit (`interview-me` si flou, `idea-refine` si variantes)
+  → issue `feat — … (S/M/L)`, label `idée`, corps = one-pager d'`idea-refine`. Pas de spec à ce stade.
+- **Dépiler une idée** : `spec-driven-development` + `planning-and-task-breakdown` → spec et tâches en
+  commentaire de l'issue ; Yann valide → label `prêt`. Puis une sous-session par issue, sur sa branche :
+  `incremental-implementation` + `test-driven-development`.
+- **Avant le merge, une fois par issue** : sous-agent `agent-skills:code-simplification` sur le diff de la
+  branche (comportement identique, tests après chaque changement), puis sous-agent
+  `agent-skills:code-reviewer` sur le diff simplifié ; vérifier chaque constat avant de corriger.
+- Adaptation des skills : « build » = test sans le jeu (+ `check_api.py`) ; « vérifié à l'exécution » =
+  recette en jeu par Yann (`docs/recette-en-jeu.md`), l'issue reste ouverte jusque-là. CHANGELOG à chaque
+  commit ; le pilote merge dans main, pousse, ferme.
 
 ## Publier
 - Un tag `vX.Y.Z-alpha` (ou `-beta`, ou sans suffixe) poussé sur GitHub → le webhook CurseForge
