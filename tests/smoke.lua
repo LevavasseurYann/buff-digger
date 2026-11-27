@@ -57,11 +57,15 @@ end
 for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
   local m, where = ns.MESSAGES[lang[1]][tone[1]], lang[1].."."..tone[1]
   assert(m and m.hello and m.bye and m.new, where)
+  -- Water and food (#47): %s is one or two links, then " (lvl 60)".
+  local ITEMS={water=1, food=1, items=2}
   local function ask(part, list)
     assert(#list>=3, where.."."..part.." needs 3 lines")
+    local links=longest
+    if ITEMS[part] then links=ITEMS[part]*longest + (ITEMS[part]-1)*#ns.AND[lang[1]] + 3 + #ns.LEVEL[lang[1]] end
     for _,s in ipairs(list) do
       assert(select(2, s:gsub("%%s", ""))==1, s)
-      local worst=27 + maxLen(m.hello) + #s - 2 + longest + maxLen(m.bye)
+      local worst=27 + maxLen(m.hello) + #s - 2 + links + maxLen(m.bye)
       assert(worst<=255, where.." too long ("..worst.."): "..s)
     end
   end
@@ -1457,3 +1461,69 @@ do
   ns.say=realSay; BuffDiggerDB.tone="casual"; myAuras={}; fire("UNIT_AURA","player")
 end
 print("TONE OK")
+
+print("=== water and food from a mage (#47)")
+-- A warrior of level 23, a mage of level 40 nearby.
+local W, F = ns.BUFFS.water, ns.BUFFS.food
+local function whispers47(from) local n=0; for i=from+1,#sent do if sent[i]:find("^WHISPER") then n=n+1 end end return n end
+local function last47(prefix) for i=#sent,1,-1 do if sent[i]:find(prefix) then return sent[i] end end end
+local function asWarrior47()
+  NOW=NOW+3600; units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end
+  BuffDiggerCharDB.asked={}; BuffDiggerDB.peers={}; BuffDiggerDB.language="en"; BuffDiggerDB.tone="casual"
+  BuffDiggerDB.prefs.WARRIOR=nil; BuffDiggerDB.useSay=false; SHIFT=false; CTRL=false
+  ns.dismissThank(); myAuras={}; fire("UNIT_AURA","player")
+  units.nameplate95={"Khadgar","MAGE",40}; fire("NAME_PLATE_UNIT_ADDED","nameplate95"); runTimers()
+end
+do
+  asWarrior47()
+  -- The rank this mage can conjure for my level: his best, capped by what I can eat or drink.
+  assert(ns.itemRank(W, 40, 23)==3 and ns.itemRank(W, 40, 60)==5 and ns.itemRank(F, 40, 23)==3, "item rank")
+  assert(ns.itemRank(W, 3, 60)==0 and ns.itemRank(W, 60, 1)==1, "item rank, ends")
+  -- Offered like a buff: icons in "all" mode, the right-click menu, Get buffs.
+  local offers=table.concat(ns.offers("MAGE",40), ","); assert(offers:find("water") and offers:find("food"), offers)
+  -- One click: a whisper with the spell's link and my level, from the water lines.
+  local b=#sent; ns.request("nameplate95","water"); local w=last47("^WHISPER")
+  assert(whispers47(b)==1 and w:find("^WHISPER Khadgar") and w:find("Hspell:5504") and w:find("%(lvl 23%)"), "water: "..tostring(w))
+  assert(madeFrom(w, {x=ns.MESSAGES.en.casual.water}), "water line: "..w)
+  -- Arcane Intellect + water: one whisper, both links; water and food: the "items" line.
+  BuffDiggerCharDB.asked={}; b=#sent; ns.request("nameplate95",{"intellect","water"}); w=last47("^WHISPER")
+  assert(whispers47(b)==1 and w:find("Hspell:1459") and w:find("Hspell:5504") and w:find("lvl 23"), "AI + water: "..w)
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95",{"water","food"}); w=last47("^WHISPER")
+  assert(madeFrom(w, {x=ns.MESSAGES.en.casual.items}) and w:find("|r and |c"), "water and food: "..w)
+  -- My own phrases (#20) replace the buff's part, never the water's.
+  ns.setCustom("new","Mine: {spell}")
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95",{"intellect","food"}); w=last47("^WHISPER")
+  assert(w:find("Mine: |c") and w:find("Hspell:587") and madeFrom(w, {x=ns.MESSAGES.en.casual.food}), "custom + food: "..w)
+  BuffDiggerCharDB.asked={}; ns.request("nameplate95","water"); w=last47("^WHISPER")
+  assert(not w:find("Mine:") and madeFrom(w, {x=ns.MESSAGES.en.casual.water}), "water alone: never my phrase "..w)
+  ns.setCustom("new","")
+  -- French, each tone, with the level.
+  for _,tone in ipairs(ns.TONES) do local m=ns.message("new","water","fr",tone[1],"MAGE",23)
+    assert(m:find("niv%. 23") and madeFrom(m, {x=ns.MESSAGES.fr[tone[1]].water}), "fr "..tone[1]..": "..m) end
+  -- No error anywhere a buff shows: tooltips, menu, /bd spells, Get buffs.
+  local tip={}; GameTooltip.AddLine=function(_,t) tip[#tip+1]=t end
+  local fb=CreateFrame(); fb.icon=CreateFrame()
+  ns.buffTooltip(fb,"nameplate95","water"); local all=table.concat(tip,"\n")
+  assert(all:find("Rank 3") and all:find("usable from level 15"), all)
+  tip={}; ns.castTooltip(fb,"food","Khadgar"); assert(#tip>0)
+  GameTooltip.AddLine=nil
+  SlashCmdList.BUFFDIGGER("spells")
+  local menu; MenuUtil={CreateContextMenu=function(_,f) local labels={}
+    f(nil,{CreateTitle=function() end, CreateButton=function(_,l) labels[#labels+1]=l end}); menu=table.concat(labels,"\n") end}
+  ns.openMenu(fb,"nameplate95"); assert(menu:find("spell5504") and menu:find("Rank 3"), menu); MenuUtil=nil
+  BuffDiggerDB.nearby=true; ns.applyWindows(); ns.refreshWindow()
+  local seen; for _,e in ipairs(_G.BuffDiggerNearby.entries) do if e.who=="Khadgar" then
+    for _,x in ipairs(e.buffs) do if x.key=="water" then seen=x.rank end end end end
+  assert(seen==3, "Get buffs: water, rank 3 for me: "..tostring(seen))
+  BuffDiggerDB.nearby=false; ns.applyWindows()
+  -- Give buffs never offers water: a mage who knows Arcane Intellect, water and food.
+  units.player={"Yann","MAGE",40}; IsPlayerSpell=function(id) return id==1459 or id==5504 or id==587 end
+  units.nameplate96={"Garrosh","WARRIOR",30}; fire("NAME_PLATE_UNIT_ADDED","nameplate96")
+  BuffDiggerDB.give=true; ns.applyWindows(); ns.refreshWindow()
+  local listed=0
+  for _,e in ipairs(_G.BuffDiggerGive.entries or {}) do for _,x in ipairs(e.buffs) do listed=listed+1
+    assert(not ns.BUFFS[x.key].item, "Give buffs offers "..x.key) end end
+  assert(listed>0, "Give buffs lists Arcane Intellect")
+  BuffDiggerDB.give=false; ns.applyWindows(); units.nameplate96=nil
+end
+print("ITEMS OK")

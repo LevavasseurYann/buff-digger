@@ -38,14 +38,24 @@ end
 
 local function spellName(key) return C_Spell.GetSpellName(BUFFS[key].id) or BUFFS[key].en end
 
--- First lines of a buff icon's tooltip: the spell, and the rank a caster of that level gives.
-local function spellLines(owner, key, level)
+-- The rank a giver of that level gives me; water and food (#47): the one I can eat or drink.
+local function rankFor(key, level)
+  local buff = BUFFS[key]
+  if buff.item then return ns.itemRank(buff, level, UnitLevel("player")) end
+  return rankAt(buff, level)
+end
+
+-- First lines of a buff icon's tooltip: the spell, and the rank a caster of that level gives
+-- (`rank`: the one shown on the icon, when known).
+local function spellLines(owner, key, level, rank)
   local buff = BUFFS[key]
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
   GameTooltip:AddLine(spellName(key))
-  local rank = rankAt(buff, level)
+  rank = rank or rankFor(key, level)
   if rank > 0 then
-    GameTooltip:AddLine(L["Rank %d"]:format(rank) .. (" (+%s %s)"):format(buff.values[rank], L[buff.stat]), 1, 1, 1)
+    local what = buff.item and L[" (usable from level %d)"]:format(buff.uses[rank])
+      or (" (+%s %s)"):format(buff.values[rank], L[buff.stat])
+    GameTooltip:AddLine(L["Rank %d"]:format(rank) .. what, 1, 1, 1)
   end
 end
 
@@ -53,7 +63,7 @@ end
 -- name: it is on the line already. `who`: nil = can't cast (too far).
 function ns.castTooltip(owner, key, who)
   if not key or InCombatLockdown() then return end
-  spellLines(owner, key, UnitLevel("player"))
+  spellLines(owner, key, UnitLevel("player"), owner.shownRank)
   if who then GameTooltip:AddLine(L["Click: cast it."], 0.4, 0.8, 1, true)
   else GameTooltip:AddLine(L["Too far"], 0.6, 0.6, 0.6) end
   GameTooltip:Show()
@@ -91,7 +101,7 @@ local function addOffers(root, unit, name, level, offers)
   root:CreateTitle("Buff Digger") -- their name is on the line or the portrait already
   for _, key in ipairs(offers) do
     local label = ("|T%s:0|t %s |cff9d9d9d" .. L["Rank %d"] .. "|r%s"):format(C_Spell.GetSpellTexture(BUFFS[key].id) or 134400, spellName(key),
-      rankAt(BUFFS[key], level), ns.haveBuff(key) and L[" (you have it)"] or "")
+      rankFor(key, level), ns.haveBuff(key) and L[" (you have it)"] or "")
     root:CreateButton(label, function()
       -- In a city, the nameplate token may now belong to someone else: check it is still them.
       if not ns.truthy(UnitExists(unit)) or ns.unitName(unit) ~= name then
@@ -1242,7 +1252,7 @@ local function fill(w, list, emptyMessage)
         if buff then
           b.key = buff.key
           b.icon:SetTexture(buff.icon)
-          b.rank:SetText(buff.rank or "")
+          b.rank:SetText(buff.rank or ""); b.shownRank = buff.rank
           if b.pick then b.pick:SetShown(isPicked(e.who, buff.key)) end
           -- Green: higher than the one I have, like an upgrade in a loot tooltip. Orange: mine is
           -- running out, like a buff's timer about to end.
@@ -1297,7 +1307,7 @@ local function nearbyEntries()
       for j = 1, math.min(#offers, MAX_BUFFS) do
         local k = offers[j]
         buffs[j] = {
-          key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankAt(BUFFS[k], level),
+          key = k, icon = C_Spell.GetSpellTexture(BUFFS[k].id), rank = rankFor(k, level),
           upgrade = k == key and kind == "upgrade", refresh = k == key and kind == "refresh", best = key, his = his,
         }
       end
@@ -1368,7 +1378,7 @@ local function myCastableBuffs()
   local _, myClass = UnitClass("player")
   local list = {}
   for key, buff in pairs(BUFFS) do
-    if buff.class == myClass and IsPlayerSpell(buff.id) then list[#list + 1] = key end
+    if buff.class == myClass and not buff.item and IsPlayerSpell(buff.id) then list[#list + 1] = key end
   end
   return list
 end
