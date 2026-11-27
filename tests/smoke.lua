@@ -1642,4 +1642,55 @@ do
   BuffDiggerDB.requests=false; ns.applyWindows(); units.nameplate97=nil
   units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end
 end
+do
+  -- Review of #47 (1): a silent request for water or food only is answered by the mage's ACK (no aura
+  -- will come): never "no answer", never a whisper around the anti-nagging delay. A buff in it: as before.
+  local T=os.time(); time=function() return T end -- os.time by default: a clock of my own
+  asWarrior47(); BuffDiggerDB.peers.Khadgar=time()-5; BuffDiggerDB.protocol.Khadgar=2
+  ns.request("nameplate95","water"); assert(BuffDiggerCharDB.asked.Khadgar.silent, "silent water")
+  T=T+31; assert(ns.unanswered("Khadgar")==true, "no ACK: no answer")
+  fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm")
+  assert(ns.unanswered("Khadgar")==false, "ACK after the request: answered")
+  units.player={"Yann","PRIEST",23}; T=T+3600; BuffDiggerCharDB.asked={}; ns.dismissThank()
+  BuffDiggerDB.peers.Khadgar=time()-5
+  ns.request("nameplate95",{"intellect","water"}); assert(BuffDiggerCharDB.asked.Khadgar.silent, "silent AI + water")
+  T=T+31; fire("CHAT_MSG_ADDON","BuffDigger","ACK","WHISPER","Khadgar-Realm")
+  assert(ns.unanswered("Khadgar")==true, "a buff in it: still waits for the buff")
+  units.player={"Yann","WARRIOR",23}; BuffDiggerCharDB.asked={}; ns.dismissThank(); time=os.time
+  -- (4) A malformed ACK records nothing.
+  for _,m in ipairs({"ACK:","ACK:x","ACK:2:3"}) do
+    fire("CHAT_MSG_ADDON","BuffDigger",m,"WHISPER","Antonidas-Realm")
+    assert(BuffDiggerDB.peers.Antonidas==nil and BuffDiggerDB.protocol.Antonidas==nil, "malformed "..m)
+  end
+  -- (5) Water and food: the links in the order the text names them, whatever the order asked.
+  for lang in pairs(ns.MESSAGES) do for _,tone in ipairs(ns.TONES) do
+    local m=ns.message("new",{"food","water"},lang,tone[1],"MAGE",23)
+    assert(m:find("spell:5504") < m:find("spell:587"), lang.." "..tone[1]..": water first "..m)
+  end end
+end
+do
+  -- Review of #47 (2, 3): the mage's rank is the highest he knows that the asker can use, whatever
+  -- the (unverified) trainer levels; never 0; rank 1 when the asker's level can't be read.
+  local function line() for _,r in ipairs(_G.BuffDiggerRequests.rows) do
+    if r._shown and r.entry.request.name=="Medivh" then return r end end end
+  local T=os.time(); time=function() return T end -- past the 10 s between two requests of one sender
+  local function rankFor(myLevel, level, known)
+    T=T+60
+    units.player={"Yann","MAGE",myLevel}; IsPlayerSpell=function(id) return id==5504 or known[id] end
+    units.nameplate97={"Medivh","WARRIOR",level}; fire("NAME_PLATE_UNIT_ADDED","nameplate97")
+    BuffDiggerDB.acceptRequests=true; BuffDiggerDB.requests=true; ns.applyWindows(); NOW=NOW+60
+    fire("CHAT_MSG_ADDON","BuffDigger","REQ:water:new","WHISPER","Medivh-Realm")
+    IsPlayerSpell=function(id) return known[id] end; ns.refreshIncoming()
+    local r=line(); return r.entry.buffs[1].rank, r.buffs[1]:GetAttribute("spell")
+  end
+  local all={[5504]=true,[5505]=true,[5506]=true,[6127]=true}
+  local rank, spell=rankFor(25, 30, all)
+  assert(rank==4 and spell==6127, "rank 4 bought before 30: "..tostring(rank).." "..tostring(spell))
+  rank, spell=rankFor(25, 23, all); assert(rank==3 and spell==5506, "capped by what a 23 drinks")
+  rank, spell=rankFor(3, 23, {[5504]=true}); assert(rank==1 and spell==5504, "rank 1 before ranks[1]: "..tostring(rank))
+  rank, spell=rankFor(40, 23, {}); assert(rank==1 and spell==5504, "no rank known: "..tostring(rank))
+  rank, spell=rankFor(40, SECRET, all); assert(rank==1 and spell==5504, "secret level: rank 1, got "..tostring(rank))
+  BuffDiggerDB.requests=false; ns.applyWindows(); units.nameplate97=nil
+  units.player={"Yann","WARRIOR",23}; IsPlayerSpell=function() return false end; time=os.time
+end
 print("ITEMS OK")

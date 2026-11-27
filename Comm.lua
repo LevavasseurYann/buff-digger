@@ -73,10 +73,15 @@ function ns.deliver(name, target, keys, text, useSay, kinds, reask)
 end
 
 -- A silent request with no buff after NO_ANSWER seconds (thanks close it once the buff lands).
+-- Water and food only (#47): no aura will ever come, their ACK after the request is the answer.
 function ns.unanswered(name)
   local e = BuffDiggerCharDB.asked[name]
   local ago = type(e) == "table" and e.silent and not e.thanked and time() - e.at
-  return ago and ago >= NO_ANSWER and ago < 600 or false
+  if not (ago and ago >= NO_ANSWER and ago < 600) then return false end
+  for _, k in ipairs(e.keys or { e.key }) do
+    if not BUFFS[k].item then return true end
+  end
+  return not (BuffDiggerDB.peers[name] and BuffDiggerDB.peers[name] >= e.at)
 end
 
 -- ---------------------------------------------------------------- buffer side
@@ -163,11 +168,15 @@ ns.refreshIncoming = ns.timed("refreshIncoming", function()
       local spell = BUFFS[b.key]
       local rank, cast = ns.rankAt(spell, myLevel), C_Spell.GetSpellName(spell.id)
       if spell.item then
-        -- Water or food (#47): the rank they can use, read on their unit (not in the message, which
-        -- older versions parse), among the ranks I bought; cast by that rank's own spell ID.
+        -- Water or food (#47): the highest rank I bought (trainer levels unverified) that they can use,
+        -- read on their unit (not in the message, which older versions parse); rank 1 if their level
+        -- can't be read. Cast by that rank's own spell ID.
         local level = unit and UnitLevel(unit)
-        rank = ns.itemRank(spell, myLevel, ns.readable(level) and level or math.huge)
-        while rank > 1 and not IsPlayerSpell(spell.spells[rank]) do rank = rank - 1 end
+        if not (ns.readable(level) and type(level) == "number") then level = 0 end
+        rank = 1
+        for r = #spell.spells, 2, -1 do
+          if spell.uses[r] <= level and IsPlayerSpell(spell.spells[r]) then rank = r break end
+        end
         cast = spell.spells[rank]
       end
       icons[j] = { key = b.key, icon = C_Spell.GetSpellTexture(spell.id), rank = rank, spell = castable and cast or nil }

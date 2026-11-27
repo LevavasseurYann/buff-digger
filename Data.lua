@@ -336,9 +336,9 @@ ns.MESSAGES = {
         "Could I grab some food off you? %s",
       },
       items = { -- water and food together
-        "Got any food and water to spare? %s",
-        "Mind conjuring me some food and water? %s",
-        "Could I grab some food and water off you? %s",
+        "Got any water and food to spare? %s",
+        "Mind conjuring me some water and food? %s",
+        "Could I grab some water and food off you? %s",
       },
     },
     polite = {
@@ -382,9 +382,9 @@ ns.MESSAGES = {
         "May I ask you for some food? %s",
       },
       items = {
-        "Could you spare some food and water, please? %s",
-        "Would you mind conjuring some food and water for me? %s",
-        "May I ask you for some food and water? %s",
+        "Could you spare some water and food, please? %s",
+        "Would you mind conjuring some water and food for me? %s",
+        "May I ask you for some water and food? %s",
       },
     },
     -- Role play: a neutral register that fits any race and class. byClass (optional, any part) gives
@@ -429,9 +429,9 @@ ns.MESSAGES = {
         "The road is long, friend. Could you spare some food? %s",
       },
       items = {
-        "Food and water for a weary traveler? %s",
-        "Might I beg food and water of thee? %s",
-        "Could you spare food and water, friend? %s",
+        "Water and food for a weary traveler? %s",
+        "Might I beg water and food of thee? %s",
+        "Could you spare water and food, friend? %s",
       },
       byClass = {
         PALADIN = { new = {
@@ -506,9 +506,9 @@ ns.MESSAGES = {
         "Hättest du Essen für mich? %s",
       },
       items = {
-        "Hast du Essen und Wasser übrig? %s",
-        "Kannst du mir Essen und Wasser zaubern? %s",
-        "Hättest du Essen und Wasser für mich? %s",
+        "Hast du Wasser und Essen übrig? %s",
+        "Kannst du mir Wasser und Essen zaubern? %s",
+        "Hättest du Wasser und Essen für mich? %s",
       },
     },
     polite = { -- Sie
@@ -550,9 +550,9 @@ ns.MESSAGES = {
         "Dürfte ich Sie um etwas Essen bitten? %s",
       },
       items = {
-        "Hätten Sie Essen und Wasser für mich? %s",
-        "Könnten Sie mir Essen und Wasser zaubern? %s",
-        "Dürfte ich Sie um Essen und Wasser bitten? %s",
+        "Hätten Sie Wasser und Essen für mich? %s",
+        "Könnten Sie mir Wasser und Essen zaubern? %s",
+        "Dürfte ich Sie um Wasser und Essen bitten? %s",
       },
     },
   },
@@ -599,9 +599,9 @@ ns.MESSAGES = {
         "¿Me pasas algo de comida? %s",
       },
       items = {
-        "¿Te sobra comida y agua? %s",
-        "¿Me conjuras comida y agua? %s",
-        "¿Me pasas comida y agua? %s",
+        "¿Te sobra agua y comida? %s",
+        "¿Me conjuras agua y comida? %s",
+        "¿Me pasas agua y comida? %s",
       },
     },
     polite = { -- usted
@@ -643,9 +643,9 @@ ns.MESSAGES = {
         "¿Le sobraría algo de comida? %s",
       },
       items = {
-        "¿Podría darme comida y agua, por favor? %s",
-        "¿Sería tan amable de conjurarme comida y agua? %s",
-        "¿Le sobraría comida y agua? %s",
+        "¿Podría darme agua y comida, por favor? %s",
+        "¿Sería tan amable de conjurarme agua y comida? %s",
+        "¿Le sobraría agua y comida? %s",
       },
     },
   },
@@ -692,9 +692,9 @@ ns.MESSAGES = {
         "Mi passi un po' di cibo? %s",
       },
       items = {
-        "Hai cibo e acqua da darmi? %s",
-        "Mi evochi cibo e acqua? %s",
-        "Mi passi cibo e acqua? %s",
+        "Hai acqua e cibo da darmi? %s",
+        "Mi evochi acqua e cibo? %s",
+        "Mi passi acqua e cibo? %s",
       },
     },
     polite = { -- Lei
@@ -736,9 +736,9 @@ ns.MESSAGES = {
         "Sarebbe così gentile da evocarmi del cibo? %s",
       },
       items = {
-        "Potrebbe darmi cibo e acqua, per favore? %s",
-        "Le avanzano cibo e acqua? %s",
-        "Sarebbe così gentile da evocarmi cibo e acqua? %s",
+        "Potrebbe darmi acqua e cibo, per favore? %s",
+        "Le avanzano acqua e cibo? %s",
+        "Sarebbe così gentile da evocarmi acqua e cibo? %s",
       },
     },
   },
@@ -785,9 +785,9 @@ ns.MESSAGES = {
         "Me arruma uma comida? %s",
       },
       items = {
-        "Tem comida e água sobrando? %s",
-        "Conjura comida e água pra mim? %s",
-        "Me arruma comida e água? %s",
+        "Tem água e comida sobrando? %s",
+        "Conjura água e comida pra mim? %s",
+        "Me arruma água e comida? %s",
       },
     },
     polite = { -- você + por favor
@@ -829,9 +829,9 @@ ns.MESSAGES = {
         "Teria um pouco de comida, por favor? %s",
       },
       items = {
-        "Poderia me dar comida e água, por favor? %s",
-        "Poderia conjurar comida e água para mim? %s",
-        "Teria comida e água, por favor? %s",
+        "Poderia me dar água e comida, por favor? %s",
+        "Poderia conjurar água e comida para mim? %s",
+        "Teria água e comida, por favor? %s",
       },
     },
   },
@@ -878,9 +878,9 @@ ns.MESSAGES = {
         "Можно у тебя еды? %s",
       },
       items = {
-        "Еды и воды не найдётся? %s",
-        "Наколдуешь еды и воды? %s",
-        "Можно у тебя еды и воды? %s",
+        "Воды и еды не найдётся? %s",
+        "Наколдуешь воды и еды? %s",
+        "Можно у тебя воды и еды? %s",
       },
     },
     polite = { -- вы
@@ -922,9 +922,9 @@ ns.MESSAGES = {
         "Можно попросить у вас еды? %s",
       },
       items = {
-        "Не найдётся ли у вас еды и воды? %s",
-        "Наколдуете мне еды и воды? %s",
-        "Можно попросить у вас еды и воды? %s",
+        "Не найдётся ли у вас воды и еды? %s",
+        "Наколдуете мне воды и еды? %s",
+        "Можно попросить у вас воды и еды? %s",
       },
     },
   },
@@ -971,9 +971,9 @@ ns.MESSAGES = {
         "Podrzucisz mi trochę jedzenia? %s",
       },
       items = {
-        "Masz jedzenie i wodę na zbyciu? %s",
-        "Wyczarujesz mi jedzenie i wodę? %s",
-        "Podrzucisz mi jedzenie i wodę? %s",
+        "Masz wodę i jedzenie na zbyciu? %s",
+        "Wyczarujesz mi wodę i jedzenie? %s",
+        "Podrzucisz mi wodę i jedzenie? %s",
       },
     },
     polite = { -- impersonal (no Pan/Pani: the reader's gender is unknown)
@@ -1015,9 +1015,9 @@ ns.MESSAGES = {
         "Uprzejmie proszę o trochę jedzenia. %s",
       },
       items = {
-        "Czy można prosić o jedzenie i wodę? %s",
-        "Czy znalazłoby się jedzenie i woda? %s",
-        "Uprzejmie proszę o jedzenie i wodę. %s",
+        "Czy można prosić o wodę i jedzenie? %s",
+        "Czy znalazłoby się woda i jedzenie? %s",
+        "Uprzejmie proszę o wodę i jedzenie. %s",
       },
     },
   },
@@ -1251,6 +1251,7 @@ function ns.message(kind, keys, lang, tone, class, level)
   if type(keys) ~= "table" then keys = { keys } end
   local buffs, items = {}, {}
   for _, key in ipairs(keys) do table.insert(ns.BUFFS[key].item and items or buffs, key) end
+  if items[2] == "water" then items[1], items[2] = "water", items[1] end -- the order the text says
   local m = toned(ns.MESSAGES, lang, tone)
   local itemLine = ""
   if #items > 0 then
