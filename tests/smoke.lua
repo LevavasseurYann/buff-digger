@@ -1091,6 +1091,29 @@ do
   BOUND = "F5"; keys._OnShow(keys); assert(keys.keys[1]._t == "F5"); BOUND = nil
   local said; local realNotice = ns.notice; ns.notice = function(t) said = t end
   click(keys.control); assert(said:find("Keybindings > AddOns"), "no settings API: says where"); ns.notice = realNotice
+  -- Simple: no advanced row, the others follow without a hole. The box shows them all, and is kept.
+  local function noHole(panel)
+    for _, col in ipairs(panel.columns) do
+      local y = -32
+      for _, r in ipairs(col) do if r:IsShown() then
+        if r.def.title and y ~= -32 then y = y - 8 end
+        assert(r.y == y, "hole above "..tostring(r.def.key or r.def.title or r.def.kind)); y = y - r.h
+      end end
+    end
+  end
+  assert(ns.DEFAULTS.showAdvanced == false)
+  local adv = s.advanced
+  adv.GetChecked = function() return false end; click(adv); assert(BuffDiggerDB.showAdvanced == false)
+  BuffDiggerDB.debug = true
+  for i, p in ipairs(s.panels) do
+    click(s.tabButtons[i])
+    for _, r in ipairs(p.rows) do assert((r:IsShown() and true or false) == not r.def.advanced, "simple mode: "..tostring(r.def.key or r.def.title)) end
+    noHole(p)
+  end
+  assert(not rowFor("debug"):IsShown() and BuffDiggerDB.debug == true, "hidden, still on")
+  adv.GetChecked = nil; click(adv); assert(BuffDiggerDB.showAdvanced == true and rowFor("debug"):IsShown() and rowFor("delay"):IsShown(), "every tab laid out again")
+  for _, p in ipairs(s.panels) do noHole(p) end
+  BuffDiggerDB.debug = false
   BuffDiggerDB.showAdvanced = saved; s:Hide()
 end
 print("SETTINGS OK")

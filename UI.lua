@@ -324,6 +324,7 @@ function BUILD.check(row, def)
     BuffDiggerDB[def.key] = self:GetChecked() and true or false
     ns.applyWindows()
     ns.refreshAll()
+    if def.after then def.after() end
   end)
   return box, ROW_H
 end
@@ -587,16 +588,21 @@ local function buildPanel(tab)
   return panel
 end
 
--- Top to bottom in each column, a gap before each group title but the first.
+-- Top to bottom in each column, a gap before each group title but the first. Without Show advanced
+-- options, advanced rows are hidden and leave no hole.
 local function layout(panel)
   for _, column in ipairs(panel.columns) do
     local y = TOP
     for _, row in ipairs(column) do
-      if row.measure then row.h = row.measure(); row:SetHeight(row.h) end
-      if row.def.title and y ~= TOP then y = y - GAP end
-      row:SetPoint("TOPLEFT", column.x, y)
-      row.y = y
-      y = y - row.h
+      local shown = BuffDiggerDB.showAdvanced or not row.def.advanced
+      row:SetShown(shown)
+      if shown then
+        if row.measure then row.h = row.measure(); row:SetHeight(row.h) end
+        if row.def.title and y ~= TOP then y = y - GAP end
+        row:SetPoint("TOPLEFT", column.x, y)
+        row.y = y
+        y = y - row.h
+      end
     end
     column.bottom = y
   end
@@ -756,6 +762,16 @@ local function buildSettings()
     settings.tabButtons[i] = button
   end
   settings.tabButtons[1]:SetPoint("TOPLEFT", settings, "BOTTOMLEFT", 12, 2)
+
+  -- Bottom left, on every tab: simple (the default) or every setting. A first try (#52), easy to
+  -- take out: nothing else depends on it but layout().
+  local def = { key = "showAdvanced", label = "Show advanced options",
+    tip = "Shows every setting. Hidden settings keep working with the value they have.",
+    after = function() for _, panel in ipairs(settings.panels) do layout(panel) end end }
+  settings.advanced = BUILD.check(settings, def)
+  settings.advanced:ClearAllPoints()
+  settings.advanced:SetPoint("BOTTOMLEFT", PAD, PAD)
+  tip(settings.advanced, L[def.label], L[def.tip])
   PanelTemplates_SetNumTabs(settings, #TABS) -- anchors the other tabs, each after the one before
 end
 
