@@ -41,9 +41,10 @@ print("EN:", ns.message("upgrade", "fortitude", "en"))
 -- %s once, and fits the chat at worst ("Name : " in /say + longest hello, line, link and bye).
 -- A request never thanks. An unknown language falls back to English, an unknown tone to Casual.
 assert(BuffDiggerDB.tone=="casual", "a profile without a tone loads as Casual")
-local longest=0
-for _,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id)}) do
-  longest=math.max(longest, #(C_Spell.GetSpellLink(b.id):gsub("%[.-%]", "["..n.."]")))
+local longest, linkOf=0, {}
+for k,b in pairs(ns.BUFFS) do for _,n in ipairs({b.en, C_Spell.GetSpellName(b.id)}) do
+  linkOf[k]=math.max(linkOf[k] or 0, #(C_Spell.GetSpellLink(b.id):gsub("%[.-%]", "["..n.."]")))
+  longest=math.max(longest, linkOf[k])
 end end
 local function maxLen(list) local n=0; for _,s in ipairs(list) do n=math.max(n,#s) end return n end
 local function strings(t, f) for _,v in pairs(t) do if type(v)=="table" then strings(v,f) else f(v) end end end
@@ -57,12 +58,12 @@ end
 for _, lang in ipairs(ns.LANGUAGES) do for _, tone in ipairs(ns.TONES) do
   local m, where = ns.MESSAGES[lang[1]][tone[1]], lang[1].."."..tone[1]
   assert(m and m.hello and m.bye and m.new, where)
-  -- Water and food (#47): %s is one or two links, then " (lvl 60)".
-  local ITEMS={water=1, food=1, items=2}
+  assert(m.water and m.food and m.items, where.." water and food (#47)")
+  -- Water and food (#47): %s is their link(s), then " (lvl 60)".
+  local ITEMS={water=linkOf.water, food=linkOf.food, items=linkOf.water + #ns.AND[lang[1]] + linkOf.food}
   local function ask(part, list)
     assert(#list>=3, where.."."..part.." needs 3 lines")
-    local links=longest
-    if ITEMS[part] then links=ITEMS[part]*longest + (ITEMS[part]-1)*#ns.AND[lang[1]] + 3 + #ns.LEVEL[lang[1]] end
+    local links=ITEMS[part] and ITEMS[part] + 3 + #ns.LEVEL[lang[1]] or longest
     for _,s in ipairs(list) do
       assert(select(2, s:gsub("%%s", ""))==1, s)
       local worst=27 + maxLen(m.hello) + #s - 2 + links + maxLen(m.bye)

@@ -495,6 +495,21 @@ ns.MESSAGES = {
         "Nur noch ein paar Minuten %s übrig, kurz nachbuffen bitte?",
         "Mein Buff ist fast weg, einmal auffrischen? (%s)",
       },
+      water = {
+        "Hast du etwas Wasser übrig? %s",
+        "Kannst du mir Wasser zaubern? %s",
+        "Hättest du Wasser für mich? %s",
+      },
+      food = {
+        "Hast du etwas Essen übrig? %s",
+        "Kannst du mir Essen zaubern? %s",
+        "Hättest du Essen für mich? %s",
+      },
+      items = {
+        "Hast du Essen und Wasser übrig? %s",
+        "Kannst du mir Essen und Wasser zaubern? %s",
+        "Hättest du Essen und Wasser für mich? %s",
+      },
     },
     polite = { -- Sie
       hello = { "Hallo! ", "Guten Tag! ", "Grüße! " },
@@ -523,6 +538,21 @@ ns.MESSAGES = {
         "Mein Buff läuft gleich aus. Könnten Sie ihn bitte erneuern? (%s)",
         "%s läuft bei mir bald ab. Würden Sie ihn auffrischen?",
         "Nur noch wenige Minuten %s. Dürfte ich Sie um eine Erneuerung bitten?",
+      },
+      water = {
+        "Hätten Sie etwas Wasser für mich? %s",
+        "Könnten Sie mir Wasser herbeizaubern? %s",
+        "Dürfte ich Sie um etwas Wasser bitten? %s",
+      },
+      food = {
+        "Hätten Sie etwas Essen für mich? %s",
+        "Könnten Sie mir Essen herbeizaubern? %s",
+        "Dürfte ich Sie um etwas Essen bitten? %s",
+      },
+      items = {
+        "Hätten Sie Essen und Wasser für mich? %s",
+        "Könnten Sie mir Essen und Wasser zaubern? %s",
+        "Dürfte ich Sie um Essen und Wasser bitten? %s",
       },
     },
   },
@@ -558,6 +588,21 @@ ns.MESSAGES = {
         "%s se me va a acabar, ¿un rebuff, por favor?",
         "Me quedan pocos minutos de %s, ¿me renuevas el buff?",
       },
+      water = {
+        "¿Te sobra algo de agua? %s",
+        "¿Me conjuras un poco de agua? %s",
+        "¿Me pasas algo de agua? %s",
+      },
+      food = {
+        "¿Te sobra algo de comida? %s",
+        "¿Me conjuras un poco de comida? %s",
+        "¿Me pasas algo de comida? %s",
+      },
+      items = {
+        "¿Te sobra comida y agua? %s",
+        "¿Me conjuras comida y agua? %s",
+        "¿Me pasas comida y agua? %s",
+      },
     },
     polite = { -- usted
       hello = { "¡Hola! ", "¡Saludos! ", "¡Hola, buenas! " },
@@ -586,6 +631,21 @@ ns.MESSAGES = {
         "Mi buff se acaba pronto. ¿Podría renovarlo, por favor? (%s)",
         "%s se me va a acabar. ¿Sería tan amable de renovarlo?",
         "Me quedan pocos minutos de %s. ¿Podría renovármelo?",
+      },
+      water = {
+        "¿Podría darme un poco de agua, por favor? %s",
+        "¿Sería tan amable de conjurarme agua? %s",
+        "¿Le sobraría algo de agua? %s",
+      },
+      food = {
+        "¿Podría darme un poco de comida, por favor? %s",
+        "¿Sería tan amable de conjurarme comida? %s",
+        "¿Le sobraría algo de comida? %s",
+      },
+      items = {
+        "¿Podría darme comida y agua, por favor? %s",
+        "¿Sería tan amable de conjurarme comida y agua? %s",
+        "¿Le sobraría comida y agua? %s",
       },
     },
   },
@@ -621,6 +681,21 @@ ns.MESSAGES = {
         "%s sta per finire, un rebuff per favore?",
         "Mi restano pochi minuti di %s, mi rinnovi il buff?",
       },
+      water = {
+        "Hai un po' d'acqua da darmi? %s",
+        "Mi evochi un po' d'acqua? %s",
+        "Mi passi un po' d'acqua? %s",
+      },
+      food = {
+        "Hai un po' di cibo da darmi? %s",
+        "Mi evochi un po' di cibo? %s",
+        "Mi passi un po' di cibo? %s",
+      },
+      items = {
+        "Hai cibo e acqua da darmi? %s",
+        "Mi evochi cibo e acqua? %s",
+        "Mi passi cibo e acqua? %s",
+      },
     },
     polite = { -- Lei
       hello = { "Salve! ", "Buongiorno! ", "Ciao! " },
@@ -649,6 +724,21 @@ ns.MESSAGES = {
         "Il mio buff sta per scadere. Potrebbe rinnovarlo, per favore? (%s)",
         "%s sta per finire. Sarebbe così gentile da rinnovarlo?",
         "Mi restano pochi minuti di %s. Potrebbe rinnovarmelo?",
+      },
+      water = {
+        "Potrebbe darmi un po' d'acqua, per favore? %s",
+        "Le avanza un po' d'acqua? %s",
+        "Sarebbe così gentile da evocarmi dell'acqua? %s",
+      },
+      food = {
+        "Potrebbe darmi un po' di cibo, per favore? %s",
+        "Le avanza un po' di cibo? %s",
+        "Sarebbe così gentile da evocarmi del cibo? %s",
+      },
+      items = {
+        "Potrebbe darmi cibo e acqua, per favore? %s",
+        "Le avanzano cibo e acqua? %s",
+        "Sarebbe così gentile da evocarmi cibo e acqua? %s",
       },
     },
   },
@@ -684,6 +774,21 @@ ns.MESSAGES = {
         "%s está acabando, um rebuff por favor?",
         "Faltam poucos minutos de %s, renova o buff pra mim?",
       },
+      water = {
+        "Tem uma aguinha sobrando? %s",
+        "Conjura uma água pra mim? %s",
+        "Me arruma uma água? %s",
+      },
+      food = {
+        "Tem uma comidinha sobrando? %s",
+        "Conjura uma comida pra mim? %s",
+        "Me arruma uma comida? %s",
+      },
+      items = {
+        "Tem comida e água sobrando? %s",
+        "Conjura comida e água pra mim? %s",
+        "Me arruma comida e água? %s",
+      },
     },
     polite = { -- você + por favor
       hello = { "Olá! ", "Saudações! ", "Olá, tudo bem? " },
@@ -712,6 +817,21 @@ ns.MESSAGES = {
         "Meu buff está acabando. Você poderia renovar, por favor? (%s)",
         "%s está quase no fim. Seria possível renovar?",
         "Faltam poucos minutos de %s. Poderia renovar, por favor?",
+      },
+      water = {
+        "Poderia me dar um pouco de água, por favor? %s",
+        "Você se importaria de conjurar água para mim? %s",
+        "Teria um pouco de água, por favor? %s",
+      },
+      food = {
+        "Poderia me dar um pouco de comida, por favor? %s",
+        "Você se importaria de conjurar comida para mim? %s",
+        "Teria um pouco de comida, por favor? %s",
+      },
+      items = {
+        "Poderia me dar comida e água, por favor? %s",
+        "Poderia conjurar comida e água para mim? %s",
+        "Teria comida e água, por favor? %s",
       },
     },
   },
@@ -747,6 +867,21 @@ ns.MESSAGES = {
         "%s скоро закончится, перебафнешь, пожалуйста?",
         "Осталось всего пару минут %s, обновишь?",
       },
+      water = {
+        "Водички не найдётся? %s",
+        "Наколдуешь воды? %s",
+        "Можно у тебя воды? %s",
+      },
+      food = {
+        "Еды не найдётся? %s",
+        "Наколдуешь еды? %s",
+        "Можно у тебя еды? %s",
+      },
+      items = {
+        "Еды и воды не найдётся? %s",
+        "Наколдуешь еды и воды? %s",
+        "Можно у тебя еды и воды? %s",
+      },
     },
     polite = { -- вы
       hello = { "Здравствуйте! ", "Добрый день! ", "Приветствую! " },
@@ -775,6 +910,21 @@ ns.MESSAGES = {
         "Мой баф скоро спадёт. Не могли бы вы обновить? (%s)",
         "%s скоро закончится. Можно попросить вас обновить?",
         "Осталось всего пару минут %s. Не могли бы вы обновить?",
+      },
+      water = {
+        "Не найдётся ли у вас воды? %s",
+        "Не могли бы вы наколдовать мне воды? %s",
+        "Можно попросить у вас воды? %s",
+      },
+      food = {
+        "Не найдётся ли у вас еды? %s",
+        "Не могли бы вы наколдовать мне еды? %s",
+        "Можно попросить у вас еды? %s",
+      },
+      items = {
+        "Не найдётся ли у вас еды и воды? %s",
+        "Наколдуете мне еды и воды? %s",
+        "Можно попросить у вас еды и воды? %s",
       },
     },
   },
@@ -810,6 +960,21 @@ ns.MESSAGES = {
         "%s zaraz mi się skończy, rebuff proszę?",
         "Kończy mi się %s, odnowisz buffa?",
       },
+      water = {
+        "Masz trochę wody na zbyciu? %s",
+        "Wyczarujesz mi wodę? %s",
+        "Podrzucisz mi trochę wody? %s",
+      },
+      food = {
+        "Masz trochę jedzenia na zbyciu? %s",
+        "Wyczarujesz mi jedzenie? %s",
+        "Podrzucisz mi trochę jedzenia? %s",
+      },
+      items = {
+        "Masz jedzenie i wodę na zbyciu? %s",
+        "Wyczarujesz mi jedzenie i wodę? %s",
+        "Podrzucisz mi jedzenie i wodę? %s",
+      },
     },
     polite = { -- impersonal (no Pan/Pani: the reader's gender is unknown)
       hello = { "Dzień dobry! ", "Witam! ", "Witaj! " },
@@ -838,6 +1003,21 @@ ns.MESSAGES = {
         "Mój buff zaraz spadnie. Czy można prosić o odnowienie? (%s)",
         "%s zaraz się skończy. Uprzejmie proszę o odnowienie.",
         "Zostało mi kilka minut %s. Czy można prosić o odnowienie?",
+      },
+      water = {
+        "Czy można prosić o trochę wody? %s",
+        "Czy znalazłoby się trochę wody? %s",
+        "Uprzejmie proszę o trochę wody. %s",
+      },
+      food = {
+        "Czy można prosić o trochę jedzenia? %s",
+        "Czy znalazłoby się trochę jedzenia? %s",
+        "Uprzejmie proszę o trochę jedzenia. %s",
+      },
+      items = {
+        "Czy można prosić o jedzenie i wodę? %s",
+        "Czy znalazłoby się jedzenie i woda? %s",
+        "Uprzejmie proszę o jedzenie i wodę. %s",
       },
     },
   },
@@ -1076,7 +1256,7 @@ function ns.message(kind, keys, lang, tone, class, level)
   if #items > 0 then
     local part = #items > 1 and "items" or items[1]
     local what = joined(items, lang) .. (level and " (" .. ns.LEVEL[lang]:format(level) .. ")" or "")
-    itemLine = pick(m[part] or toned(ns.MESSAGES, "en", tone)[part]):format(what) -- ponytail: English until #47 T4
+    itemLine = pick(m[part]):format(what)
   end
   if #buffs == 0 then return pick(m.hello) .. itemLine .. pick(m.bye) end
   if itemLine ~= "" then itemLine = " " .. itemLine end
